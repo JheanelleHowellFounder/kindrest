@@ -17,12 +17,15 @@ interface UserRow {
   stage: string
   joined: string
   completed: boolean
+  authOnly?: boolean
 }
 
 interface ReportData {
   generatedAt: string
   users: {
-    total: number
+    totalSignups: number
+    totalInApp: number
+    totalDropOff: number
     completedOnboarding: number
     newThisWeek: number
     newLastWeek: number
@@ -36,84 +39,72 @@ interface ReportData {
   moodBreakdown: { mood: string; count: number }[]
   topRecs: { title: string; category: string; liked: number; total: number }[]
   categoryBreakdown: { category: string; count: number }[]
-  recentSignups: UserRow[]
   allUsers: UserRow[]
+  dropOffUsers: UserRow[]
 }
 
 // ── Bottom Sheet ──────────────────────────────────────────────────────────────
-function UserSheet({
-  title,
-  users,
-  onClose,
-}: {
-  title: string
-  users: UserRow[]
-  onClose: () => void
-}) {
+function UserSheet({ title, users, onClose }: { title: string; users: UserRow[]; onClose: () => void }) {
   const [visible, setVisible] = useState(false)
 
   useEffect(() => {
     requestAnimationFrame(() => requestAnimationFrame(() => setVisible(true)))
   }, [])
 
-  const close = () => {
-    setVisible(false)
-    setTimeout(onClose, 300)
-  }
+  const close = () => { setVisible(false); setTimeout(onClose, 300) }
 
   return (
     <>
-      {/* Backdrop */}
       <div
         className={`fixed inset-0 bg-chocolate/50 z-40 transition-opacity duration-300 ${visible ? 'opacity-100' : 'opacity-0'}`}
         onClick={close}
       />
-      {/* Sheet */}
       <div
         className={`fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[430px] bg-cream rounded-t-3xl z-50 transition-transform duration-300 ${visible ? 'translate-y-0' : 'translate-y-full'}`}
       >
-        {/* Handle */}
         <div className="flex justify-center pt-3 pb-1">
           <div className="w-10 h-1 bg-beige rounded-full" />
         </div>
-
-        {/* Header */}
         <div className="px-5 pt-3 pb-4 flex items-center justify-between">
           <div>
             <h3 className="font-serif text-xl text-chocolate">{title}</h3>
             <p className="text-xs text-chocolate/40 font-sans mt-0.5">{users.length} mom{users.length !== 1 ? 's' : ''}</p>
           </div>
-          <button
-            onClick={close}
-            className="w-8 h-8 rounded-full bg-beige/40 flex items-center justify-center"
-          >
+          <button onClick={close} className="w-8 h-8 rounded-full bg-beige/40 flex items-center justify-center">
             <X size={14} className="text-chocolate/60" />
           </button>
         </div>
-
-        {/* User list */}
         <div className="px-5 pb-16 space-y-2 max-h-[65vh] overflow-y-auto">
           {users.length === 0 ? (
-            <p className="text-center text-chocolate/40 font-sans text-sm py-8">No users yet.</p>
+            <p className="text-center text-chocolate/40 font-sans text-sm py-8">No users here yet.</p>
           ) : (
             users.map((u, i) => (
               <div key={i} className="bg-white rounded-2xl p-4 border border-beige/20 flex items-center gap-3">
-                {/* Avatar */}
-                <div className="w-10 h-10 bg-mustard/10 rounded-full flex items-center justify-center flex-shrink-0">
-                  <span className="font-display font-bold text-sm text-mustard">
-                    {u.name !== 'Anonymous' ? u.name.charAt(0).toUpperCase() : '?'}
+                <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${u.authOnly ? 'bg-beige/40' : 'bg-mustard/10'}`}>
+                  <span className={`font-display font-bold text-sm ${u.authOnly ? 'text-chocolate/30' : 'text-mustard'}`}>
+                    {u.name !== 'Anonymous' && u.name !== 'Unknown' ? u.name.charAt(0).toUpperCase() : '?'}
                   </span>
                 </div>
-                {/* Details */}
                 <div className="flex-1 min-w-0">
-                  <p className="font-display font-semibold text-chocolate text-sm">{u.name}</p>
+                  <div className="flex items-center gap-2">
+                    <p className="font-display font-semibold text-chocolate text-sm">{u.name}</p>
+                    {u.authOnly && (
+                      <span className="text-[9px] bg-beige text-chocolate/40 font-display font-semibold px-1.5 py-0.5 rounded-full">
+                        never opened app
+                      </span>
+                    )}
+                  </div>
                   <p className="text-[11px] text-chocolate/50 font-sans truncate">{u.email}</p>
-                  <p className="text-[10px] text-chocolate/30 font-sans capitalize mt-0.5">{u.stage !== '—' ? u.stage : 'Stage not set'}</p>
+                  <p className="text-[10px] text-chocolate/30 font-sans capitalize mt-0.5">
+                    {u.stage !== '—' ? u.stage : 'Stage not set'}
+                  </p>
                 </div>
-                {/* Status */}
                 <div className="text-right flex-shrink-0">
-                  <p className={`text-[10px] font-display font-semibold ${u.completed ? 'text-mustard' : 'text-chocolate/30'}`}>
-                    {u.completed ? 'Onboarded ✓' : 'Pending'}
+                  <p className={`text-[10px] font-display font-semibold ${
+                    u.authOnly ? 'text-chocolate/25' :
+                    u.completed ? 'text-mustard' : 'text-chocolate/30'
+                  }`}>
+                    {u.authOnly ? 'Signed up only' : u.completed ? 'Onboarded ✓' : 'Pending'}
                   </p>
                   <p className="text-[10px] text-chocolate/30 font-sans mt-0.5">
                     {new Date(u.joined).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
@@ -128,25 +119,20 @@ function UserSheet({
   )
 }
 
-// ── Clickable Stat Card ───────────────────────────────────────────────────────
+// ── Stat Card ─────────────────────────────────────────────────────────────────
 function StatCard({
   label, value, sub, icon, accent = false, onClick
 }: {
-  label: string
-  value: string | number
-  sub?: string
-  icon: React.ReactNode
-  accent?: boolean
-  onClick?: () => void
+  label: string; value: string | number; sub?: string
+  icon: React.ReactNode; accent?: boolean; onClick?: () => void
 }) {
   return (
     <button
       onClick={onClick}
-      className={`w-full text-left rounded-2xl p-4 border transition-all active:scale-95 ${
-        accent
-          ? 'bg-chocolate border-chocolate/20 text-cream'
-          : 'bg-white border-beige/20'
-      } ${onClick ? 'cursor-pointer' : 'cursor-default'}`}
+      disabled={!onClick}
+      className={`w-full text-left rounded-2xl p-4 border transition-all ${onClick ? 'active:scale-95 cursor-pointer' : 'cursor-default'} ${
+        accent ? 'bg-chocolate border-chocolate/20' : 'bg-white border-beige/20'
+      }`}
     >
       <div className="flex items-start justify-between mb-2">
         <div className={`w-8 h-8 rounded-xl flex items-center justify-center ${accent ? 'bg-cream/10' : 'bg-mustard/10'}`}>
@@ -168,21 +154,15 @@ export default function AdminReport() {
   const [report, setReport]     = useState<ReportData | null>(null)
   const [fetching, setFetching] = useState(true)
   const [error, setError]       = useState<string | null>(null)
+  const [sheet, setSheet]       = useState<{ title: string; users: UserRow[] } | null>(null)
 
-  // Sheet state
-  const [sheet, setSheet] = useState<{ title: string; users: UserRow[] } | null>(null)
-
-  const openSheet = useCallback((title: string, users: UserRow[]) => {
-    setSheet({ title, users })
-  }, [])
-
+  const openSheet  = useCallback((title: string, users: UserRow[]) => setSheet({ title, users }), [])
   const closeSheet = useCallback(() => setSheet(null), [])
 
   useEffect(() => {
     if (loading) return
     if (!user) { router.replace('/'); return }
-    const email = user.email ?? ''
-    if (!ADMIN_EMAILS.includes(email)) { router.replace('/'); return }
+    if (!ADMIN_EMAILS.includes(user.email ?? '')) { router.replace('/'); return }
 
     fetch(`/api/admin/report?t=${Date.now()}`, { cache: 'no-store' })
       .then(r => r.json())
@@ -209,10 +189,10 @@ export default function AdminReport() {
     )
   }
 
-  const { users, checkins, moodBreakdown, topRecs, categoryBreakdown, allUsers, generatedAt } = report
-  const wow        = users.weekOverWeekChange
-  const newUsers   = allUsers.filter(u => new Date(u.joined) >= new Date(Date.now() - 7 * 24 * 60 * 60 * 1000))
-  const pendingUsers = allUsers.filter(u => !u.completed)
+  const { users, checkins, moodBreakdown, topRecs, categoryBreakdown, allUsers, dropOffUsers, generatedAt } = report
+  const wow      = users.weekOverWeekChange
+  const newUsers = allUsers.filter(u => new Date(u.joined) >= new Date(Date.now() - 7 * 24 * 60 * 60 * 1000))
+  const pendingUsers = allUsers.filter(u => !u.completed && !u.authOnly)
 
   return (
     <div className="min-h-screen bg-cream pb-16">
@@ -236,35 +216,44 @@ export default function AdminReport() {
             <Users size={14} className="text-chocolate/50" />
             <p className="font-display font-semibold text-chocolate text-sm">Users</p>
           </div>
+
           <div className="grid grid-cols-2 gap-3">
+            {/* Total signups — everyone who gave their email */}
             <StatCard
-              label="Total Moms"
-              value={users.total}
-              sub={`${users.completedOnboarding} completed onboarding`}
+              label="Total Signups"
+              value={users.totalSignups}
+              sub="gave their email"
               icon={<Users size={16} className="text-cream/70" />}
               accent
-              onClick={() => openSheet('All Moms', allUsers)}
+              onClick={() => openSheet('All Signups', allUsers)}
             />
+            {/* Made it into the app */}
             <StatCard
-              label="New This Week"
-              value={users.newThisWeek}
-              sub={
-                wow === null ? 'First week of data' :
-                wow === 0 ? 'Same as last week' :
-                `${Math.abs(wow)}% ${wow > 0 ? 'up' : 'down'} vs last week`
-              }
-              icon={
-                wow === null || wow === 0
-                  ? <Minus size={16} className="text-mustard" />
-                  : wow > 0
-                  ? <ArrowUp size={16} className="text-mustard" />
-                  : <ArrowDown size={16} className="text-mustard" />
-              }
-              onClick={() => openSheet('New This Week', newUsers)}
+              label="In the App"
+              value={users.totalInApp}
+              sub={`${users.completedOnboarding} fully onboarded`}
+              icon={<Users size={16} className="text-mustard" />}
+              onClick={() => openSheet('In the App', allUsers.filter(u => !u.authOnly))}
             />
           </div>
 
-          {/* Onboarding completion row */}
+          {/* Drop-off row */}
+          {users.totalDropOff > 0 && (
+            <button
+              onClick={() => openSheet('Never Opened the App', dropOffUsers)}
+              className="mt-2 w-full bg-white rounded-xl border border-beige/20 px-4 py-3 flex items-center justify-between active:scale-95 transition-all"
+            >
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 rounded-full bg-chocolate/20" />
+                <p className="font-display font-semibold text-sm text-chocolate">
+                  {users.totalDropOff} signed up but never opened the app
+                </p>
+              </div>
+              <ChevronRight size={14} className="text-chocolate/20" />
+            </button>
+          )}
+
+          {/* Pending onboarding row */}
           {pendingUsers.length > 0 && (
             <button
               onClick={() => openSheet('Pending Onboarding', pendingUsers)}
@@ -273,12 +262,31 @@ export default function AdminReport() {
               <div className="flex items-center gap-2">
                 <div className="w-2 h-2 rounded-full bg-mustard/50" />
                 <p className="font-display font-semibold text-sm text-chocolate">
-                  {pendingUsers.length} mom{pendingUsers.length !== 1 ? 's' : ''} haven't completed onboarding
+                  {pendingUsers.length} in the app but haven't finished onboarding
                 </p>
               </div>
               <ChevronRight size={14} className="text-chocolate/20" />
             </button>
           )}
+
+          {/* New this week */}
+          <div className="mt-3">
+            <StatCard
+              label="New This Week"
+              value={users.newThisWeek}
+              sub={
+                wow === null ? 'First week of data' :
+                wow === 0    ? 'Same as last week' :
+                `${Math.abs(wow)}% ${wow > 0 ? 'up' : 'down'} vs last week`
+              }
+              icon={
+                wow === null || wow === 0 ? <Minus size={16} className="text-mustard" /> :
+                wow > 0 ? <ArrowUp size={16} className="text-mustard" /> :
+                <ArrowDown size={16} className="text-mustard" />
+              }
+              onClick={() => openSheet('New This Week', newUsers)}
+            />
+          </div>
         </section>
 
         {/* ── Check-ins ─────────────────────────────────────────────────── */}
@@ -386,33 +394,12 @@ export default function AdminReport() {
           </section>
         )}
 
-        {/* ── All Moms list (always visible at bottom) ──────────────────── */}
-        <section>
-          <button
-            onClick={() => openSheet('All Moms', allUsers)}
-            className="w-full bg-chocolate rounded-2xl px-5 py-4 flex items-center justify-between active:scale-95 transition-all"
-          >
-            <div>
-              <p className="font-display font-semibold text-cream text-sm">View All Moms</p>
-              <p className="text-cream/40 font-sans text-xs mt-0.5">{allUsers.length} signed up · tap to see details</p>
-            </div>
-            <ChevronRight size={18} className="text-cream/40" />
-          </button>
-        </section>
-
         <p className="text-center text-[10px] text-chocolate/25 font-sans pb-4">
           Kindrest Admin · Only visible to you 🤎
         </p>
       </div>
 
-      {/* Bottom sheet */}
-      {sheet && (
-        <UserSheet
-          title={sheet.title}
-          users={sheet.users}
-          onClose={closeSheet}
-        />
-      )}
+      {sheet && <UserSheet title={sheet.title} users={sheet.users} onClose={closeSheet} />}
     </div>
   )
 }
