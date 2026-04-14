@@ -87,13 +87,22 @@ export async function GET() {
     .sort((a, b) => b[1] - a[1])
     .map(([category, count]) => ({ category, count }))
 
-  // ── Recent signups ────────────────────────────────────────────────────────
-  const recentSignups = (allProfiles ?? []).slice(0, 5).map(p => ({
+  // ── All users with auth emails ────────────────────────────────────────────
+  const { data: authUsers } = await supabaseAdmin.auth.admin.listUsers()
+  const emailMap: Record<string, string> = {}
+  for (const u of authUsers?.users ?? []) {
+    emailMap[u.id] = u.email ?? '—'
+  }
+
+  const allUsers = (allProfiles ?? []).map(p => ({
     name: p.name ?? 'Anonymous',
+    email: emailMap[p.user_id] ?? '—',
     stage: p.motherhood_stage ?? '—',
     joined: p.created_at,
     completed: p.onboarding_completed,
   }))
+
+  const recentSignups = allUsers.slice(0, 5)
 
   return NextResponse.json({
     generatedAt: now.toISOString(),
@@ -115,5 +124,6 @@ export async function GET() {
     topRecs,
     categoryBreakdown,
     recentSignups,
+    allUsers,
   })
 }

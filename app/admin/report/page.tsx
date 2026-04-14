@@ -1,15 +1,22 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/auth-context'
-import { TrendingUp, Users, Heart, Calendar, Star, ArrowUp, ArrowDown, Minus } from 'lucide-react'
+import { TrendingUp, Users, Heart, Calendar, Star, ArrowUp, ArrowDown, Minus, X, ChevronRight } from 'lucide-react'
 
-// ── Emails that can access the report ────────────────────────────────────────
 const ADMIN_EMAILS = ['jheanelle@kindrest.co', 'jheanelle.e.howell@gmail.com', 'jheanellehowell@gmail.com']
 
 const MOOD_EMOJI: Record<string, string> = {
   overwhelmed: '😢', struggling: '😔', okay: '😐', good: '😊', thriving: '✨',
+}
+
+interface UserRow {
+  name: string
+  email: string
+  stage: string
+  joined: string
+  completed: boolean
 }
 
 interface ReportData {
@@ -29,32 +36,132 @@ interface ReportData {
   moodBreakdown: { mood: string; count: number }[]
   topRecs: { title: string; category: string; liked: number; total: number }[]
   categoryBreakdown: { category: string; count: number }[]
-  recentSignups: { name: string; stage: string; joined: string; completed: boolean }[]
+  recentSignups: UserRow[]
+  allUsers: UserRow[]
 }
 
+// ── Bottom Sheet ──────────────────────────────────────────────────────────────
+function UserSheet({
+  title,
+  users,
+  onClose,
+}: {
+  title: string
+  users: UserRow[]
+  onClose: () => void
+}) {
+  const [visible, setVisible] = useState(false)
+
+  useEffect(() => {
+    requestAnimationFrame(() => requestAnimationFrame(() => setVisible(true)))
+  }, [])
+
+  const close = () => {
+    setVisible(false)
+    setTimeout(onClose, 300)
+  }
+
+  return (
+    <>
+      {/* Backdrop */}
+      <div
+        className={`fixed inset-0 bg-chocolate/50 z-40 transition-opacity duration-300 ${visible ? 'opacity-100' : 'opacity-0'}`}
+        onClick={close}
+      />
+      {/* Sheet */}
+      <div
+        className={`fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[430px] bg-cream rounded-t-3xl z-50 transition-transform duration-300 ${visible ? 'translate-y-0' : 'translate-y-full'}`}
+      >
+        {/* Handle */}
+        <div className="flex justify-center pt-3 pb-1">
+          <div className="w-10 h-1 bg-beige rounded-full" />
+        </div>
+
+        {/* Header */}
+        <div className="px-5 pt-3 pb-4 flex items-center justify-between">
+          <div>
+            <h3 className="font-serif text-xl text-chocolate">{title}</h3>
+            <p className="text-xs text-chocolate/40 font-sans mt-0.5">{users.length} mom{users.length !== 1 ? 's' : ''}</p>
+          </div>
+          <button
+            onClick={close}
+            className="w-8 h-8 rounded-full bg-beige/40 flex items-center justify-center"
+          >
+            <X size={14} className="text-chocolate/60" />
+          </button>
+        </div>
+
+        {/* User list */}
+        <div className="px-5 pb-16 space-y-2 max-h-[65vh] overflow-y-auto">
+          {users.length === 0 ? (
+            <p className="text-center text-chocolate/40 font-sans text-sm py-8">No users yet.</p>
+          ) : (
+            users.map((u, i) => (
+              <div key={i} className="bg-white rounded-2xl p-4 border border-beige/20 flex items-center gap-3">
+                {/* Avatar */}
+                <div className="w-10 h-10 bg-mustard/10 rounded-full flex items-center justify-center flex-shrink-0">
+                  <span className="font-display font-bold text-sm text-mustard">
+                    {u.name !== 'Anonymous' ? u.name.charAt(0).toUpperCase() : '?'}
+                  </span>
+                </div>
+                {/* Details */}
+                <div className="flex-1 min-w-0">
+                  <p className="font-display font-semibold text-chocolate text-sm">{u.name}</p>
+                  <p className="text-[11px] text-chocolate/50 font-sans truncate">{u.email}</p>
+                  <p className="text-[10px] text-chocolate/30 font-sans capitalize mt-0.5">{u.stage !== '—' ? u.stage : 'Stage not set'}</p>
+                </div>
+                {/* Status */}
+                <div className="text-right flex-shrink-0">
+                  <p className={`text-[10px] font-display font-semibold ${u.completed ? 'text-mustard' : 'text-chocolate/30'}`}>
+                    {u.completed ? 'Onboarded ✓' : 'Pending'}
+                  </p>
+                  <p className="text-[10px] text-chocolate/30 font-sans mt-0.5">
+                    {new Date(u.joined).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                  </p>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+    </>
+  )
+}
+
+// ── Clickable Stat Card ───────────────────────────────────────────────────────
 function StatCard({
-  label, value, sub, icon, accent = false
+  label, value, sub, icon, accent = false, onClick
 }: {
   label: string
   value: string | number
   sub?: string
   icon: React.ReactNode
   accent?: boolean
+  onClick?: () => void
 }) {
   return (
-    <div className={`rounded-2xl p-4 border ${accent ? 'bg-chocolate border-chocolate/20 text-cream' : 'bg-white border-beige/20'}`}>
+    <button
+      onClick={onClick}
+      className={`w-full text-left rounded-2xl p-4 border transition-all active:scale-95 ${
+        accent
+          ? 'bg-chocolate border-chocolate/20 text-cream'
+          : 'bg-white border-beige/20'
+      } ${onClick ? 'cursor-pointer' : 'cursor-default'}`}
+    >
       <div className="flex items-start justify-between mb-2">
         <div className={`w-8 h-8 rounded-xl flex items-center justify-center ${accent ? 'bg-cream/10' : 'bg-mustard/10'}`}>
           {icon}
         </div>
+        {onClick && <ChevronRight size={14} className={accent ? 'text-cream/30' : 'text-chocolate/20'} />}
       </div>
       <p className={`font-display font-bold text-3xl mt-1 ${accent ? 'text-cream' : 'text-chocolate'}`}>{value}</p>
       <p className={`font-display font-semibold text-sm mt-0.5 ${accent ? 'text-cream/70' : 'text-chocolate'}`}>{label}</p>
       {sub && <p className={`text-[11px] font-sans mt-0.5 ${accent ? 'text-cream/40' : 'text-chocolate/40'}`}>{sub}</p>}
-    </div>
+    </button>
   )
 }
 
+// ── Main Page ─────────────────────────────────────────────────────────────────
 export default function AdminReport() {
   const { user, loading } = useAuth()
   const router = useRouter()
@@ -62,17 +169,21 @@ export default function AdminReport() {
   const [fetching, setFetching] = useState(true)
   const [error, setError]       = useState<string | null>(null)
 
+  // Sheet state
+  const [sheet, setSheet] = useState<{ title: string; users: UserRow[] } | null>(null)
+
+  const openSheet = useCallback((title: string, users: UserRow[]) => {
+    setSheet({ title, users })
+  }, [])
+
+  const closeSheet = useCallback(() => setSheet(null), [])
+
   useEffect(() => {
     if (loading) return
-
-    // Guard — not logged in
     if (!user) { router.replace('/'); return }
-
-    // Guard — wrong email
     const email = user.email ?? ''
     if (!ADMIN_EMAILS.includes(email)) { router.replace('/'); return }
 
-    // Fetch report data
     fetch(`/api/admin/report?t=${Date.now()}`, { cache: 'no-store' })
       .then(r => r.json())
       .then(data => { setReport(data); setFetching(false) })
@@ -98,11 +209,14 @@ export default function AdminReport() {
     )
   }
 
-  const { users, checkins, moodBreakdown, topRecs, categoryBreakdown, recentSignups, generatedAt } = report
-  const wow = users.weekOverWeekChange
+  const { users, checkins, moodBreakdown, topRecs, categoryBreakdown, allUsers, generatedAt } = report
+  const wow        = users.weekOverWeekChange
+  const newUsers   = allUsers.filter(u => new Date(u.joined) >= new Date(Date.now() - 7 * 24 * 60 * 60 * 1000))
+  const pendingUsers = allUsers.filter(u => !u.completed)
 
   return (
     <div className="min-h-screen bg-cream pb-16">
+
       {/* Header */}
       <div className="bg-chocolate px-5 pt-14 pb-6">
         <p className="text-mustard font-display font-semibold text-xs uppercase tracking-widest mb-1">Kindrest</p>
@@ -116,7 +230,7 @@ export default function AdminReport() {
 
       <div className="px-5 pt-5 space-y-6">
 
-        {/* ── User Stats ──────────────────────────────────────────────── */}
+        {/* ── Users ─────────────────────────────────────────────────────── */}
         <section>
           <div className="flex items-center gap-2 mb-3">
             <Users size={14} className="text-chocolate/50" />
@@ -127,8 +241,9 @@ export default function AdminReport() {
               label="Total Moms"
               value={users.total}
               sub={`${users.completedOnboarding} completed onboarding`}
-              icon={<Users size={16} className="text-mustard" />}
+              icon={<Users size={16} className="text-cream/70" />}
               accent
+              onClick={() => openSheet('All Moms', allUsers)}
             />
             <StatCard
               label="New This Week"
@@ -145,11 +260,28 @@ export default function AdminReport() {
                   ? <ArrowUp size={16} className="text-mustard" />
                   : <ArrowDown size={16} className="text-mustard" />
               }
+              onClick={() => openSheet('New This Week', newUsers)}
             />
           </div>
+
+          {/* Onboarding completion row */}
+          {pendingUsers.length > 0 && (
+            <button
+              onClick={() => openSheet('Pending Onboarding', pendingUsers)}
+              className="mt-2 w-full bg-white rounded-xl border border-beige/20 px-4 py-3 flex items-center justify-between active:scale-95 transition-all"
+            >
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 rounded-full bg-mustard/50" />
+                <p className="font-display font-semibold text-sm text-chocolate">
+                  {pendingUsers.length} mom{pendingUsers.length !== 1 ? 's' : ''} haven't completed onboarding
+                </p>
+              </div>
+              <ChevronRight size={14} className="text-chocolate/20" />
+            </button>
+          )}
         </section>
 
-        {/* ── Check-in Stats ──────────────────────────────────────────── */}
+        {/* ── Check-ins ─────────────────────────────────────────────────── */}
         <section>
           <div className="flex items-center gap-2 mb-3">
             <Heart size={14} className="text-chocolate/50" />
@@ -170,7 +302,7 @@ export default function AdminReport() {
           </div>
         </section>
 
-        {/* ── Mood Breakdown ──────────────────────────────────────────── */}
+        {/* ── Mood Breakdown ────────────────────────────────────────────── */}
         {moodBreakdown.length > 0 && (
           <section>
             <div className="flex items-center gap-2 mb-3">
@@ -191,10 +323,7 @@ export default function AdminReport() {
                       <p className="text-xs font-display text-chocolate/50">{count} · {pct}%</p>
                     </div>
                     <div className="h-1.5 bg-beige/30 rounded-full overflow-hidden">
-                      <div
-                        className="h-full bg-mustard rounded-full transition-all"
-                        style={{ width: `${pct}%` }}
-                      />
+                      <div className="h-full bg-mustard rounded-full" style={{ width: `${pct}%` }} />
                     </div>
                   </div>
                 )
@@ -203,7 +332,7 @@ export default function AdminReport() {
           </section>
         )}
 
-        {/* ── Top Recommendations ─────────────────────────────────────── */}
+        {/* ── Top Recommendations ───────────────────────────────────────── */}
         {topRecs.length > 0 && (
           <section>
             <div className="flex items-center gap-2 mb-3">
@@ -230,7 +359,7 @@ export default function AdminReport() {
           </section>
         )}
 
-        {/* ── Category Breakdown ──────────────────────────────────────── */}
+        {/* ── Category Breakdown ────────────────────────────────────────── */}
         {categoryBreakdown.length > 0 && (
           <section>
             <div className="flex items-center gap-2 mb-3">
@@ -248,10 +377,7 @@ export default function AdminReport() {
                       <p className="text-xs font-display text-chocolate/50">{count} · {pct}%</p>
                     </div>
                     <div className="h-1.5 bg-beige/30 rounded-full overflow-hidden">
-                      <div
-                        className="h-full bg-chocolate/60 rounded-full"
-                        style={{ width: `${pct}%` }}
-                      />
+                      <div className="h-full bg-chocolate/60 rounded-full" style={{ width: `${pct}%` }} />
                     </div>
                   </div>
                 )
@@ -260,44 +386,33 @@ export default function AdminReport() {
           </section>
         )}
 
-        {/* ── Recent Signups ──────────────────────────────────────────── */}
-        {recentSignups.length > 0 && (
-          <section>
-            <div className="flex items-center gap-2 mb-3">
-              <Users size={14} className="text-chocolate/50" />
-              <p className="font-display font-semibold text-chocolate text-sm">Recent Signups</p>
+        {/* ── All Moms list (always visible at bottom) ──────────────────── */}
+        <section>
+          <button
+            onClick={() => openSheet('All Moms', allUsers)}
+            className="w-full bg-chocolate rounded-2xl px-5 py-4 flex items-center justify-between active:scale-95 transition-all"
+          >
+            <div>
+              <p className="font-display font-semibold text-cream text-sm">View All Moms</p>
+              <p className="text-cream/40 font-sans text-xs mt-0.5">{allUsers.length} signed up · tap to see details</p>
             </div>
-            <div className="space-y-2">
-              {recentSignups.map((u, i) => (
-                <div key={i} className="bg-white rounded-xl p-3 border border-beige/20 flex items-center gap-3">
-                  <div className="w-8 h-8 bg-mustard/10 rounded-full flex items-center justify-center flex-shrink-0">
-                    <span className="font-display font-bold text-xs text-mustard">
-                      {u.name.charAt(0).toUpperCase()}
-                    </span>
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-display font-semibold text-sm text-chocolate">{u.name}</p>
-                    <p className="text-[10px] text-chocolate/40 font-sans capitalize">{u.stage || 'Stage not set'}</p>
-                  </div>
-                  <div className="text-right">
-                    <p className={`text-[10px] font-display font-semibold ${u.completed ? 'text-mustard' : 'text-chocolate/30'}`}>
-                      {u.completed ? 'Onboarded ✓' : 'Pending'}
-                    </p>
-                    <p className="text-[10px] text-chocolate/30 font-sans">
-                      {new Date(u.joined).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                    </p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </section>
-        )}
+            <ChevronRight size={18} className="text-cream/40" />
+          </button>
+        </section>
 
-        {/* Footer */}
         <p className="text-center text-[10px] text-chocolate/25 font-sans pb-4">
           Kindrest Admin · Only visible to you 🤎
         </p>
       </div>
+
+      {/* Bottom sheet */}
+      {sheet && (
+        <UserSheet
+          title={sheet.title}
+          users={sheet.users}
+          onClose={closeSheet}
+        />
+      )}
     </div>
   )
 }
