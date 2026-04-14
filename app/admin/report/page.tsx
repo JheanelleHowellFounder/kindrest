@@ -73,7 +73,7 @@ export default function AdminReport() {
     if (!ADMIN_EMAILS.includes(email)) { router.replace('/'); return }
 
     // Fetch report data
-    fetch('/api/admin/report')
+    fetch(`/api/admin/report?t=${Date.now()}`, { cache: 'no-store' })
       .then(r => r.json())
       .then(data => { setReport(data); setFetching(false) })
       .catch(() => { setError('Could not load report.'); setFetching(false) })
