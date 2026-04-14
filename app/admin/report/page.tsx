@@ -5,8 +5,8 @@ import { useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/auth-context'
 import { TrendingUp, Users, Heart, Calendar, Star, ArrowUp, ArrowDown, Minus } from 'lucide-react'
 
-// ── Only this email can access the report ─────────────────────────────────────
-const ADMIN_EMAIL = 'jheanelle@kindrest.co'
+// ── Emails that can access the report ────────────────────────────────────────
+const ADMIN_EMAILS = ['jheanelle@kindrest.co', 'jheanelle.e.howell@gmail.com', 'jheanellehowell@gmail.com']
 
 const MOOD_EMOJI: Record<string, string> = {
   overwhelmed: '😢', struggling: '😔', okay: '😐', good: '😊', thriving: '✨',
@@ -70,7 +70,7 @@ export default function AdminReport() {
 
     // Guard — wrong email
     const email = user.email ?? ''
-    if (email !== ADMIN_EMAIL) { router.replace('/'); return }
+    if (!ADMIN_EMAILS.includes(email)) { router.replace('/'); return }
 
     // Fetch report data
     fetch('/api/admin/report')
