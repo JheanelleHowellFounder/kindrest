@@ -52,7 +52,8 @@ export function CheckInFlow() {
   const [careKit, setCareKit]           = useState<Recommendation[]>([])
   const [claudeMessage, setClaudeMessage] = useState<string>('')
   const [isLoading, setIsLoading]       = useState(false)
-  const [feedbackSent, setFeedbackSent] = useState<Record<number, FeedbackRating>>({})
+  const [feedbackSent, setFeedbackSent]           = useState<Record<number, FeedbackRating>>({})
+  const [mailingSubscribed, setMailingSubscribed] = useState(false)
 
   const stepIndex = STEPS.indexOf(step)
   const progress  = (stepIndex / (STEPS.length - 1)) * 100
@@ -86,6 +87,16 @@ export function CheckInFlow() {
       const data = await res.json()
       if (data.recommendations) setCareKit(data.recommendations)
       if (data.message) setClaudeMessage(data.message)
+
+      // First check-in complete: add to MailerLite Active Users (fire-and-forget)
+      if (!mailingSubscribed && userId && userId !== 'demo-user-001') {
+        setMailingSubscribed(true)
+        fetch('/api/mailerlite/subscribe', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId, group: 'active_users' }),
+        }).catch(() => {/* non-critical, silent fail */})
+      }
     } catch (err) {
       console.error('[CheckInFlow] Failed to fetch care kit:', err)
     } finally {
