@@ -76,14 +76,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'MailerLite not configured' }, { status: 503 })
   }
 
-  if (!supabaseAdmin) {
-    return NextResponse.json({ error: 'Supabase not configured' }, { status: 503 })
-  }
+  const body = await req.json()
+  const { userId, email: directEmail, name: directName, group } = body
 
-  const { userId, group } = await req.json()
-
-  if (!userId || !group) {
-    return NextResponse.json({ error: 'userId and group are required' }, { status: 400 })
+  if (!group) {
+    return NextResponse.json({ error: 'group is required' }, { status: 400 })
   }
 
   const groupId = GROUP_IDS[group]
@@ -91,21 +88,37 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: `Unknown group: ${group}` }, { status: 400 })
   }
 
-  // ── Look up email + name from Supabase ────────────────────────────────────
-  const { data: authUser } = await supabaseAdmin.auth.admin.getUserById(userId)
-  const email = authUser?.user?.email
+  let email: string
+  let name: string
 
-  if (!email) {
-    return NextResponse.json({ error: 'User email not found' }, { status: 404 })
+  if (userId) {
+    // ── Authenticated user: look up from Supabase ───────────────────────────
+    if (!supabaseAdmin) {
+      return NextResponse.json({ error: 'Supabase not configured' }, { status: 503 })
+    }
+    const { data: authUser } = await supabaseAdmin.auth.admin.getUserById(userId)
+    email = authUser?.user?.email ?? ''
+
+    if (!email) {
+      return NextResponse.json({ error: 'User email not found' }, { status: 404 })
+    }
+
+    const { data: profile } = await supabaseAdmin
+      .from('user_profiles')
+      .select('name')
+      .eq('user_id', userId)
+      .single()
+
+    name = profile?.name ?? email.split('@')[0]
+
+  } else if (directEmail) {
+    // ── Public waitlist signup: email provided directly ─────────────────────
+    email = directEmail
+    name  = directName ?? ''
+
+  } else {
+    return NextResponse.json({ error: 'userId or email is required' }, { status: 400 })
   }
-
-  const { data: profile } = await supabaseAdmin
-    .from('user_profiles')
-    .select('name')
-    .eq('user_id', userId)
-    .single()
-
-  const name = profile?.name ?? email.split('@')[0]
 
   // ── Add to MailerLite group ───────────────────────────────────────────────
   const subscriberId = await getOrCreateSubscriber(email, name)
