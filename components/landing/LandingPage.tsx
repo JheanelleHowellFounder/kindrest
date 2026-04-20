@@ -417,7 +417,7 @@ export function LandingPage() {
       {/* ── Founder ───────────────────────────────────────────────────────────── */}
       <section id="our-story" className="bg-chocolate py-28 px-6 lg:px-10">
         <div className="max-w-7xl mx-auto">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
+          <div className="grid grid-cols-1 lg:grid-cols-[30%_1fr] gap-16 items-center">
 
             <div className="flex justify-center lg:justify-start">
               <div className="relative">
