@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 
 // ── Waitlist Form ─────────────────────────────────────────────────────────────
@@ -163,24 +163,56 @@ function PhoneMockup() {
 // ── Main Landing Page ─────────────────────────────────────────────────────────
 export function LandingPage() {
   const [openCard, setOpenCard] = useState<number | null>(null)
+  const [navDark, setNavDark] = useState(true)
+  const scrollRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const el = scrollRef.current
+    if (!el) return
+
+    function handleScroll() {
+      // Hero is ~90vh. Once scrolled past it, switch to light nav.
+      setNavDark(el!.scrollTop < window.innerHeight * 0.75)
+    }
+
+    el.addEventListener('scroll', handleScroll, { passive: true })
+    return () => el.removeEventListener('scroll', handleScroll)
+  }, [])
 
   return (
-    <div className="fixed inset-0 overflow-y-auto z-[100] bg-cream">
+    <div ref={scrollRef} className="fixed inset-0 overflow-y-auto z-[100] bg-cream">
 
       {/* ── Nav ──────────────────────────────────────────────────────────────── */}
-      <nav className="sticky top-0 z-50 bg-chocolate/97 backdrop-blur-md border-b border-white/5">
+      <nav className={`sticky top-0 z-50 backdrop-blur-md transition-colors duration-300 ${
+        navDark
+          ? 'bg-chocolate/97 border-b border-white/5'
+          : 'bg-cream/95 border-b border-chocolate/8'
+      }`}>
         <div className="max-w-7xl mx-auto px-6 lg:px-10 h-[68px] flex items-center justify-between">
           <Link href="/">
-            <span className="font-serif text-[22px] text-cream">Kind</span>
+            <span className={`font-serif text-[22px] transition-colors duration-300 ${navDark ? 'text-cream' : 'text-chocolate'}`}>Kind</span>
             <span className="font-serif text-[22px] text-mustard">rest</span>
           </Link>
           <div className="hidden md:flex items-center gap-10">
-            <a href="#how-it-works" className="font-display text-sm text-cream/50 hover:text-cream transition-colors">How It Works</a>
-            <a href="#what-it-does" className="font-display text-sm text-cream/50 hover:text-cream transition-colors">What It Does</a>
-            <a href="#our-story" className="font-display text-sm text-cream/50 hover:text-cream transition-colors">Our Story</a>
+            {['#how-it-works', '#what-it-does', '#our-story'].map((href, i) => (
+              <a
+                key={href}
+                href={href}
+                className={`font-display text-sm transition-colors duration-300 ${
+                  navDark ? 'text-cream/50 hover:text-cream' : 'text-chocolate/50 hover:text-chocolate'
+                }`}
+              >
+                {['How It Works', 'What It Does', 'Our Story'][i]}
+              </a>
+            ))}
           </div>
           <div className="flex items-center gap-4">
-            <a href="/signin" className="font-display text-sm text-cream/60 hover:text-cream transition-colors">
+            <a
+              href="/signin"
+              className={`font-display text-sm transition-colors duration-300 ${
+                navDark ? 'text-cream/60 hover:text-cream' : 'text-chocolate/60 hover:text-chocolate'
+              }`}
+            >
               Sign in
             </a>
             <a href="#waitlist" className="px-5 py-2.5 bg-mustard text-white font-display font-semibold text-sm rounded-[15px] hover:opacity-90 transition-opacity">
