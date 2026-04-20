@@ -188,15 +188,15 @@ export function LandingPage() {
       {/* ── Hero ─────────────────────────────────────────────────────────────── */}
       <section className="relative bg-chocolate overflow-hidden min-h-[90vh] flex items-center">
 
-        {/* Founder photo — right side on desktop */}
-        <div className="absolute inset-y-0 right-0 w-full lg:w-[52%] hidden lg:block">
+        {/* Hero image — right side, full bleed with gradient fade */}
+        <div className="absolute inset-y-0 right-0 w-full lg:w-[55%] hidden lg:block">
           <img
-            src="/founder.png"
-            alt="Jheanelle Howell, Founder of Kindrest"
-            className="w-full h-full object-cover object-top"
+            src="/hero2.jpg"
+            alt="A mother, present with herself"
+            className="w-full h-full object-cover object-[60%_center]"
           />
-          {/* Fade into chocolate from left */}
-          <div className="absolute inset-0 bg-gradient-to-r from-chocolate via-chocolate/70 to-transparent" />
+          {/* Fade into chocolate from left — clears by ~45% so subject is visible */}
+          <div className="absolute inset-0 bg-gradient-to-r from-chocolate from-[30%] via-chocolate/40 via-[45%] to-transparent" />
           {/* Subtle bottom fade */}
           <div className="absolute bottom-0 inset-x-0 h-32 bg-gradient-to-t from-chocolate to-transparent" />
         </div>
@@ -434,10 +434,17 @@ export function LandingPage() {
 
             <div>
               <p className="font-display text-xs text-mustard tracking-[0.2em] uppercase mb-8">Meet the Founder</p>
-              {/* TODO: Replace with real founder intro copy — Jheanelle to provide */}
-              <p className="font-serif text-[22px] sm:text-[26px] text-cream/25 leading-[1.6] italic mb-8">
-                Founder intro coming soon...
-              </p>
+              <div className="space-y-5 mb-8">
+                <p className="font-serif text-[20px] sm:text-[24px] text-cream leading-[1.6]">
+                  Postpartum was the loneliest I have ever felt. Not because I did not have a village. I did. But I had completely lost the thread back to myself, and no one knew how to help me find it.
+                </p>
+                <p className="font-serif text-[20px] sm:text-[24px] text-cream leading-[1.6]">
+                  That is the story we tell about mothers. That the village is enough. That if the people around you show up, you will be fine. But showing up and knowing what a mother actually needs are two very different things.
+                </p>
+                <p className="font-serif text-[20px] sm:text-[24px] text-cream leading-[1.6]">
+                  I am building Kindrest because I know I am not the only one who has had to fight to hear herself when motherhood gets loud. We deserve more than that. So we are building it.
+                </p>
+              </div>
               <div className="h-[2px] w-12 bg-mustard mb-6" />
               <p className="font-display font-semibold text-cream text-[15px]">Jheanelle Howell</p>
               <p className="font-sans text-cream/40 text-sm mt-1">Founder, Kindrest</p>
@@ -473,8 +480,7 @@ export function LandingPage() {
             <span className="font-serif text-xl text-mustard">rest</span>
           </div>
           <div className="flex items-center gap-8">
-            <a href="https://instagram.com" target="_blank" rel="noopener noreferrer" className="font-display text-sm text-cream/40 hover:text-cream transition-colors">Instagram</a>
-            <a href="https://tiktok.com" target="_blank" rel="noopener noreferrer" className="font-display text-sm text-cream/40 hover:text-cream transition-colors">TikTok</a>
+            <a href="https://www.instagram.com/kindrestco" target="_blank" rel="noopener noreferrer" className="font-display text-sm text-cream/40 hover:text-cream transition-colors">Instagram</a>
             <a href="/privacy" className="font-display text-sm text-cream/40 hover:text-cream transition-colors">Privacy</a>
             <a href="/terms" className="font-display text-sm text-cream/40 hover:text-cream transition-colors">Terms</a>
           </div>

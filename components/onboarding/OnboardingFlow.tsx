@@ -28,7 +28,7 @@ export function OnboardingFlow() {
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [usePassword, setUsePassword] = useState(false)
+  const [usePassword, setUsePassword] = useState(true)
   const [authError, setAuthError] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
 
@@ -326,11 +326,7 @@ export function OnboardingFlow() {
           className="mt-8 w-full bg-cream rounded-2xl px-4 py-4 border-2 border-beige/30 focus:border-mustard outline-none font-display text-[18px] text-chocolate placeholder:text-chocolate/30 transition-colors"
         />
 
-        {!usePassword ? (
-          <p className="mt-2 font-sans text-xs text-chocolate/40 italic">
-            We&apos;ll send you a link to sign in — no password needed.
-          </p>
-        ) : (
+        {usePassword ? (
           <input
             type="password"
             value={password}
@@ -338,13 +334,17 @@ export function OnboardingFlow() {
             placeholder="Create a password (min. 6 characters)"
             className="mt-3 w-full bg-cream rounded-2xl px-4 py-4 border-2 border-beige/30 focus:border-mustard outline-none font-display text-[16px] text-chocolate placeholder:text-chocolate/30 transition-colors"
           />
+        ) : (
+          <p className="mt-2 font-sans text-xs text-chocolate/40 italic">
+            We&apos;ll send a sign-in link to your email.
+          </p>
         )}
 
         <button
           onClick={() => { setUsePassword(!usePassword); setAuthError('') }}
           className="mt-3 text-sm text-chocolate/50 font-sans underline text-left"
         >
-          {usePassword ? 'Use magic link instead' : 'Prefer a password instead?'}
+          {usePassword ? 'Use a magic link instead' : 'Use a password instead'}
         </button>
 
         {authError && (
@@ -358,9 +358,9 @@ export function OnboardingFlow() {
             className="btn-primary disabled:opacity-40 disabled:cursor-not-allowed"
           >
             {isSubmitting
-              ? 'Sending...'
+              ? 'Creating your space...'
               : usePassword
-              ? 'Create account'
+              ? 'Create my account'
               : 'Send my link'}
           </button>
         </div>
