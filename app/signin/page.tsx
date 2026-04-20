@@ -18,9 +18,22 @@ export default function SignInPage() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError]           = useState('')
 
-  // Already signed in — go home
+  // Already signed in — route based on onboarding status
   useEffect(() => {
-    if (!loading && user) router.replace('/')
+    if (loading || !user || !supabase) return
+    async function checkAndRedirect() {
+      const { data: profile } = await supabase!
+        .from('user_profiles')
+        .select('onboarding_completed')
+        .eq('user_id', user!.id)
+        .single()
+      if (!profile?.onboarding_completed) {
+        router.replace('/onboarding/profile')
+      } else {
+        router.replace('/')
+      }
+    }
+    checkAndRedirect()
   }, [user, loading, router])
 
   const canSubmit = isEmailValid(email) && password.length >= 6
@@ -36,6 +49,23 @@ export default function SignInPage() {
         setError('Incorrect email or password. Try again, or use "Forgot your password?" below.')
         return
       }
+
+      // Route based on onboarding status — new users who verified email
+      // but haven't finished their profile should land in the profile flow
+      const { data: { user } } = await supabase.auth.getUser()
+      if (user) {
+        const { data: profile } = await supabase
+          .from('user_profiles')
+          .select('onboarding_completed')
+          .eq('user_id', user.id)
+          .single()
+
+        if (!profile?.onboarding_completed) {
+          router.replace('/onboarding/profile')
+          return
+        }
+      }
+
       router.replace('/')
     } finally {
       setIsSubmitting(false)

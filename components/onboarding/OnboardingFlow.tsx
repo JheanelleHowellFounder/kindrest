@@ -28,9 +28,10 @@ export function OnboardingFlow() {
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [usePassword, setUsePassword] = useState(true)
   const [authError, setAuthError] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
+
+  const canSubmit = isEmailValid(email) && password.length >= 6
 
   // Persist name + email across email verification break
   useEffect(() => {
@@ -70,32 +71,29 @@ export function OnboardingFlow() {
   }
 
   async function handleAuthSubmit() {
-    if (!email || !supabase) return
+    if (!canSubmit || !supabase) return
     setIsSubmitting(true)
     setAuthError('')
     localStorage.setItem('kindrest_onboarding_email', email)
 
     try {
-      if (usePassword) {
-        const { error } = await supabase.auth.signUp({
-          email,
-          password,
-          options: {
-            emailRedirectTo: `${window.location.origin}/auth/callback`,
-            data: { name: name.trim() },
-          },
-        })
-        if (error) { setAuthError(error.message); return }
-      } else {
-        const { error } = await supabase.auth.signInWithOtp({
-          email,
-          options: {
-            emailRedirectTo: `${window.location.origin}/auth/callback`,
-            data: { name: name.trim() },
-          },
-        })
-        if (error) { setAuthError(error.message); return }
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          emailRedirectTo: `${window.location.origin}/auth/callback`,
+          data: { name: name.trim() },
+        },
+      })
+      if (error) { setAuthError(error.message); return }
+
+      // If email confirmation is disabled in Supabase, a session is returned
+      // immediately — OnboardingPage will auto-redirect to /onboarding/profile
+      if (data.session) {
+        router.replace('/onboarding/profile')
+        return
       }
+
       setStep(4)
     } finally {
       setIsSubmitting(false)
@@ -294,9 +292,8 @@ export function OnboardingFlow() {
     )
   }
 
-  // ── Step 3 — Email + Auth ─────────────────────────────────────────────────
+  // ── Step 3 — Email + Password ─────────────────────────────────────────────
   if (step === 3) {
-    const canSubmit = isEmailValid(email) && (!usePassword || password.length >= 6)
     return (
       <div className="min-h-screen bg-cream flex flex-col px-5">
         {/* Progress dots */}
@@ -321,31 +318,18 @@ export function OnboardingFlow() {
         <input
           type="email"
           value={email}
-          onChange={e => setEmail(e.target.value)}
+          onChange={e => { setEmail(e.target.value); setAuthError('') }}
           placeholder="your@email.com"
           className="mt-8 w-full bg-cream rounded-2xl px-4 py-4 border-2 border-beige/30 focus:border-mustard outline-none font-display text-[18px] text-chocolate placeholder:text-chocolate/30 transition-colors"
         />
 
-        {usePassword ? (
-          <input
-            type="password"
-            value={password}
-            onChange={e => setPassword(e.target.value)}
-            placeholder="Create a password (min. 6 characters)"
-            className="mt-3 w-full bg-cream rounded-2xl px-4 py-4 border-2 border-beige/30 focus:border-mustard outline-none font-display text-[16px] text-chocolate placeholder:text-chocolate/30 transition-colors"
-          />
-        ) : (
-          <p className="mt-2 font-sans text-xs text-chocolate/40 italic">
-            We&apos;ll send a sign-in link to your email.
-          </p>
-        )}
-
-        <button
-          onClick={() => { setUsePassword(!usePassword); setAuthError('') }}
-          className="mt-3 text-sm text-chocolate/50 font-sans underline text-left"
-        >
-          {usePassword ? 'Use a magic link instead' : 'Use a password instead'}
-        </button>
+        <input
+          type="password"
+          value={password}
+          onChange={e => { setPassword(e.target.value); setAuthError('') }}
+          placeholder="Create a password (min. 6 characters)"
+          className="mt-3 w-full bg-cream rounded-2xl px-4 py-4 border-2 border-beige/30 focus:border-mustard outline-none font-display text-[16px] text-chocolate placeholder:text-chocolate/30 transition-colors"
+        />
 
         {authError && (
           <p className="mt-3 text-sm text-chocolate/60 font-sans">{authError}</p>
@@ -357,45 +341,55 @@ export function OnboardingFlow() {
             disabled={!canSubmit || isSubmitting}
             className="btn-primary disabled:opacity-40 disabled:cursor-not-allowed"
           >
-            {isSubmitting
-              ? 'Creating your space...'
-              : usePassword
-              ? 'Create my account'
-              : 'Send my link'}
+            {isSubmitting ? 'Creating your space...' : 'Create my account'}
           </button>
         </div>
       </div>
     )
   }
 
-  // ── Step 4 — Check Email ──────────────────────────────────────────────────
+  // ── Step 4 — Verify Email ─────────────────────────────────────────────────
   return (
-    <div className="min-h-screen bg-cream flex flex-col items-center justify-center px-6">
+    <div className="min-h-screen bg-cream flex flex-col items-center justify-center px-6 text-center">
       {/* Envelope icon */}
       <div className="w-20 h-20 rounded-full border-2 border-mustard bg-cream flex items-center justify-center mb-6">
         <Mail size={36} className="text-mustard" />
       </div>
 
-      <h1 className="font-serif text-[32px] text-chocolate text-center leading-tight">
+      <h1 className="font-serif text-[32px] text-chocolate leading-tight">
         Check your email
       </h1>
-      <p className="font-sans text-sm text-chocolate/60 text-center mt-2">
-        We sent a link to {email}
+      <p className="font-sans text-sm text-chocolate/60 mt-3">
+        We sent a confirmation link to
       </p>
-      <p className="font-sans text-[13px] text-chocolate/40 text-center mt-4 leading-relaxed max-w-xs">
-        Click the link in your email to continue setting up your Kindrest space.
+      <p className="font-sans text-sm font-semibold text-chocolate mt-0.5">
+        {email}
       </p>
 
-      <div className="mt-8 text-center">
-        <p className="font-sans text-xs text-chocolate/40">
-          Didn&apos;t get it? Check your spam folder, or{' '}
-          <button
-            onClick={() => setStep(3)}
-            className="underline text-chocolate/60 font-sans text-xs"
-          >
-            try a different email
-          </button>
-        </p>
+      <p className="font-sans text-[13px] text-chocolate/40 mt-5 leading-relaxed max-w-xs">
+        Click the link to verify your account. On iPhone, it will open in your browser — once confirmed, come back to the Kindrest app and sign in to continue.
+      </p>
+
+      <p className="font-sans text-xs text-chocolate/30 italic mt-4">
+        Check your spam folder if you don&apos;t see it within a minute.
+      </p>
+
+      <div className="mt-8">
+        <button
+          onClick={() => router.push('/signin')}
+          className="font-sans text-sm text-mustard font-semibold underline"
+        >
+          Already confirmed? Sign in
+        </button>
+      </div>
+
+      <div className="mt-4">
+        <button
+          onClick={() => setStep(3)}
+          className="font-sans text-xs text-chocolate/40 underline"
+        >
+          Use a different email
+        </button>
       </div>
     </div>
   )
