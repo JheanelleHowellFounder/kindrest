@@ -179,9 +179,14 @@ export function LandingPage() {
             <a href="#what-it-does" className="font-display text-sm text-cream/50 hover:text-cream transition-colors">What It Does</a>
             <a href="#our-story" className="font-display text-sm text-cream/50 hover:text-cream transition-colors">Our Story</a>
           </div>
-          <a href="#waitlist" className="px-5 py-2.5 bg-mustard text-white font-display font-semibold text-sm rounded-[15px] hover:opacity-90 transition-opacity">
-            Get Early Access
-          </a>
+          <div className="flex items-center gap-4">
+            <a href="/signin" className="font-display text-sm text-cream/60 hover:text-cream transition-colors">
+              Sign in
+            </a>
+            <a href="#waitlist" className="px-5 py-2.5 bg-mustard text-white font-display font-semibold text-sm rounded-[15px] hover:opacity-90 transition-opacity">
+              Get Early Access
+            </a>
+          </div>
         </div>
       </nav>
 

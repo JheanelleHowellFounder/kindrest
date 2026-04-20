@@ -286,7 +286,7 @@ export function ProfileScreen() {
 
         {/* Sign out */}
         <button
-          onClick={async () => { await signOut(); router.push('/onboarding') }}
+          onClick={async () => { await signOut(); router.replace('/') }}
           className="w-full text-center text-sm text-chocolate/30 font-sans py-2 mt-2"
         >
           Sign out
