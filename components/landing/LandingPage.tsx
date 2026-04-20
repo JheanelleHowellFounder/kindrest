@@ -175,6 +175,9 @@ export function LandingPage() {
       setNavDark(el!.scrollTop < window.innerHeight * 0.75)
     }
 
+    // Set correct state immediately on mount (don't wait for a scroll event)
+    handleScroll()
+
     el.addEventListener('scroll', handleScroll, { passive: true })
     return () => el.removeEventListener('scroll', handleScroll)
   }, [])
@@ -185,8 +188,8 @@ export function LandingPage() {
       {/* ── Nav ──────────────────────────────────────────────────────────────── */}
       <nav className={`sticky top-0 z-50 backdrop-blur-md transition-colors duration-300 ${
         navDark
-          ? 'bg-chocolate/97 border-b border-white/5'
-          : 'bg-cream/95 border-b border-chocolate/8'
+          ? 'bg-chocolate border-b border-white/5'
+          : 'bg-cream border-b border-chocolate/10'
       }`}>
         <div className="max-w-7xl mx-auto px-6 lg:px-10 h-[68px] flex items-center justify-between">
           <Link href="/">
