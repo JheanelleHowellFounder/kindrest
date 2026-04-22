@@ -87,14 +87,23 @@ export default function AuthCallbackPage() {
         <p className="font-sans text-[15px] text-cream/70 leading-relaxed max-w-xs mb-3">
           This link opened in your browser. To get back to the app, go to your home screen and tap the Kindrest icon.
         </p>
-        <p className="font-sans text-xs text-cream/35 italic max-w-xs">
-          Next time, sign in with your password directly inside the app to skip this step.
+
+        <div className="h-px w-12 bg-mustard/30 my-6" />
+
+        <p className="font-sans text-sm text-cream/50 leading-relaxed max-w-xs mb-5">
+          Skip this step next time — set a password while you&apos;re here.
         </p>
 
-        {/* Fallback — open the live URL in case they haven't installed it yet */}
         <a
-          href="https://kindrest.vercel.app"
-          className="mt-10 px-8 py-4 bg-mustard text-white font-display font-semibold text-sm rounded-[15px]"
+          href="/set-password"
+          className="px-8 py-3.5 border border-white/25 text-cream font-display font-semibold text-sm rounded-[15px] hover:bg-white/10 transition-colors"
+        >
+          Set a password
+        </a>
+
+        <a
+          href="https://kindrest.co"
+          className="mt-4 px-8 py-4 bg-mustard text-white font-display font-semibold text-sm rounded-[15px]"
         >
           Open Kindrest
         </a>
