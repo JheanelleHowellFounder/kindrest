@@ -88,8 +88,15 @@ export function OnboardingFlow() {
       if (error) { setAuthError(error.message); return }
 
       // If email confirmation is disabled in Supabase, a session is returned
-      // immediately — OnboardingPage will auto-redirect to /onboarding/profile
+      // immediately — add to MailerLite active_users and redirect
       if (data.session) {
+        // Fire-and-forget — don't block the redirect on this
+        fetch('/api/mailerlite/subscribe', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId: data.session.user.id, group: 'active_users' }),
+        }).catch(() => {/* non-critical */})
+
         router.replace('/onboarding/profile')
         return
       }

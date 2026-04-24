@@ -47,6 +47,14 @@ export default function AuthCallbackPage() {
         .eq('user_id', session.user.id)
         .single()
 
+      // Add to MailerLite active_users — fire-and-forget, non-blocking
+      // Safe to call multiple times (MailerLite handles duplicates gracefully)
+      fetch('/api/mailerlite/subscribe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: session.user.id, group: 'active_users' }),
+      }).catch(() => {/* non-critical */})
+
       if (profile?.onboarding_completed) {
         router.replace('/')
       } else {
