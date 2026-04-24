@@ -15,11 +15,10 @@ function WaitlistForm({ dark = false }: { dark?: boolean }) {
   const [step, setStep]           = useState<'email' | 'details' | 'success'>('email')
   const [email, setEmail]         = useState('')
   const [name, setName]           = useState('')
-  const [birthday, setBirthday]   = useState('')
   const [numKids, setNumKids]     = useState('')
-  const [kidsAges, setKidsAges]   = useState('')
   const [zipCode, setZipCode]     = useState('')
   const [selfCare, setSelfCare]   = useState('')
+  const [isMom, setIsMom]         = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError]         = useState('')
 
@@ -33,6 +32,8 @@ function WaitlistForm({ dark = false }: { dark?: boolean }) {
     e.preventDefault()
     setIsLoading(true)
     setError('')
+    const kids = numKids ? parseInt(numKids, 10) : 0
+    const momStatus = kids >= 1
     try {
       const res = await fetch('/api/waitlist', {
         method: 'POST',
@@ -40,14 +41,14 @@ function WaitlistForm({ dark = false }: { dark?: boolean }) {
         body: JSON.stringify({
           email,
           name,
-          birthday,
-          numKids: numKids ? parseInt(numKids, 10) : null,
-          kidsAges,
+          numKids: kids,
           zipCode,
           selfCareRoutine: selfCare,
+          isMom: momStatus,
         }),
       })
       if (res.ok) {
+        setIsMom(momStatus)
         setStep('success')
       } else {
         setError('Something went wrong. Try again.')
@@ -62,9 +63,27 @@ function WaitlistForm({ dark = false }: { dark?: boolean }) {
   // ── Success ─────────────────────────────────────────────────────────────────
   if (step === 'success') {
     return (
-      <p className="font-display text-base font-semibold text-mustard">
-        You&apos;re on the list. Your invite is coming. 🤎
-      </p>
+      <div className="space-y-1">
+        {isMom ? (
+          <>
+            <p className="font-display text-base font-semibold text-mustard">
+              You&apos;re on the list. Your invite is coming. 🤎
+            </p>
+            <p className="font-sans text-sm text-chocolate/50">
+              We&apos;ll reach out when your spot is ready.
+            </p>
+          </>
+        ) : (
+          <>
+            <p className="font-display text-base font-semibold text-mustard">
+              You&apos;re in. We&apos;ll keep you in the loop. 🤎
+            </p>
+            <p className="font-sans text-sm text-chocolate/50">
+              Kindrest is built for moms right now — but the moms in your life will thank you for knowing about it.
+            </p>
+          </>
+        )}
+      </div>
     )
   }
 
@@ -72,9 +91,12 @@ function WaitlistForm({ dark = false }: { dark?: boolean }) {
   if (step === 'details') {
     return (
       <form onSubmit={handleDetailsSubmit} className="w-full max-w-lg space-y-4 text-left">
-        <p className="font-serif text-[22px] text-chocolate leading-snug">
-          Thanks! Now to get some info about you.
-        </p>
+        <div className="mb-2">
+          <p className="font-serif text-[22px] text-chocolate leading-snug">
+            Thanks! Now a little about you.
+          </p>
+          <p className="font-sans text-xs text-chocolate/40 mt-1">Step 2 of 2</p>
+        </div>
 
         {/* Name */}
         <div>
@@ -88,39 +110,16 @@ function WaitlistForm({ dark = false }: { dark?: boolean }) {
           />
         </div>
 
-        {/* Birthday */}
-        <div>
-          <label className={labelClass}>Birthday</label>
-          <input
-            type="date"
-            value={birthday}
-            onChange={e => setBirthday(e.target.value)}
-            className={inputClass}
-          />
-        </div>
-
         {/* Number of kids */}
         <div>
-          <label className={labelClass}>Number of kids</label>
+          <label className={labelClass}>How many kids do you have?</label>
           <input
             type="number"
             value={numKids}
             onChange={e => setNumKids(e.target.value)}
-            placeholder="e.g. 2"
+            placeholder="0"
             min={0}
             max={20}
-            className={inputClass}
-          />
-        </div>
-
-        {/* Kids ages */}
-        <div>
-          <label className={labelClass}>Kids&apos; ages</label>
-          <input
-            type="text"
-            value={kidsAges}
-            onChange={e => setKidsAges(e.target.value)}
-            placeholder="e.g. 3, 7, 12"
             className={inputClass}
           />
         </div>

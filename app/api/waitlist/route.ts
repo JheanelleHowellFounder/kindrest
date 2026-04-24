@@ -6,20 +6,19 @@
  *
  * Request body:
  *   {
- *     email:            string    // required
- *     name?:            string
- *     birthday?:        string    // ISO date e.g. "1990-05-14"
- *     numKids?:         number
- *     kidsAges?:        string    // freeform e.g. "3, 7, 12"
- *     zipCode?:         string
- *     selfCareRoutine?: string    // single value from dropdown
+ *     email:             string    // required
+ *     name?:             string
+ *     numKids?:          number    // 0 = not a mom, ≥1 = mom
+ *     zipCode?:          string
+ *     selfCareRoutine?:  string
+ *     isMom?:            boolean   // derived from numKids on the client, stored here
  *   }
  *
  * What it does:
- *   1. Validates the email
- *   2. Saves to Supabase `waitlist` table (graceful if table doesn't exist yet)
- *   3. Adds to MailerLite "waitlist" group (graceful if key not configured)
- *   4. Returns { success: true }
+ *   1. Saves everyone to Supabase `waitlist` table with is_mom flag
+ *   2. Adds everyone to MailerLite waitlist group — is_mom stored as custom field
+ *      so you can segment moms vs supporters in automations
+ *   3. Returns { success: true }
  */
 
 import { NextRequest, NextResponse } from 'next/server'
@@ -42,16 +41,24 @@ async function mlFetch(path: string, options: RequestInit = {}) {
   })
 }
 
-async function addToMailerLite(email: string, name?: string): Promise<void> {
+async function addToMailerLite(
+  email: string,
+  name?: string,
+  isMom?: boolean
+): Promise<void> {
   if (!ML_TOKEN) return   // not configured — skip silently
 
   try {
-    // Upsert subscriber
+    // Upsert subscriber with name + is_mom custom field
     const upsert = await mlFetch('/subscribers', {
       method: 'POST',
       body: JSON.stringify({
         email,
-        fields: name ? { name } : undefined,
+        fields: {
+          ...(name ? { name } : {}),
+          // Custom field — create "is_mom" in MailerLite if it doesn't exist yet
+          is_mom: isMom ? 'yes' : 'no',
+        },
       }),
     })
 
@@ -74,7 +81,7 @@ async function addToMailerLite(email: string, name?: string): Promise<void> {
       return
     }
 
-    // Add to waitlist group (409 = already in group, fine)
+    // Add to waitlist group — everyone, mom or not (409 = already in group, fine)
     await mlFetch(`/subscribers/${subscriberId}/groups/${ML_GROUP}`, {
       method: 'POST',
     })
@@ -92,19 +99,17 @@ export async function POST(req: NextRequest) {
     const {
       email,
       name,
-      birthday,
       numKids,
-      kidsAges,
       zipCode,
       selfCareRoutine,
+      isMom,
     } = body as {
       email: string
       name?: string
-      birthday?: string
       numKids?: number | null
-      kidsAges?: string
       zipCode?: string
       selfCareRoutine?: string
+      isMom?: boolean
     }
 
     if (!email || !email.includes('@')) {
@@ -112,6 +117,7 @@ export async function POST(req: NextRequest) {
     }
 
     const normalizedEmail = email.trim().toLowerCase()
+    const momStatus = isMom ?? (typeof numKids === 'number' ? numKids >= 1 : false)
 
     // ── 1. Save to Supabase ──────────────────────────────────────────────────
     if (supabaseAdmin) {
@@ -119,28 +125,26 @@ export async function POST(req: NextRequest) {
         .from('waitlist')
         .upsert(
           {
-            email: normalizedEmail,
+            email:              normalizedEmail,
             name:               name?.trim() || null,
-            birthday:           birthday || null,
             num_kids:           numKids ?? null,
-            kids_ages:          kidsAges?.trim() || null,
             zip_code:           zipCode?.trim() || null,
             self_care_routine:  selfCareRoutine || null,
+            is_mom:             momStatus,
             updated_at:         new Date().toISOString(),
           },
           { onConflict: 'email', ignoreDuplicates: false }
         )
 
       if (dbError) {
-        // Log but don't fail — table might not exist yet during initial setup
         console.warn('[waitlist] Supabase insert error:', dbError.message)
       }
     } else {
       console.warn('[waitlist] Supabase not configured, skipping DB save')
     }
 
-    // ── 2. Add to MailerLite waitlist group ──────────────────────────────────
-    await addToMailerLite(normalizedEmail, name)
+    // ── 2. Add to MailerLite — everyone gets added ────────────────────────────
+    await addToMailerLite(normalizedEmail, name, momStatus)
 
     return NextResponse.json({ success: true })
 
