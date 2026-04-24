@@ -4,37 +4,120 @@ import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 
 // ── Waitlist Form ─────────────────────────────────────────────────────────────
-function WaitlistForm({ dark = false }: { dark?: boolean }) {
-  const [email, setEmail]   = useState('')
-  const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle')
+const SELF_CARE_OPTIONS = [
+  'Rest', 'Movement', 'Micro Practices', 'Joy', 'Reflection', 'Connection',
+]
 
-  async function handleSubmit(e: React.FormEvent) {
+function WaitlistForm({ dark = false }: { dark?: boolean }) {
+  const [step, setStep]       = useState<'email' | 'details' | 'success'>('email')
+  const [email, setEmail]     = useState('')
+  const [selfCare, setSelfCare] = useState<string[]>([])
+  const [zipCode, setZipCode] = useState('')
+  const [isLoading, setIsLoading] = useState(false)
+  const [error, setError]     = useState('')
+
+  function toggleSelfCare(option: string) {
+    setSelfCare(prev =>
+      prev.includes(option) ? prev.filter(o => o !== option) : [...prev, option]
+    )
+  }
+
+  function handleEmailSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!email) return
-    setStatus('loading')
+    setStep('details')
+  }
+
+  async function handleDetailsSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    setIsLoading(true)
+    setError('')
     try {
-      const res = await fetch('/api/mailerlite/subscribe', {
+      const res = await fetch('/api/waitlist', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, group: 'waitlist' }),
+        body: JSON.stringify({ email, selfCareRoutines: selfCare, zipCode }),
       })
-      setStatus(res.ok ? 'success' : 'error')
-      if (res.ok) setEmail('')
+      if (res.ok) {
+        setStep('success')
+      } else {
+        setError('Something went wrong. Try again.')
+      }
     } catch {
-      setStatus('error')
+      setError('Something went wrong. Try again.')
+    } finally {
+      setIsLoading(false)
     }
   }
 
-  if (status === 'success') {
+  // ── Success ─────────────────────────────────────────────────────────────────
+  if (step === 'success') {
     return (
       <p className="font-display text-base font-semibold text-mustard">
-        You're on the list. Your invite is coming. 🤎
+        You&apos;re on the list. Your invite is coming. 🤎
       </p>
     )
   }
 
+  // ── Step 2: Details ──────────────────────────────────────────────────────────
+  if (step === 'details') {
+    return (
+      <form onSubmit={handleDetailsSubmit} className="w-full max-w-lg space-y-6 text-left">
+        <div>
+          <p className="font-display font-semibold text-sm text-chocolate mb-3">
+            What does self-care look like for you?
+          </p>
+          <div className="grid grid-cols-2 gap-2">
+            {SELF_CARE_OPTIONS.map(option => {
+              const isSelected = selfCare.includes(option)
+              return (
+                <button
+                  key={option}
+                  type="button"
+                  onClick={() => toggleSelfCare(option)}
+                  className={`px-4 py-2.5 rounded-[15px] font-sans text-sm text-left transition-all border-2 ${
+                    isSelected
+                      ? 'bg-mustard border-mustard text-white'
+                      : 'bg-white border-beige/60 text-chocolate hover:border-mustard/40'
+                  }`}
+                >
+                  {option}
+                </button>
+              )
+            })}
+          </div>
+        </div>
+
+        <div>
+          <p className="font-display font-semibold text-sm text-chocolate mb-2">
+            Your zip code
+          </p>
+          <input
+            type="text"
+            value={zipCode}
+            onChange={e => setZipCode(e.target.value)}
+            placeholder="e.g. 10001"
+            maxLength={10}
+            className="w-full px-5 py-4 rounded-[15px] font-sans text-sm outline-none transition-all border-2 bg-white border-beige/60 text-chocolate placeholder:text-chocolate/35 focus:border-mustard"
+          />
+        </div>
+
+        {error && <p className="text-sm text-red-400 font-sans">{error}</p>}
+
+        <button
+          type="submit"
+          disabled={isLoading}
+          className="w-full px-7 py-4 bg-mustard text-white font-display font-semibold text-sm rounded-[15px] transition-opacity disabled:opacity-60 hover:opacity-90"
+        >
+          {isLoading ? 'Joining...' : 'Join the waitlist'}
+        </button>
+      </form>
+    )
+  }
+
+  // ── Step 1: Email ────────────────────────────────────────────────────────────
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col sm:flex-row gap-3 w-full max-w-lg">
+    <form onSubmit={handleEmailSubmit} className="flex flex-col sm:flex-row gap-3 w-full max-w-lg">
       <input
         type="email"
         value={email}
@@ -49,14 +132,10 @@ function WaitlistForm({ dark = false }: { dark?: boolean }) {
       />
       <button
         type="submit"
-        disabled={status === 'loading'}
-        className="px-7 py-4 bg-mustard text-white font-display font-semibold text-sm rounded-[15px] whitespace-nowrap transition-opacity disabled:opacity-60 hover:opacity-90"
+        className="px-7 py-4 bg-mustard text-white font-display font-semibold text-sm rounded-[15px] whitespace-nowrap transition-opacity hover:opacity-90"
       >
-        {status === 'loading' ? 'Joining...' : 'Get Early Access'}
+        Get Early Access
       </button>
-      {status === 'error' && (
-        <p className="text-sm text-red-400 font-sans mt-1">Something went wrong. Try again.</p>
-      )}
     </form>
   )
 }
