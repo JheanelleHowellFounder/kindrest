@@ -6,9 +6,13 @@
  *
  * Request body:
  *   {
- *     email:             string          // required
- *     selfCareRoutines?: string[]        // e.g. ['Rest', 'Movement']
- *     zipCode?:          string
+ *     email:            string    // required
+ *     name?:            string
+ *     birthday?:        string    // ISO date e.g. "1990-05-14"
+ *     numKids?:         number
+ *     kidsAges?:        string    // freeform e.g. "3, 7, 12"
+ *     zipCode?:         string
+ *     selfCareRoutine?: string    // single value from dropdown
  *   }
  *
  * What it does:
@@ -21,9 +25,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 
-const ML_API     = 'https://connect.mailerlite.com/api'
-const ML_TOKEN   = process.env.MAILERLITE_API_KEY
-const ML_GROUP   = '184867172429857993'   // "Airtable Waitlist" group
+const ML_API   = 'https://connect.mailerlite.com/api'
+const ML_TOKEN = process.env.MAILERLITE_API_KEY
+const ML_GROUP = '184867172429857993'   // "Airtable Waitlist" group
 
 // ── MailerLite helpers ────────────────────────────────────────────────────────
 
@@ -38,14 +42,17 @@ async function mlFetch(path: string, options: RequestInit = {}) {
   })
 }
 
-async function addToMailerLite(email: string): Promise<void> {
+async function addToMailerLite(email: string, name?: string): Promise<void> {
   if (!ML_TOKEN) return   // not configured — skip silently
 
   try {
     // Upsert subscriber
     const upsert = await mlFetch('/subscribers', {
       method: 'POST',
-      body: JSON.stringify({ email }),
+      body: JSON.stringify({
+        email,
+        fields: name ? { name } : undefined,
+      }),
     })
 
     let subscriberId: string | null = null
@@ -82,10 +89,22 @@ async function addToMailerLite(email: string): Promise<void> {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
-    const { email, selfCareRoutines, zipCode } = body as {
+    const {
+      email,
+      name,
+      birthday,
+      numKids,
+      kidsAges,
+      zipCode,
+      selfCareRoutine,
+    } = body as {
       email: string
-      selfCareRoutines?: string[]
+      name?: string
+      birthday?: string
+      numKids?: number | null
+      kidsAges?: string
       zipCode?: string
+      selfCareRoutine?: string
     }
 
     if (!email || !email.includes('@')) {
@@ -101,9 +120,13 @@ export async function POST(req: NextRequest) {
         .upsert(
           {
             email: normalizedEmail,
-            self_care_routines: selfCareRoutines ?? [],
-            zip_code: zipCode ?? null,
-            updated_at: new Date().toISOString(),
+            name:               name?.trim() || null,
+            birthday:           birthday || null,
+            num_kids:           numKids ?? null,
+            kids_ages:          kidsAges?.trim() || null,
+            zip_code:           zipCode?.trim() || null,
+            self_care_routine:  selfCareRoutine || null,
+            updated_at:         new Date().toISOString(),
           },
           { onConflict: 'email', ignoreDuplicates: false }
         )
@@ -117,7 +140,7 @@ export async function POST(req: NextRequest) {
     }
 
     // ── 2. Add to MailerLite waitlist group ──────────────────────────────────
-    await addToMailerLite(normalizedEmail)
+    await addToMailerLite(normalizedEmail, name)
 
     return NextResponse.json({ success: true })
 

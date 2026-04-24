@@ -5,22 +5,23 @@ import Link from 'next/link'
 
 // ── Waitlist Form ─────────────────────────────────────────────────────────────
 const SELF_CARE_OPTIONS = [
-  'Rest', 'Movement', 'Micro Practices', 'Joy', 'Reflection', 'Connection',
+  'Journaling', 'Therapy', 'Exercise', 'Social outings', 'Meditation', 'Other',
 ]
 
-function WaitlistForm({ dark = false }: { dark?: boolean }) {
-  const [step, setStep]       = useState<'email' | 'details' | 'success'>('email')
-  const [email, setEmail]     = useState('')
-  const [selfCare, setSelfCare] = useState<string[]>([])
-  const [zipCode, setZipCode] = useState('')
-  const [isLoading, setIsLoading] = useState(false)
-  const [error, setError]     = useState('')
+const inputClass = 'w-full px-5 py-4 rounded-[15px] font-sans text-sm outline-none transition-all border-2 bg-white border-beige/60 text-chocolate placeholder:text-chocolate/35 focus:border-mustard'
+const labelClass = 'font-display font-semibold text-sm text-chocolate mb-1.5 block'
 
-  function toggleSelfCare(option: string) {
-    setSelfCare(prev =>
-      prev.includes(option) ? prev.filter(o => o !== option) : [...prev, option]
-    )
-  }
+function WaitlistForm({ dark = false }: { dark?: boolean }) {
+  const [step, setStep]           = useState<'email' | 'details' | 'success'>('email')
+  const [email, setEmail]         = useState('')
+  const [name, setName]           = useState('')
+  const [birthday, setBirthday]   = useState('')
+  const [numKids, setNumKids]     = useState('')
+  const [kidsAges, setKidsAges]   = useState('')
+  const [zipCode, setZipCode]     = useState('')
+  const [selfCare, setSelfCare]   = useState('')
+  const [isLoading, setIsLoading] = useState(false)
+  const [error, setError]         = useState('')
 
   function handleEmailSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -36,7 +37,15 @@ function WaitlistForm({ dark = false }: { dark?: boolean }) {
       const res = await fetch('/api/waitlist', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, selfCareRoutines: selfCare, zipCode }),
+        body: JSON.stringify({
+          email,
+          name,
+          birthday,
+          numKids: numKids ? parseInt(numKids, 10) : null,
+          kidsAges,
+          zipCode,
+          selfCareRoutine: selfCare,
+        }),
       })
       if (res.ok) {
         setStep('success')
@@ -62,44 +71,86 @@ function WaitlistForm({ dark = false }: { dark?: boolean }) {
   // ── Step 2: Details ──────────────────────────────────────────────────────────
   if (step === 'details') {
     return (
-      <form onSubmit={handleDetailsSubmit} className="w-full max-w-lg space-y-6 text-left">
+      <form onSubmit={handleDetailsSubmit} className="w-full max-w-lg space-y-4 text-left">
+        <p className="font-serif text-[22px] text-chocolate leading-snug">
+          Thanks! Now to get some info about you.
+        </p>
+
+        {/* Name */}
         <div>
-          <p className="font-display font-semibold text-sm text-chocolate mb-3">
-            What does self-care look like for you?
-          </p>
-          <div className="grid grid-cols-2 gap-2">
-            {SELF_CARE_OPTIONS.map(option => {
-              const isSelected = selfCare.includes(option)
-              return (
-                <button
-                  key={option}
-                  type="button"
-                  onClick={() => toggleSelfCare(option)}
-                  className={`px-4 py-2.5 rounded-[15px] font-sans text-sm text-left transition-all border-2 ${
-                    isSelected
-                      ? 'bg-mustard border-mustard text-white'
-                      : 'bg-white border-beige/60 text-chocolate hover:border-mustard/40'
-                  }`}
-                >
-                  {option}
-                </button>
-              )
-            })}
-          </div>
+          <label className={labelClass}>Your name</label>
+          <input
+            type="text"
+            value={name}
+            onChange={e => setName(e.target.value)}
+            placeholder="First name"
+            className={inputClass}
+          />
         </div>
 
+        {/* Birthday */}
         <div>
-          <p className="font-display font-semibold text-sm text-chocolate mb-2">
-            Your zip code
-          </p>
+          <label className={labelClass}>Birthday</label>
+          <input
+            type="date"
+            value={birthday}
+            onChange={e => setBirthday(e.target.value)}
+            className={inputClass}
+          />
+        </div>
+
+        {/* Number of kids */}
+        <div>
+          <label className={labelClass}>Number of kids</label>
+          <input
+            type="number"
+            value={numKids}
+            onChange={e => setNumKids(e.target.value)}
+            placeholder="e.g. 2"
+            min={0}
+            max={20}
+            className={inputClass}
+          />
+        </div>
+
+        {/* Kids ages */}
+        <div>
+          <label className={labelClass}>Kids&apos; ages</label>
+          <input
+            type="text"
+            value={kidsAges}
+            onChange={e => setKidsAges(e.target.value)}
+            placeholder="e.g. 3, 7, 12"
+            className={inputClass}
+          />
+        </div>
+
+        {/* Zip code */}
+        <div>
+          <label className={labelClass}>Zip code</label>
           <input
             type="text"
             value={zipCode}
             onChange={e => setZipCode(e.target.value)}
             placeholder="e.g. 10001"
             maxLength={10}
-            className="w-full px-5 py-4 rounded-[15px] font-sans text-sm outline-none transition-all border-2 bg-white border-beige/60 text-chocolate placeholder:text-chocolate/35 focus:border-mustard"
+            className={inputClass}
           />
+        </div>
+
+        {/* Self-care routine dropdown */}
+        <div>
+          <label className={labelClass}>Current self-care routine</label>
+          <select
+            value={selfCare}
+            onChange={e => setSelfCare(e.target.value)}
+            className={`${inputClass} appearance-none cursor-pointer`}
+          >
+            <option value="" disabled>Select one</option>
+            {SELF_CARE_OPTIONS.map(opt => (
+              <option key={opt} value={opt}>{opt}</option>
+            ))}
+          </select>
         </div>
 
         {error && <p className="text-sm text-red-400 font-sans">{error}</p>}
