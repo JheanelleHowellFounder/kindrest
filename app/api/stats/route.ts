@@ -115,18 +115,10 @@ export async function GET(req: NextRequest) {
   const commonMood = Array.from(moodCounts.entries())
     .sort((a, b) => b[1] - a[1])[0]?.[0] ?? null
 
-  // ── Active days this month (for calendar) ─────────────────────────────────
-  const now = new Date()
+  // ── All check-in dates as ISO strings (for multi-month calendar) ──────────
   const activeDays = Array.from(
-    new Set(
-      feedback
-        .filter(f => {
-          const d = new Date(f.created_at)
-          return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth()
-        })
-        .map(f => new Date(f.created_at).getDate())
-    )
-  )
+    new Set(feedback.map(f => new Date(f.created_at).toDateString()))
+  ).map(d => new Date(d).toISOString())
 
   // ── Streak: consecutive days with check-ins ending today/yesterday ────────
   const distinctDates = Array.from(

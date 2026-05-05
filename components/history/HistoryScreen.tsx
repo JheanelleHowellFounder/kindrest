@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { BarChart2, Calendar, Star, ChevronRight, TrendingUp, Heart, X, ChevronDown } from 'lucide-react'
+import { BarChart2, Calendar, Star, ChevronRight, ChevronLeft, TrendingUp, Heart, X, ChevronDown } from 'lucide-react'
 import { useAuth } from '@/lib/auth-context'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -138,14 +138,27 @@ export function HistoryScreen() {
     return () => document.removeEventListener('visibilitychange', onVisible)
   }, [userId])
 
-  // Calendar data — current month
-  const today      = new Date()
-  const year       = today.getFullYear()
-  const month      = today.getMonth()
-  const firstDay   = new Date(year, month, 1).getDay()
-  const daysInMonth = new Date(year, month + 1, 0).getDate()
-  const activeDays = stats?.activeDays ?? []
-  const monthLabel = today.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
+  // Calendar data — navigable months, current month by default
+  const today        = new Date()
+  const [calYear, setCalYear]   = useState(today.getFullYear())
+  const [calMonth, setCalMonth] = useState(today.getMonth())
+
+  const firstDay    = new Date(calYear, calMonth, 1).getDay()
+  const daysInMonth = new Date(calYear, calMonth + 1, 0).getDate()
+  const monthLabel  = new Date(calYear, calMonth, 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
+
+  // activeDays is now full ISO date strings — filter to displayed month
+  const activeDays = (stats?.activeDays ?? []).filter((iso: string) => {
+    const d = new Date(iso)
+    return d.getFullYear() === calYear && d.getMonth() === calMonth
+  }).map((iso: string) => new Date(iso).getDate())
+
+  const isCurrentMonth = calYear === today.getFullYear() && calMonth === today.getMonth()
+
+  function goToPrevMonth() {
+    if (calMonth === 0) { setCalYear(y => y - 1); setCalMonth(11) }
+    else setCalMonth(m => m - 1)
+  }
 
   // Derived history data
   const history     = stats?.recentHistory ?? []
@@ -257,7 +270,24 @@ export function HistoryScreen() {
                   <Calendar size={14} className="text-chocolate/60" />
                   <p className="font-display font-semibold text-chocolate text-sm">Activity</p>
                 </div>
-                <p className="text-xs font-display font-semibold text-chocolate/40">{monthLabel}</p>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={goToPrevMonth}
+                    className="w-6 h-6 flex items-center justify-center rounded-full bg-beige/30 active:bg-beige/60 transition-colors"
+                  >
+                    <ChevronLeft size={13} className="text-chocolate/50" />
+                  </button>
+                  <p className="text-xs font-display font-semibold text-chocolate/40 min-w-[90px] text-center">{monthLabel}</p>
+                  {!isCurrentMonth && (
+                    <button
+                      onClick={() => { setCalYear(today.getFullYear()); setCalMonth(today.getMonth()) }}
+                      className="text-[10px] font-display font-semibold text-mustard"
+                    >
+                      Today
+                    </button>
+                  )}
+                  {isCurrentMonth && <div className="w-10" />}
+                </div>
               </div>
 
               <div className="bg-white rounded-2xl p-4 border border-beige/20">
@@ -273,15 +303,15 @@ export function HistoryScreen() {
                   {[...Array(firstDay)].map((_, i) => <div key={`e-${i}`} />)}
                   {[...Array(daysInMonth)].map((_, i) => {
                     const day      = i + 1
-                    const isToday  = day === today.getDate()
+                    const isToday  = isCurrentMonth && day === today.getDate()
                     const isActive = activeDays.includes(day)
                     return (
                       <button
                         key={day}
                         disabled={!isActive}
                         onClick={() => {
-                          const recs  = getRecsForDay(history, year, month, day)
-                          const label = new Date(year, month, day).toLocaleDateString('en-US', {
+                          const recs  = getRecsForDay(history, calYear, calMonth, day)
+                          const label = new Date(calYear, calMonth, day).toLocaleDateString('en-US', {
                             weekday: 'long', month: 'long', day: 'numeric',
                           })
                           openSheet({ label, recs })

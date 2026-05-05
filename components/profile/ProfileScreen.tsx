@@ -408,7 +408,7 @@ function FeedbackSheet({
               placeholder="Tell us anything — what's helping, what's confusing, what you wish existed..."
               rows={5}
               autoFocus
-              className="w-full bg-white rounded-2xl px-4 py-3 border-2 border-beige/40 focus:border-mustard outline-none font-sans text-sm text-chocolate placeholder:text-chocolate/30 transition-colors resize-none"
+              className="w-full bg-white rounded-2xl px-4 py-3 border-2 border-beige/40 focus:border-mustard outline-none font-sans text-[16px] text-chocolate placeholder:text-chocolate/30 transition-colors resize-none"
             />
             <button
               onClick={handleSubmit}
@@ -468,7 +468,7 @@ function UpdateProfileFlow({
       preferred_categories: selectedCategories,
       support_people: cleanPeople,
       updated_at: new Date().toISOString(),
-    })
+    }, { onConflict: 'user_id' })
 
     if (profileError) {
       setSaveError('Something went wrong. Please try again.')
@@ -510,26 +510,26 @@ function UpdateProfileFlow({
     return (
       <div className="min-h-screen bg-cream flex flex-col">
         <ProgressBar back={onClose} />
-        <div className="px-5 mt-6">
+        <div className="px-5 mt-6 overflow-y-auto flex-1 pb-32">
           <h1 className="font-serif text-3xl text-chocolate leading-tight">Where are you right now?</h1>
-          <p className="font-sans text-sm text-chocolate/50 mt-2">Update your motherhood stage</p>
+          <p className="font-sans text-sm text-chocolate/50 mt-2 mb-6">Update your motherhood stage</p>
+          <div className="space-y-2.5">
+            {MOTHERHOOD_STAGES.map(({ value, label, emoji }) => (
+              <button
+                key={value}
+                onClick={() => setSelectedStage(value)}
+                className={`w-full flex items-center gap-3 p-3.5 rounded-xl border-2 text-left transition-all ${
+                  selectedStage === value ? 'border-mustard bg-mustard/5' : 'border-beige/30 bg-white'
+                }`}
+              >
+                <span className="text-xl">{emoji}</span>
+                <span className="font-display font-semibold text-chocolate flex-1">{label}</span>
+                {selectedStage === value && <Check size={16} className="text-mustard" />}
+              </button>
+            ))}
+          </div>
         </div>
-        <div className="px-5 mt-6 space-y-2.5 flex-1">
-          {MOTHERHOOD_STAGES.map(({ value, label, emoji }) => (
-            <button
-              key={value}
-              onClick={() => setSelectedStage(value)}
-              className={`w-full flex items-center gap-3 p-3.5 rounded-xl border-2 text-left transition-all ${
-                selectedStage === value ? 'border-mustard bg-mustard/5' : 'border-beige/30 bg-white'
-              }`}
-            >
-              <span className="text-xl">{emoji}</span>
-              <span className="font-display font-semibold text-chocolate flex-1">{label}</span>
-              {selectedStage === value && <Check size={16} className="text-mustard" />}
-            </button>
-          ))}
-        </div>
-        <div className="px-5 py-6">
+        <div className="fixed bottom-0 left-0 right-0 px-5 pb-8 pt-4 bg-cream border-t border-beige/20">
           <button onClick={() => setStep(2)} className="btn-primary">
             Continue <ChevronRight size={16} className="inline ml-1" />
           </button>
@@ -543,29 +543,29 @@ function UpdateProfileFlow({
     return (
       <div className="min-h-screen bg-cream flex flex-col">
         <ProgressBar back={() => setStep(1)} />
-        <div className="px-5 mt-6">
+        <div className="px-5 mt-6 overflow-y-auto flex-1 pb-32">
           <h1 className="font-serif text-2xl text-chocolate leading-tight">How much time do you have these days?</h1>
-          <p className="font-sans text-sm text-chocolate/50 mt-2">On most days...</p>
+          <p className="font-sans text-sm text-chocolate/50 mt-2 mb-6">On most days...</p>
+          <div className="space-y-3">
+            {TIME_OPTIONS.map(opt => (
+              <button
+                key={opt.value}
+                onClick={() => setSelectedTime(opt.value)}
+                className={`w-full flex items-center gap-4 p-4 rounded-2xl border-2 text-left transition-all ${
+                  selectedTime === opt.value ? 'border-mustard bg-mustard/5' : 'border-beige/30 bg-white'
+                }`}
+              >
+                <span className="text-2xl">{opt.emoji}</span>
+                <div>
+                  <p className="font-display font-semibold text-chocolate">{opt.label}</p>
+                  <p className="font-sans text-xs text-chocolate/50 mt-0.5">{opt.sub}</p>
+                </div>
+                {selectedTime === opt.value && <Check size={16} className="text-mustard ml-auto" />}
+              </button>
+            ))}
+          </div>
         </div>
-        <div className="px-5 mt-6 space-y-3 flex-1">
-          {TIME_OPTIONS.map(opt => (
-            <button
-              key={opt.value}
-              onClick={() => setSelectedTime(opt.value)}
-              className={`w-full flex items-center gap-4 p-4 rounded-2xl border-2 text-left transition-all ${
-                selectedTime === opt.value ? 'border-mustard bg-mustard/5' : 'border-beige/30 bg-white'
-              }`}
-            >
-              <span className="text-2xl">{opt.emoji}</span>
-              <div>
-                <p className="font-display font-semibold text-chocolate">{opt.label}</p>
-                <p className="font-sans text-xs text-chocolate/50 mt-0.5">{opt.sub}</p>
-              </div>
-              {selectedTime === opt.value && <Check size={16} className="text-mustard ml-auto" />}
-            </button>
-          ))}
-        </div>
-        <div className="px-5 py-6">
+        <div className="fixed bottom-0 left-0 right-0 px-5 pb-8 pt-4 bg-cream border-t border-beige/20">
           <button onClick={() => setStep(3)} disabled={!selectedTime} className="btn-primary disabled:opacity-40">
             Continue <ChevronRight size={16} className="inline ml-1" />
           </button>
@@ -579,11 +579,9 @@ function UpdateProfileFlow({
     return (
       <div className="min-h-screen bg-cream flex flex-col">
         <ProgressBar back={() => setStep(2)} />
-        <div className="px-5 mt-6">
+        <div className="px-5 mt-6 overflow-y-auto flex-1 pb-32">
           <h1 className="font-serif text-2xl text-chocolate leading-tight">What helps you feel like yourself?</h1>
-          <p className="font-sans text-sm text-chocolate/50 mt-2">Select all that resonate.</p>
-        </div>
-        <div className="px-5 mt-6 flex-1">
+          <p className="font-sans text-sm text-chocolate/50 mt-2 mb-6">Select all that resonate.</p>
           <div className="grid grid-cols-2 gap-3">
             {CATEGORIES.map(({ value, emoji }) => {
               const isSelected = selectedCategories.includes(value)
@@ -604,7 +602,7 @@ function UpdateProfileFlow({
             })}
           </div>
         </div>
-        <div className="px-5 py-6">
+        <div className="fixed bottom-0 left-0 right-0 px-5 pb-8 pt-4 bg-cream border-t border-beige/20">
           <button onClick={() => setStep(4)} className="btn-primary">
             Continue <ChevronRight size={16} className="inline ml-1" />
           </button>
@@ -618,52 +616,52 @@ function UpdateProfileFlow({
     return (
       <div className="min-h-screen bg-cream flex flex-col">
         <ProgressBar back={() => setStep(3)} />
-        <div className="px-5 mt-6">
+        <div className="px-5 mt-6 overflow-y-auto flex-1 pb-40">
           <h1 className="font-serif text-2xl text-chocolate leading-tight">Who&apos;s in your corner?</h1>
-          <p className="font-sans text-sm text-chocolate/50 mt-2">Update your support circle.</p>
-        </div>
-        <div className="px-5 mt-6 flex-1 space-y-3">
-          {supportPeople.map((person, idx) => (
-            <div key={idx} className="bg-white rounded-2xl p-4 border border-beige/20 space-y-2">
-              <div className="flex items-center justify-between">
-                <p className="font-display font-semibold text-xs text-chocolate/50 uppercase tracking-wide">
-                  Person {idx + 1}
-                </p>
-                {idx > 0 && (
-                  <button
-                    onClick={() => setSupportPeople(prev => prev.filter((_, i) => i !== idx))}
-                    className="text-chocolate/30"
-                  >
-                    <X size={14} />
-                  </button>
-                )}
+          <p className="font-sans text-sm text-chocolate/50 mt-2 mb-6">Update your support circle.</p>
+          <div className="space-y-3">
+            {supportPeople.map((person, idx) => (
+              <div key={idx} className="bg-white rounded-2xl p-4 border border-beige/20 space-y-2">
+                <div className="flex items-center justify-between">
+                  <p className="font-display font-semibold text-xs text-chocolate/50 uppercase tracking-wide">
+                    Person {idx + 1}
+                  </p>
+                  {idx > 0 && (
+                    <button
+                      onClick={() => setSupportPeople(prev => prev.filter((_, i) => i !== idx))}
+                      className="text-chocolate/30"
+                    >
+                      <X size={14} />
+                    </button>
+                  )}
+                </div>
+                <input
+                  type="text"
+                  value={person.name}
+                  onChange={e => setSupportPeople(prev => prev.map((p, i) => i === idx ? { ...p, name: e.target.value } : p))}
+                  placeholder="Their name (e.g., Sarah, Mom)"
+                  className="w-full bg-cream rounded-xl px-3 py-2.5 font-sans text-[16px] text-chocolate placeholder:text-chocolate/30 outline-none border border-beige/20 focus:border-mustard transition-colors"
+                />
+                <input
+                  type="text"
+                  value={person.relationship}
+                  onChange={e => setSupportPeople(prev => prev.map((p, i) => i === idx ? { ...p, relationship: e.target.value } : p))}
+                  placeholder="Relationship (e.g., My sister, Therapist)"
+                  className="w-full bg-cream rounded-xl px-3 py-2.5 font-sans text-[16px] text-chocolate placeholder:text-chocolate/30 outline-none border border-beige/20 focus:border-mustard transition-colors"
+                />
               </div>
-              <input
-                type="text"
-                value={person.name}
-                onChange={e => setSupportPeople(prev => prev.map((p, i) => i === idx ? { ...p, name: e.target.value } : p))}
-                placeholder="Their name (e.g., Sarah, Mom)"
-                className="w-full bg-cream rounded-xl px-3 py-2.5 font-sans text-sm text-chocolate placeholder:text-chocolate/30 outline-none border border-beige/20 focus:border-mustard transition-colors"
-              />
-              <input
-                type="text"
-                value={person.relationship}
-                onChange={e => setSupportPeople(prev => prev.map((p, i) => i === idx ? { ...p, relationship: e.target.value } : p))}
-                placeholder="Relationship (e.g., My sister, Therapist)"
-                className="w-full bg-cream rounded-xl px-3 py-2.5 font-sans text-sm text-chocolate placeholder:text-chocolate/30 outline-none border border-beige/20 focus:border-mustard transition-colors"
-              />
-            </div>
-          ))}
-          {supportPeople.length < 3 && (
-            <button
-              onClick={() => setSupportPeople(prev => [...prev, { name: '', relationship: '' }])}
-              className="text-sm text-chocolate/50 font-sans flex items-center gap-1.5"
-            >
-              + Add another person
-            </button>
-          )}
+            ))}
+            {supportPeople.length < 3 && (
+              <button
+                onClick={() => setSupportPeople(prev => [...prev, { name: '', relationship: '' }])}
+                className="text-sm text-mustard font-display font-semibold flex items-center gap-1.5"
+              >
+                + Add another person
+              </button>
+            )}
+          </div>
         </div>
-        <div className="px-5 py-6 space-y-2">
+        <div className="fixed bottom-0 left-0 right-0 px-5 pb-8 pt-4 bg-cream border-t border-beige/20 space-y-2">
           {saveError && <p className="text-sm text-red-400 font-sans text-center">{saveError}</p>}
           <button
             onClick={handleSave}
