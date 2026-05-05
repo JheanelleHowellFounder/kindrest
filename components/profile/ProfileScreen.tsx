@@ -508,7 +508,7 @@ function UpdateProfileFlow({
   // ── Step 1 — Motherhood Stage ─────────────────────────────────────────────
   if (step === 1) {
     return (
-      <div className="min-h-screen bg-cream flex flex-col">
+      <div className="fixed inset-0 z-[55] bg-cream flex flex-col">
         <ProgressBar back={onClose} />
         <div className="px-5 mt-6 overflow-y-auto flex-1 pb-32">
           <h1 className="font-serif text-3xl text-chocolate leading-tight">Where are you right now?</h1>
@@ -529,7 +529,7 @@ function UpdateProfileFlow({
             ))}
           </div>
         </div>
-        <div className="fixed bottom-0 left-0 right-0 px-5 pb-8 pt-4 bg-cream border-t border-beige/20">
+        <div className="fixed bottom-0 left-0 right-0 z-[56] px-5 pb-8 pt-4 bg-cream border-t border-beige/20">
           <button onClick={() => setStep(2)} className="btn-primary">
             Continue <ChevronRight size={16} className="inline ml-1" />
           </button>
@@ -541,7 +541,7 @@ function UpdateProfileFlow({
   // ── Step 2 — Time Available ───────────────────────────────────────────────
   if (step === 2) {
     return (
-      <div className="min-h-screen bg-cream flex flex-col">
+      <div className="fixed inset-0 z-[55] bg-cream flex flex-col">
         <ProgressBar back={() => setStep(1)} />
         <div className="px-5 mt-6 overflow-y-auto flex-1 pb-32">
           <h1 className="font-serif text-2xl text-chocolate leading-tight">How much time do you have these days?</h1>
@@ -565,7 +565,7 @@ function UpdateProfileFlow({
             ))}
           </div>
         </div>
-        <div className="fixed bottom-0 left-0 right-0 px-5 pb-8 pt-4 bg-cream border-t border-beige/20">
+        <div className="fixed bottom-0 left-0 right-0 z-[56] px-5 pb-8 pt-4 bg-cream border-t border-beige/20">
           <button onClick={() => setStep(3)} disabled={!selectedTime} className="btn-primary disabled:opacity-40">
             Continue <ChevronRight size={16} className="inline ml-1" />
           </button>
@@ -577,7 +577,7 @@ function UpdateProfileFlow({
   // ── Step 3 — Categories ───────────────────────────────────────────────────
   if (step === 3) {
     return (
-      <div className="min-h-screen bg-cream flex flex-col">
+      <div className="fixed inset-0 z-[55] bg-cream flex flex-col">
         <ProgressBar back={() => setStep(2)} />
         <div className="px-5 mt-6 overflow-y-auto flex-1 pb-32">
           <h1 className="font-serif text-2xl text-chocolate leading-tight">What helps you feel like yourself?</h1>
@@ -602,7 +602,7 @@ function UpdateProfileFlow({
             })}
           </div>
         </div>
-        <div className="fixed bottom-0 left-0 right-0 px-5 pb-8 pt-4 bg-cream border-t border-beige/20">
+        <div className="fixed bottom-0 left-0 right-0 z-[56] px-5 pb-8 pt-4 bg-cream border-t border-beige/20">
           <button onClick={() => setStep(4)} className="btn-primary">
             Continue <ChevronRight size={16} className="inline ml-1" />
           </button>
@@ -614,7 +614,7 @@ function UpdateProfileFlow({
   // ── Step 4 — Support Circle ───────────────────────────────────────────────
   if (step === 4) {
     return (
-      <div className="min-h-screen bg-cream flex flex-col">
+      <div className="fixed inset-0 z-[55] bg-cream flex flex-col">
         <ProgressBar back={() => setStep(3)} />
         <div className="px-5 mt-6 overflow-y-auto flex-1 pb-40">
           <h1 className="font-serif text-2xl text-chocolate leading-tight">Who&apos;s in your corner?</h1>
@@ -661,7 +661,7 @@ function UpdateProfileFlow({
             )}
           </div>
         </div>
-        <div className="fixed bottom-0 left-0 right-0 px-5 pb-8 pt-4 bg-cream border-t border-beige/20 space-y-2">
+        <div className="fixed bottom-0 left-0 right-0 z-[56] px-5 pb-8 pt-4 bg-cream border-t border-beige/20 space-y-2">
           {saveError && <p className="text-sm text-red-400 font-sans text-center">{saveError}</p>}
           <button
             onClick={handleSave}

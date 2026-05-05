@@ -29,7 +29,7 @@ interface LiveStats {
   topTechniques: { title: string; usedCount: number; likedCount: number; category: string }[]
   recentHistory: { rec_id: number; title: string; rating: number; mood: string; category: string; created_at: string }[]
   commonMood: string | null
-  activeDays: number[]
+  activeDays: string[]
   preferredCategories: string[]
 }
 
