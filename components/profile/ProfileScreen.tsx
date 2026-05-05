@@ -43,13 +43,18 @@ const TIME_OPTIONS = [
 ]
 
 const CATEGORIES = [
-  { value: 'Rest',            emoji: '🌙' },
-  { value: 'Micro Practices', emoji: '✨' },
-  { value: 'Joy',             emoji: '💛' },
-  { value: 'Movement',        emoji: '🌿' },
-  { value: 'Reflection',      emoji: '🪞' },
-  { value: 'Connection',      emoji: '💬' },
+  { value: 'Rest',            label: 'Rest & stillness',         emoji: '🌙' },
+  { value: 'Micro Practices', label: 'Small things that help',   emoji: '✨' },
+  { value: 'Joy',             label: 'Doing what lights me up',  emoji: '💛' },
+  { value: 'Movement',        label: 'Moving my body',           emoji: '🌿' },
+  { value: 'Reflection',      label: 'Checking in with myself',  emoji: '🪞' },
+  { value: 'Connection',      label: 'Time with people I trust', emoji: '💬' },
 ]
+
+// Human-readable labels for displaying saved preferences
+const CATEGORY_LABELS: Record<string, string> = Object.fromEntries(
+  CATEGORIES.map(c => [c.value, c.label])
+)
 
 export function ProfileScreen() {
   const { user: authUser, signOut } = useAuth()
@@ -241,7 +246,7 @@ export function ProfileScreen() {
                 <div>
                   <p className="text-[10px] text-chocolate/40 font-sans uppercase tracking-wide">What helps you</p>
                   <p className="font-display font-semibold text-sm text-chocolate">
-                    {savedProfile.preferred_categories.join(', ')}
+                    {savedProfile.preferred_categories.map(c => CATEGORY_LABELS[c] ?? c).join(', ')}
                   </p>
                 </div>
               </div>
@@ -583,7 +588,7 @@ function UpdateProfileFlow({
           <h1 className="font-serif text-2xl text-chocolate leading-tight">What helps you feel like yourself?</h1>
           <p className="font-sans text-sm text-chocolate/50 mt-2 mb-6">Select all that resonate.</p>
           <div className="grid grid-cols-2 gap-3">
-            {CATEGORIES.map(({ value, emoji }) => {
+            {CATEGORIES.map(({ value, label, emoji }) => {
               const isSelected = selectedCategories.includes(value)
               return (
                 <button
@@ -594,8 +599,8 @@ function UpdateProfileFlow({
                   }`}
                 >
                   <span className="text-2xl">{emoji}</span>
-                  <span className={`font-display font-semibold text-sm ${isSelected ? 'text-cream' : 'text-chocolate'}`}>
-                    {value}
+                  <span className={`font-display font-semibold text-xs text-center leading-tight ${isSelected ? 'text-cream' : 'text-chocolate'}`}>
+                    {label}
                   </span>
                 </button>
               )
