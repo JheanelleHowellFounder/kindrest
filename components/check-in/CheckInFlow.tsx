@@ -32,8 +32,8 @@ const MOOD_TO_LABEL: Record<string, string> = {
   thriving:    'Great',
   good:        'Good',
   okay:        'Okay',
-  struggling:  'Off',
-  overwhelmed: 'Struggling',
+  struggling:  'Struggling',
+  overwhelmed: 'Off',
 }
 
 export function CheckInFlow() {
@@ -376,7 +376,7 @@ export function CheckInFlow() {
                       <div className={`mt-3 pt-3 border-t ${isPrimary ? 'border-white/10' : 'border-beige/30'}`}>
                         {fb ? (
                           <p className={`text-xs font-sans ${isPrimary ? 'text-white/50' : 'text-chocolate/40'}`}>
-                            {fb === 1 ? 'Skipped' : fb === 2 ? '✓ Saved' : '✓ Done — nice work!'}
+                            {fb === 1 ? 'Not for me' : fb === 2 ? '✓ Saved for later' : '✓ I did this!'}
                           </p>
                         ) : (
                           <div className="flex items-center gap-2">
@@ -385,19 +385,19 @@ export function CheckInFlow() {
                             </p>
                             <FeedbackButton
                               icon={<ThumbsDown size={13} />}
-                              label="Skip"
+                              label="Not for me"
                               onClick={() => sendFeedback(rec, 1)}
                               isPrimary={isPrimary}
                             />
                             <FeedbackButton
                               icon={<Bookmark size={13} />}
-                              label="Save"
+                              label="Save for later"
                               onClick={() => sendFeedback(rec, 2)}
                               isPrimary={isPrimary}
                             />
                             <FeedbackButton
                               icon={<CheckCircle2 size={13} />}
-                              label="Did it"
+                              label="I did this"
                               onClick={() => sendFeedback(rec, 3)}
                               isPrimary={isPrimary}
                               highlight

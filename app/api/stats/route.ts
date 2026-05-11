@@ -126,12 +126,18 @@ export async function GET(req: NextRequest) {
   ).map(d => new Date(d)).sort((a, b) => b.getTime() - a.getTime())
 
   let streakDays = 0
-  const todayStr = new Date().toDateString()
-  const yesterdayStr = new Date(Date.now() - 86400000).toDateString()
-  const mostRecent = distinctDates[0]?.toDateString()
+  const todayStr        = new Date().toDateString()
+  const yesterdayStr    = new Date(Date.now() - 86400000).toDateString()
+  const twoDaysAgoStr   = new Date(Date.now() - 86400000 * 2).toDateString()
+  const mostRecent      = distinctDates[0]?.toDateString()
 
-  if (mostRecent === todayStr || mostRecent === yesterdayStr) {
-    let cursor = mostRecent === todayStr ? new Date() : new Date(Date.now() - 86400000)
+  // 2-day grace window: streak stays alive if last check-in was today, yesterday, or 2 days ago
+  if (mostRecent === todayStr || mostRecent === yesterdayStr || mostRecent === twoDaysAgoStr) {
+    let cursor = mostRecent === todayStr
+      ? new Date()
+      : mostRecent === yesterdayStr
+      ? new Date(Date.now() - 86400000)
+      : new Date(Date.now() - 86400000 * 2)
     for (const d of distinctDates) {
       if (d.toDateString() === cursor.toDateString()) {
         streakDays++

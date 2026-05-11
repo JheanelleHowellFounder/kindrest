@@ -10,7 +10,7 @@ const MOOD_EMOJI: Record<string, string> = {
   overwhelmed: '😢', struggling: '😔', okay: '😐', good: '😊', thriving: '✨',
 }
 
-const RATING_LABEL: Record<number, string> = { 1: 'Skipped', 2: 'Saved', 3: 'Did it ✓' }
+const RATING_LABEL: Record<number, string> = { 1: 'Not for me', 2: 'Saved', 3: 'Did it ✓' }
 
 const CATEGORY_EMOJI: Record<string, string> = {
   'Rest':            '🌙',
