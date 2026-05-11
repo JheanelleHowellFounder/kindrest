@@ -1,10 +1,11 @@
 'use client'
 
 import Link from 'next/link'
-import { Sparkles, Heart, Lightbulb, ChevronRight } from 'lucide-react'
+import { Sparkles, Heart, Lightbulb, ChevronRight, MessageCircle } from 'lucide-react'
 import { useState, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/auth-context'
+import { FeedbackSheet } from '@/components/shared/FeedbackSheet'
 
 interface LiveStats {
   totalCheckins: number
@@ -33,8 +34,9 @@ export function HomeScreen() {
   const userId = user?.id ?? 'demo-user-001'
   const firstName = user?.user_metadata?.name?.split(' ')[0] ?? 'there'
 
-  const [stats, setStats] = useState<LiveStats | null>(null)
+  const [stats, setStats]           = useState<LiveStats | null>(null)
   const [statsLoaded, setStatsLoaded] = useState(false)
+  const [showFeedback, setShowFeedback] = useState(false)
 
   // Redirect unauthenticated users to onboarding
   useEffect(() => {
@@ -205,7 +207,24 @@ export function HomeScreen() {
             ♡ You&apos;re doing amazing
           </p>
         </div>
+
+        {/* Feedback */}
+        <button
+          onClick={() => setShowFeedback(true)}
+          className="w-full flex items-center justify-center gap-2 py-3 text-sm text-chocolate/50 font-sans border border-beige/40 rounded-2xl hover:border-mustard/40 transition-colors"
+        >
+          <MessageCircle size={14} className="text-chocolate/40" />
+          Share feedback
+        </button>
       </div>
+
+      {showFeedback && (
+        <FeedbackSheet
+          userId={userId}
+          email={user?.email ?? ''}
+          onClose={() => setShowFeedback(false)}
+        />
+      )}
     </div>
   )
 }
