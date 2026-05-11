@@ -64,6 +64,7 @@ export async function POST(req: NextRequest) {
     let feedbackWeights: { rec_id: number; avg_rating: number; usage_count: number }[] = []
     let userPrefs: { preferred_categories?: string[]; avoided_categories?: string[]; preferred_effort?: string } = {}
     let recentlyUsedIds: number[] = []
+    let supportPeople: { name: string; relationship: string }[] = []
 
     if (userId && supabaseAdmin) {
       // Aggregate past feedback for this user
@@ -96,14 +97,26 @@ export async function POST(req: NextRequest) {
         recentlyUsedIds = Array.from(seen)
       }
 
-      // Load user preference profile
-      const { data: profile } = await supabaseAdmin
-        .from('user_preference_profile')
-        .select('preferred_categories, avoided_categories, preferred_effort')
-        .eq('user_id', userId)
-        .single()
+      // Load user preference profile and support circle in parallel
+      const [{ data: profile }, { data: userProfile }] = await Promise.all([
+        supabaseAdmin
+          .from('user_preference_profile')
+          .select('preferred_categories, avoided_categories, preferred_effort')
+          .eq('user_id', userId)
+          .single(),
+        supabaseAdmin
+          .from('user_profiles')
+          .select('support_people')
+          .eq('user_id', userId)
+          .single(),
+      ])
 
       if (profile) userPrefs = profile
+      if (userProfile?.support_people?.length) {
+        supportPeople = userProfile.support_people.filter(
+          (p: { name: string; relationship: string }) => p.name?.trim()
+        )
+      }
     }
 
     // ── Step 3: Score and pick top 3 ────────────────────────────────────────
@@ -133,6 +146,10 @@ export async function POST(req: NextRequest) {
         ? `This user tends to respond well to: ${userPrefs.preferred_categories.join(', ')}.`
         : ''
 
+      const supportText = supportPeople.length > 0
+        ? `Her support circle: ${supportPeople.map(p => `${p.name} (${p.relationship})`).join(', ')}.`
+        : ''
+
       try {
         const response = await anthropic.messages.create({
           model: 'claude-3-5-haiku-20241022',
@@ -148,6 +165,7 @@ ${indicatorText}
 Her regulation phase is: ${regulationPhase}.
 She has ${timeAvailable.replace('_', ' ')} available.
 ${prefText}
+${supportText}
 
 These are the care suggestions prepared for her:
 ${recList}
@@ -155,6 +173,7 @@ ${recList}
 Write exactly 2 warm sentences (40–55 words total):
 1. Acknowledge where she is right now — name it gently without minimising.
 2. Invite her into the care kit — one sentence that makes it feel approachable, not prescriptive.
+If any recommendation involves actively reaching out to or connecting with a specific person (texting, calling, making plans, expressing appreciation to someone), you may naturally reference a person from her support circle by name. For reflective or internal recs (like "remember someone who survived this"), keep the message general.
 Do not list the recommendations. Do not use quotes.`,
           }],
         })
