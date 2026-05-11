@@ -14,7 +14,7 @@ const RATING_LABEL: Record<number, string> = { 1: 'Skipped', 2: 'Saved', 3: 'Did
 
 const CATEGORY_EMOJI: Record<string, string> = {
   'Rest':            '🌙',
-  'Micro Practices': '✨',
+  'Micro Practice':  '✨',
   'Joy':             '💛',
   'Movement':        '🌿',
   'Reflection':      '🪞',

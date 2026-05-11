@@ -44,7 +44,7 @@ const TIME_OPTIONS = [
 
 const CATEGORIES = [
   { value: 'Rest',            label: 'Rest & stillness',         emoji: '🌙' },
-  { value: 'Micro Practices', label: 'Small things that help',   emoji: '✨' },
+  { value: 'Micro Practice',  label: 'Small things that help',   emoji: '✨' },
   { value: 'Joy',             label: 'Doing what lights me up',  emoji: '💛' },
   { value: 'Movement',        label: 'Moving my body',           emoji: '🌿' },
   { value: 'Reflection',      label: 'Checking in with myself',  emoji: '🪞' },
