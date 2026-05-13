@@ -88,10 +88,10 @@ export async function POST(req: NextRequest) {
           usage_count: count,
         }))
 
-        // Recently used (last 5 unique rec ids)
+        // Recently used (last 15 unique rec ids)
         const seen = new Set<number>()
         for (const f of feedback) {
-          if (seen.size >= 5) break
+          if (seen.size >= 15) break
           seen.add(f.rec_id)
         }
         recentlyUsedIds = Array.from(seen)

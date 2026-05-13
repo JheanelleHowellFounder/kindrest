@@ -33,7 +33,7 @@ const MOOD_TO_LABEL: Record<string, string> = {
   good:        'Good',
   okay:        'Okay',
   struggling:  'Struggling',
-  overwhelmed: 'Off',
+  overwhelmed: 'Overwhelmed',
 }
 
 export function CheckInFlow() {
@@ -361,9 +361,11 @@ export function CheckInFlow() {
                           <h3 className={`font-display font-semibold text-base ${isPrimary ? 'text-white' : 'text-chocolate'}`}>
                             {rec.title}
                           </h3>
-                          <p className={`text-sm mt-1 font-sans ${isPrimary ? 'text-white/70' : 'text-chocolate/60'}`}>
-                            {rec.description}
-                          </p>
+                          {isPrimary && (
+                            <p className="text-sm mt-1 font-sans text-white/70">
+                              {rec.description}
+                            </p>
+                          )}
                         </div>
                         {isPrimary && (
                           <span className="text-xs bg-mustard text-white px-2 py-0.5 rounded-full font-display font-semibold whitespace-nowrap">
