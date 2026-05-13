@@ -11,6 +11,18 @@ interface LiveStats {
   totalCheckins: number
   streakDays: number
   topTechniques: { title: string; usedCount: number; likedCount: number }[]
+  activeDays: string[]
+}
+
+function lastCheckinText(activeDays: string[]): string | null {
+  if (!activeDays.length) return null
+  const latest = activeDays
+    .map(d => new Date(d).getTime())
+    .sort((a, b) => b - a)[0]
+  const days = Math.floor((Date.now() - latest) / 86400000)
+  if (days === 0) return 'Today'
+  if (days === 1) return 'Yesterday'
+  return `${days} days ago`
 }
 
 const QUOTE_POOL = [
@@ -159,6 +171,11 @@ export function HomeScreen() {
                   <p className="font-display font-bold text-3xl text-chocolate">
                     {stats?.streakDays ?? '—'}
                   </p>
+                  {stats?.activeDays && (
+                    <p className="text-[10px] text-chocolate/40 font-sans mt-1">
+                      Last: {lastCheckinText(stats.activeDays)}
+                    </p>
+                  )}
                 </div>
               </div>
 
@@ -167,7 +184,13 @@ export function HomeScreen() {
                 <p className="text-[10px] font-display font-semibold text-chocolate/40 tracking-widest uppercase mb-2">
                   Top Techniques For You
                 </p>
-                {stats && stats.topTechniques.length > 0 ? (
+                {!statsLoaded ? (
+                  <div className="space-y-2">
+                    {[0, 1, 2].map(i => (
+                      <div key={i} className="h-14 bg-beige/20 rounded-xl animate-pulse" />
+                    ))}
+                  </div>
+                ) : stats && stats.topTechniques.length > 0 ? (
                   <div className="space-y-2">
                     {stats.topTechniques.slice(0, 3).map((tech, i) => (
                       <div key={i} className="flex items-center justify-between bg-white rounded-xl p-3 border border-beige/20">
@@ -187,10 +210,13 @@ export function HomeScreen() {
                     ))}
                   </div>
                 ) : (
-                  <div className="space-y-2">
-                    {[0, 1, 2].map(i => (
-                      <div key={i} className="h-14 bg-beige/20 rounded-xl animate-pulse" />
-                    ))}
+                  <div className="bg-mustard/5 border border-mustard/10 rounded-xl p-4 text-center">
+                    <p className="text-sm font-display font-semibold text-chocolate/60">
+                      Your patterns are building
+                    </p>
+                    <p className="text-[11px] text-chocolate/40 font-sans mt-1 leading-relaxed">
+                      Save or complete a recommendation and it will show up here.
+                    </p>
                   </div>
                 )}
               </div>
