@@ -198,16 +198,6 @@ export function HomeScreen() {
           </>
         )}
 
-        {/* Quote card at bottom */}
-        <div className="bg-mustard/5 border border-mustard/10 rounded-2xl p-4">
-          <p className="font-serif text-sm text-chocolate/80 italic leading-relaxed">
-            {quote}
-          </p>
-          <p className="text-xs text-mustard font-display font-semibold mt-2">
-            ♡ You&apos;re doing amazing
-          </p>
-        </div>
-
         {/* Feedback */}
         <button
           onClick={() => setShowFeedback(true)}

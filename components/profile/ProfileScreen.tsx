@@ -286,11 +286,6 @@ export function ProfileScreen() {
           </div>
         )}
 
-        {/* Update CTA */}
-        <button onClick={() => setView('update')} className="btn-primary">
-          Update Your Profile
-        </button>
-
         {/* Feedback */}
         <button
           onClick={() => setShowFeedback(true)}

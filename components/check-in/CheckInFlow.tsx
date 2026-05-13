@@ -313,6 +313,20 @@ export function CheckInFlow() {
                 Take a moment
               </h1>
 
+              {/* Mood + time context pill */}
+              {mood && timeAvailable && !isLoading && (
+                <div className="flex items-center gap-2 mt-2">
+                  <span className="inline-flex items-center gap-1.5 bg-beige/40 rounded-full px-3 py-1 text-xs font-display font-semibold text-chocolate/70 capitalize">
+                    {mood === 'overwhelmed' ? '😢' : mood === 'struggling' ? '😔' : mood === 'okay' ? '😐' : mood === 'good' ? '😊' : '✨'}
+                    {mood}
+                  </span>
+                  <span className="text-chocolate/30 text-xs">·</span>
+                  <span className="inline-flex items-center gap-1.5 bg-beige/40 rounded-full px-3 py-1 text-xs font-display font-semibold text-chocolate/70">
+                    {timeAvailable.replace('_', ' ').replace('plus', '+')}
+                  </span>
+                </div>
+              )}
+
               {/* Claude's warm message */}
               {isLoading ? (
                 <div className="mt-3 flex items-center gap-2">

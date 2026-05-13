@@ -170,7 +170,7 @@ ${supportText}
 These are the care suggestions prepared for her:
 ${recList}
 
-Write exactly 2 warm sentences (40–55 words total):
+Write exactly 2 warm sentences (55–70 words total):
 1. Acknowledge where she is right now — name it gently without minimising.
 2. Invite her into the care kit — one sentence that makes it feel approachable, not prescriptive.
 If any recommendation involves actively reaching out to or connecting with a specific person (texting, calling, making plans, expressing appreciation to someone), you may naturally reference a person from her support circle by name. For reflective or internal recs (like "remember someone who survived this"), keep the message general.

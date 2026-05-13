@@ -66,6 +66,22 @@ function getBestCategory(history: HistoryItem[]): string | null {
   return sorted[0]?.[0] ?? null
 }
 
+/** Derive top engaged categories from history (Did it = 2pts, Saved = 1pt) */
+function getTopEngagedCategories(history: HistoryItem[]): string[] {
+  const scores: Record<string, number> = {}
+  for (const item of history) {
+    if (!item.category) continue
+    if (!scores[item.category]) scores[item.category] = 0
+    if (item.rating === 3) scores[item.category] += 2
+    else if (item.rating === 2) scores[item.category] += 1
+  }
+  return Object.entries(scores)
+    .filter(([, score]) => score > 0)
+    .sort((a, b) => b[1] - a[1])
+    .map(([cat]) => cat)
+    .slice(0, 4)
+}
+
 /** Group history items by category, sorted by engagement score desc */
 function groupByCategory(
   history: HistoryItem[],
@@ -243,25 +259,29 @@ export function HistoryScreen() {
               )}
             </div>
 
-            {/* What You Respond To */}
-            {stats?.preferredCategories && stats.preferredCategories.length > 0 && (
-              <div>
-                <div className="flex items-center gap-2 mb-2">
-                  <span className="text-sm">💝</span>
-                  <p className="font-display font-semibold text-chocolate text-sm">What You Respond To</p>
+            {/* What You Respond To — derived from actual engagement, not profile settings */}
+            {(() => {
+              const engagedCats = getTopEngagedCategories(history)
+              if (engagedCats.length === 0) return null
+              return (
+                <div>
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="text-sm">💝</span>
+                    <p className="font-display font-semibold text-chocolate text-sm">What You Respond To</p>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {engagedCats.map((cat, i) => (
+                      <span
+                        key={i}
+                        className="bg-mustard/10 text-chocolate border border-mustard/20 text-xs font-display font-semibold px-3 py-1.5 rounded-full"
+                      >
+                        {CATEGORY_EMOJI[cat] ?? ''} {cat}
+                      </span>
+                    ))}
+                  </div>
                 </div>
-                <div className="flex flex-wrap gap-2">
-                  {stats.preferredCategories.map((cat, i) => (
-                    <span
-                      key={i}
-                      className="bg-mustard/10 text-chocolate border border-mustard/20 text-xs font-display font-semibold px-3 py-1.5 rounded-full"
-                    >
-                      {CATEGORY_EMOJI[cat] ?? ''} {cat}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            )}
+              )
+            })()}
 
             {/* Activity Calendar */}
             <div>

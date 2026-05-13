@@ -410,7 +410,7 @@ export function LandingPage() {
           <div className="flex flex-col sm:flex-row items-center justify-center gap-5 sm:gap-0 sm:divide-x sm:divide-white/10">
             {[
               { value: '5', label: 'Regulation phases tracked' },
-              { value: '45+', label: 'Personalized care recommendations' },
+              { value: '65+', label: 'Personalized care recommendations' },
               { value: '6', label: 'Stages of motherhood supported' },
             ].map(item => (
               <div key={item.label} className="flex items-center gap-4 sm:px-12">
