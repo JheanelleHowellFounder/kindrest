@@ -1,7 +1,7 @@
 import type { Metadata, Viewport } from 'next'
 import './globals.css'
 import { AuthProvider } from '@/lib/auth-context'
-import { SidebarNav } from '@/components/layout/SidebarNav'
+import { AppShell } from '@/components/layout/AppShell'
 
 export const metadata: Metadata = {
   title: 'Kindrest',
@@ -28,13 +28,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body>
         <AuthProvider>
-          {/* Desktop: sidebar + content side by side. Mobile: just the shell. */}
-          <SidebarNav />
-          <main className="md:ml-[240px] md:flex md:justify-center md:min-h-screen md:bg-[#e8e0d8]">
-            <div className="mobile-shell">
-              {children}
-            </div>
-          </main>
+          <AppShell>{children}</AppShell>
         </AuthProvider>
       </body>
     </html>
