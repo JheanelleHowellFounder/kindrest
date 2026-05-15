@@ -37,6 +37,15 @@ html, body {
   }
 }
 
+/* Desktop sidebar layout */
+@media (min-width: 768px) {
+  .mobile-shell {
+    box-shadow: 0 0 80px rgba(48, 33, 26, 0.12);
+    min-height: 100svh;
+    margin: 0;
+  }
+}
+
 .btn-primary {
   background-color: #c9981f;
   color: white;
