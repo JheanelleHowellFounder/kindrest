@@ -286,7 +286,7 @@ export function HistoryScreen() {
             })()}
 
             {/* Activity Calendar */}
-            <div className="md:max-w-[340px]">
+            <div>
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
                   <Calendar size={14} className="text-chocolate/60" />
@@ -338,7 +338,7 @@ export function HistoryScreen() {
                           })
                           openSheet({ label, recs })
                         }}
-                        className={`aspect-square flex items-center justify-center rounded-full text-[11px] font-display font-semibold transition-all ${
+                        className={`w-8 h-8 mx-auto flex items-center justify-center rounded-full text-[11px] font-display font-semibold transition-all ${
                           isToday
                             ? 'bg-mustard text-white'
                             : isActive
