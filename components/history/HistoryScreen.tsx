@@ -286,7 +286,7 @@ export function HistoryScreen() {
             })()}
 
             {/* Activity Calendar */}
-            <div>
+            <div className="md:max-w-[340px]">
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
                   <Calendar size={14} className="text-chocolate/60" />
