@@ -36,7 +36,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
         {/* Web shell (md+) */}
         <div className="hidden md:block w-full min-h-screen">
-          <div className="max-w-5xl mx-auto px-10 py-8">
+          <div className="max-w-2xl mx-auto px-10 py-8">
             {children}
           </div>
         </div>

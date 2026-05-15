@@ -103,7 +103,7 @@ export function HomeScreen() {
             {greeting}, {firstName}
           </h1>
           <div className="h-0.5 w-8 bg-mustard mt-2 rounded-full" />
-          <p className="font-sans text-sm italic text-chocolate/60 mt-1 leading-relaxed max-w-[220px]">
+          <p className="font-sans text-sm italic text-chocolate/60 mt-1 leading-relaxed max-w-[220px] md:max-w-none">
             {quote}
           </p>
         </div>
