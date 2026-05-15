@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { X, ChevronRight, ChevronLeft, ThumbsDown, Bookmark, CheckCircle2 } from 'lucide-react'
+import { X, ChevronRight, ChevronLeft, ThumbsDown, Bookmark, CheckCircle2, ChevronDown } from 'lucide-react'
 import { MOODS, MENTAL_INDICATORS, PHYSICAL_INDICATORS, EMOTIONAL_INDICATORS } from '@/lib/mock-data'
 import type { MoodLabel, TimeAvailable, Recommendation, RegulationType } from '@/lib/types'
 import { useAuth } from '@/lib/auth-context'
@@ -53,6 +53,7 @@ export function CheckInFlow() {
   const [claudeMessage, setClaudeMessage] = useState<string>('')
   const [isLoading, setIsLoading]       = useState(false)
   const [feedbackSent, setFeedbackSent]           = useState<Record<number, FeedbackRating>>({})
+  const [expandedRecs, setExpandedRecs]           = useState<Set<number>>(new Set())
   const [mailingSubscribed, setMailingSubscribed] = useState(false)
 
   const stepIndex = STEPS.indexOf(step)
@@ -355,6 +356,8 @@ export function CheckInFlow() {
                 careKit.map((rec, i) => {
                   const fb = feedbackSent[rec.rec_id]
                   const isPrimary = i === 0
+                  const isExpanded = expandedRecs.has(rec.rec_id)
+
                   return (
                     <div
                       key={rec.id}
@@ -362,7 +365,19 @@ export function CheckInFlow() {
                         isPrimary ? 'bg-chocolate text-white' : 'bg-white border border-beige/30'
                       } ${fb ? 'opacity-80' : ''}`}
                     >
-                      <div className="flex items-start justify-between gap-3">
+                      {/* Card header — tappable on secondary to expand */}
+                      <div
+                        className={`flex items-start justify-between gap-3 ${!isPrimary ? 'cursor-pointer' : ''}`}
+                        onClick={() => {
+                          if (!isPrimary) {
+                            setExpandedRecs(prev => {
+                              const next = new Set(prev)
+                              next.has(rec.rec_id) ? next.delete(rec.rec_id) : next.add(rec.rec_id)
+                              return next
+                            })
+                          }
+                        }}
+                      >
                         <div className="flex-1">
                           <div className="flex items-center gap-2 mb-1">
                             <span className="text-xs font-display font-semibold text-mustard">
@@ -380,44 +395,57 @@ export function CheckInFlow() {
                               {rec.description}
                             </p>
                           )}
+                          {/* Expandable description for secondary cards */}
+                          {!isPrimary && isExpanded && (
+                            <p className="text-sm mt-2 font-sans text-chocolate/60 leading-relaxed">
+                              {rec.description}
+                            </p>
+                          )}
                         </div>
-                        {isPrimary && (
+                        {isPrimary ? (
                           <span className="text-xs bg-mustard text-white px-2 py-0.5 rounded-full font-display font-semibold whitespace-nowrap">
                             Primary
                           </span>
+                        ) : (
+                          <ChevronDown
+                            size={16}
+                            className={`text-chocolate/30 flex-shrink-0 mt-0.5 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`}
+                          />
                         )}
                       </div>
 
-                      {/* Feedback row */}
+                      {/* Feedback row — stacked layout so buttons never overflow */}
                       <div className={`mt-3 pt-3 border-t ${isPrimary ? 'border-white/10' : 'border-beige/30'}`}>
                         {fb ? (
                           <p className={`text-xs font-sans ${isPrimary ? 'text-white/50' : 'text-chocolate/40'}`}>
                             {fb === 1 ? 'Not for me' : fb === 2 ? '✓ Saved for later' : '✓ I did this!'}
                           </p>
                         ) : (
-                          <div className="flex items-center gap-2">
-                            <p className={`text-xs font-sans mr-1 ${isPrimary ? 'text-white/50' : 'text-chocolate/40'}`}>
+                          <div>
+                            <p className={`text-xs font-sans mb-2 ${isPrimary ? 'text-white/50' : 'text-chocolate/40'}`}>
                               Did this help?
                             </p>
-                            <FeedbackButton
-                              icon={<ThumbsDown size={13} />}
-                              label="Not for me"
-                              onClick={() => sendFeedback(rec, 1)}
-                              isPrimary={isPrimary}
-                            />
-                            <FeedbackButton
-                              icon={<Bookmark size={13} />}
-                              label="Save for later"
-                              onClick={() => sendFeedback(rec, 2)}
-                              isPrimary={isPrimary}
-                            />
-                            <FeedbackButton
-                              icon={<CheckCircle2 size={13} />}
-                              label="I did this"
-                              onClick={() => sendFeedback(rec, 3)}
-                              isPrimary={isPrimary}
-                              highlight
-                            />
+                            <div className="flex gap-1.5">
+                              <FeedbackButton
+                                icon={<ThumbsDown size={12} />}
+                                label="Not for me"
+                                onClick={() => sendFeedback(rec, 1)}
+                                isPrimary={isPrimary}
+                              />
+                              <FeedbackButton
+                                icon={<Bookmark size={12} />}
+                                label="Save for later"
+                                onClick={() => sendFeedback(rec, 2)}
+                                isPrimary={isPrimary}
+                              />
+                              <FeedbackButton
+                                icon={<CheckCircle2 size={12} />}
+                                label="I did this"
+                                onClick={() => sendFeedback(rec, 3)}
+                                isPrimary={isPrimary}
+                                highlight
+                              />
+                            </div>
                           </div>
                         )}
                       </div>
@@ -455,7 +483,7 @@ function FeedbackButton({
   return (
     <button
       onClick={onClick}
-      className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-display font-semibold transition-all active:scale-95 ${
+      className={`flex-1 flex items-center justify-center gap-1 px-1.5 py-1.5 rounded-full text-[11px] font-display font-semibold transition-all active:scale-95 ${
         highlight
           ? 'bg-mustard text-white'
           : isPrimary
