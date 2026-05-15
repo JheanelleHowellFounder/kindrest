@@ -182,7 +182,9 @@ export function HistoryScreen() {
   const bestCatRecs = history.filter(
     i => i.category === bestCat && (i.rating === 3 || i.rating === 2)
   )
-  const otherGroups = groupByCategory(history, bestCat ?? undefined)
+  // Only show saved/completed items in the By Category section — "Not for me" adds no value there
+  const engagedHistory = history.filter(i => i.rating >= 2)
+  const otherGroups = groupByCategory(engagedHistory, bestCat ?? undefined)
 
   return (
     <div className="flex flex-col min-h-screen pb-24">
@@ -366,6 +368,34 @@ export function HistoryScreen() {
                 Tap a filled day to see your care kit
               </p>
             </div>
+
+            {/* Top Techniques */}
+            {stats?.topTechniques && stats.topTechniques.length > 0 && (
+              <div>
+                <div className="flex items-center gap-2 mb-2">
+                  <Star size={14} className="text-chocolate/60" />
+                  <p className="font-display font-semibold text-chocolate text-sm">Your Top Techniques</p>
+                </div>
+                <div className="space-y-2">
+                  {stats.topTechniques.slice(0, 3).map((tech, i) => (
+                    <div key={i} className="bg-white rounded-xl p-3 flex items-center gap-3 border border-beige/20">
+                      <div className={`w-7 h-7 rounded-lg flex items-center justify-center text-white font-display font-bold text-xs flex-shrink-0 ${
+                        i === 0 ? 'bg-mustard' : i === 1 ? 'bg-chocolate' : 'bg-chocolate/60'
+                      }`}>
+                        {i + 1}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-display font-semibold text-sm text-chocolate truncate">{tech.title}</p>
+                        <p className="text-[10px] text-chocolate/40 font-sans">
+                          {CATEGORY_EMOJI[tech.category] ?? ''} {tech.category} · saved or done {tech.likedCount}×
+                        </p>
+                      </div>
+                      <Heart size={13} className="text-rose-300 flex-shrink-0" fill="currentColor" />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </>
         )}
 

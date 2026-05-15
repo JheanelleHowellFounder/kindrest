@@ -334,7 +334,7 @@ export function LandingPage() {
                   navDark ? 'text-cream/50 hover:text-cream' : 'text-chocolate/50 hover:text-chocolate'
                 }`}
               >
-                {['How It Works', 'What It Does', 'Our Story'][i]}
+                {['How It Works', 'What It Does', 'The Founder'][i]}
               </a>
             ))}
           </div>

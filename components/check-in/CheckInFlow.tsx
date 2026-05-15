@@ -460,6 +460,18 @@ export function CheckInFlow() {
               <button onClick={() => router.push('/')} className="btn-primary">
                 Back to Home
               </button>
+              {!isLoading && careKit.length > 0 && (
+                <button
+                  onClick={() => {
+                    setFeedbackSent({})
+                    setExpandedRecs(new Set())
+                    fetchCareKit()
+                  }}
+                  className="w-full text-center text-sm text-chocolate/40 font-sans py-2"
+                >
+                  Try different suggestions
+                </button>
+              )}
             </div>
           </div>
         )}

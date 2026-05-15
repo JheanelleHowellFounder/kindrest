@@ -71,7 +71,13 @@ export function ProfileScreen() {
     : null
 
   const [view, setView]             = useState<ProfileView>('main')
+  const [editStep, setEditStep]     = useState<number>(1)
   const [showFeedback, setShowFeedback] = useState(false)
+
+  function openEdit(step: number) {
+    setEditStep(step)
+    setView('update')
+  }
   const [stats, setStats]           = useState<LiveStats | null>(null)
   const [savedProfile, setSavedProfile] = useState<SavedProfile>({
     motherhood_stage: null,
@@ -123,6 +129,7 @@ export function ProfileScreen() {
       <UpdateProfileFlow
         userId={authUser?.id ?? ''}
         initial={savedProfile}
+        initialStep={editStep}
         onSaved={handleProfileSaved}
         onClose={() => setView('main')}
       />
@@ -154,14 +161,18 @@ export function ProfileScreen() {
           </div>
           <div className="grid grid-cols-2 gap-3">
             {[
-              { icon: <Calendar size={14} />, label: 'Check-Ins', value: stats?.totalCheckins ?? '—' },
-              { icon: <Heart size={14} />,   label: 'Day Streak', value: stats?.streakDays ?? '—' },
+              { icon: <Calendar size={14} />, label: 'Check-Ins', value: stats?.totalCheckins },
+              { icon: <Heart size={14} />,    label: 'Day Streak', value: stats?.streakDays },
             ].map(({ icon, label, value }) => (
               <div key={label} className="text-center">
                 <div className="flex items-center justify-center gap-1 text-chocolate/40 mb-0.5">
                   {icon}
                 </div>
-                <p className="font-display font-bold text-xl text-chocolate">{value}</p>
+                {stats === null ? (
+                  <div className="h-7 w-10 bg-beige/40 rounded-lg animate-pulse mx-auto mt-0.5 mb-1" />
+                ) : (
+                  <p className="font-display font-bold text-xl text-chocolate">{value ?? '—'}</p>
+                )}
                 <p className="text-[10px] text-chocolate/40 font-sans">{label}</p>
               </div>
             ))}
@@ -201,77 +212,79 @@ export function ProfileScreen() {
 
         {/* Profile snapshot */}
         <div className="bg-white rounded-2xl p-4 border border-beige/20 space-y-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Star size={14} className="text-mustard" />
-              <p className="font-display font-semibold text-chocolate text-sm">Your Profile</p>
-            </div>
-            <button
-              onClick={() => setView('update')}
-              className="text-xs text-mustard font-display font-semibold"
-            >
-              Edit
-            </button>
+          <div className="flex items-center gap-2">
+            <Star size={14} className="text-mustard" />
+            <p className="font-display font-semibold text-chocolate text-sm">Your Profile</p>
           </div>
 
           <div className="space-y-2">
-            {stageLabel && (
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 bg-cream rounded-lg flex items-center justify-center flex-shrink-0">
-                  <span className="text-base">{stageLabel.emoji}</span>
-                </div>
-                <div>
-                  <p className="text-[10px] text-chocolate/40 font-sans uppercase tracking-wide">Journey</p>
-                  <p className="font-display font-semibold text-sm text-chocolate">{stageLabel.label}</p>
-                </div>
+            {/* Journey / stage */}
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 bg-cream rounded-lg flex items-center justify-center flex-shrink-0">
+                <span className="text-base">{stageLabel?.emoji ?? '✨'}</span>
               </div>
-            )}
-
-            {timeLabel && (
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 bg-cream rounded-lg flex items-center justify-center flex-shrink-0">
-                  <Clock size={15} className="text-mustard" />
-                </div>
-                <div>
-                  <p className="text-[10px] text-chocolate/40 font-sans uppercase tracking-wide">Typical self-care time</p>
-                  <p className="font-display font-semibold text-sm text-chocolate">{timeLabel.label}</p>
-                </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-[10px] text-chocolate/40 font-sans uppercase tracking-wide">Journey</p>
+                <p className="font-display font-semibold text-sm text-chocolate">
+                  {stageLabel?.label ?? 'Not set'}
+                </p>
               </div>
-            )}
+              <button onClick={() => openEdit(1)} className="text-[11px] text-mustard font-display font-semibold flex-shrink-0">
+                Edit
+              </button>
+            </div>
 
-            {savedProfile.preferred_categories.length > 0 && (
-              <div className="flex items-start gap-3">
-                <div className="w-8 h-8 bg-cream rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5">
-                  <Sparkles size={15} className="text-mustard" />
-                </div>
-                <div>
-                  <p className="text-[10px] text-chocolate/40 font-sans uppercase tracking-wide">What helps you</p>
-                  <p className="font-display font-semibold text-sm text-chocolate">
-                    {savedProfile.preferred_categories.map(c => CATEGORY_LABELS[c] ?? c).join(', ')}
-                  </p>
-                </div>
+            {/* Typical time */}
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 bg-cream rounded-lg flex items-center justify-center flex-shrink-0">
+                <Clock size={15} className="text-mustard" />
               </div>
-            )}
-
-            {savedProfile.support_people.length > 0 && (
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 bg-cream rounded-lg flex items-center justify-center flex-shrink-0">
-                  <Users size={15} className="text-mustard" />
-                </div>
-                <div>
-                  <p className="text-[10px] text-chocolate/40 font-sans uppercase tracking-wide">Support circle</p>
-                  <p className="font-display font-semibold text-sm text-chocolate">
-                    {savedProfile.support_people.map(p => p.name).join(', ')}
-                  </p>
-                </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-[10px] text-chocolate/40 font-sans uppercase tracking-wide">Typical self-care time</p>
+                <p className="font-display font-semibold text-sm text-chocolate">
+                  {timeLabel?.label ?? 'Not set'}
+                </p>
               </div>
-            )}
+              <button onClick={() => openEdit(2)} className="text-[11px] text-mustard font-display font-semibold flex-shrink-0">
+                Edit
+              </button>
+            </div>
 
-            {!stageLabel && !timeLabel && savedProfile.preferred_categories.length === 0 && (
-              <p className="text-sm text-chocolate/40 font-sans">
-                Tap Edit to personalise your experience.
-              </p>
-            )}
+            {/* What helps */}
+            <div className="flex items-start gap-3">
+              <div className="w-8 h-8 bg-cream rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5">
+                <Sparkles size={15} className="text-mustard" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-[10px] text-chocolate/40 font-sans uppercase tracking-wide">What helps you</p>
+                <p className="font-display font-semibold text-sm text-chocolate">
+                  {savedProfile.preferred_categories.length > 0
+                    ? savedProfile.preferred_categories.map(c => CATEGORY_LABELS[c] ?? c).join(', ')
+                    : 'Not set'}
+                </p>
+              </div>
+              <button onClick={() => openEdit(3)} className="text-[11px] text-mustard font-display font-semibold flex-shrink-0 mt-0.5">
+                Edit
+              </button>
+            </div>
+
+            {/* Support circle */}
+            <div className="flex items-start gap-3">
+              <div className="w-8 h-8 bg-cream rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5">
+                <Users size={15} className="text-mustard" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-[10px] text-chocolate/40 font-sans uppercase tracking-wide">Support circle</p>
+                <p className="font-display font-semibold text-sm text-chocolate">
+                  {savedProfile.support_people.length > 0
+                    ? savedProfile.support_people.map(p => p.relationship ? `${p.name} (${p.relationship})` : p.name).join(', ')
+                    : 'Not set'}
+                </p>
+              </div>
+              <button onClick={() => openEdit(4)} className="text-[11px] text-mustard font-display font-semibold flex-shrink-0 mt-0.5">
+                Edit
+              </button>
+            </div>
           </div>
         </div>
 
@@ -321,16 +334,18 @@ export function ProfileScreen() {
 function UpdateProfileFlow({
   userId,
   initial,
+  initialStep = 1,
   onSaved,
   onClose,
 }: {
   userId: string
   initial: SavedProfile
+  initialStep?: number
   onSaved: (p: SavedProfile) => void
   onClose: () => void
 }) {
   const totalSteps = 4
-  const [step, setStep] = useState(1)
+  const [step, setStep] = useState(initialStep)
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState('')
 
