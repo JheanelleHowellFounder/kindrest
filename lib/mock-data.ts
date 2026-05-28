@@ -45,7 +45,7 @@ export const MENTAL_INDICATORS: Indicator[] = [
   { id: 'm9',  indicator_id: 9,  mood_label: 'Okay', label: 'My mind is mostly clear', regulation_type: 'Mental', description: '', emoji: '🧠' },
   { id: 'm10', indicator_id: 10, mood_label: 'Okay', label: 'Small worries in the background', regulation_type: 'Mental', description: '', emoji: '🤔' },
   { id: 'm11', indicator_id: 11, mood_label: 'Okay', label: 'Lots to think about', regulation_type: 'Mental', description: '', emoji: '📋' },
-  { id: 'm12', indicator_id: 12, mood_label: 'Okay', label: 'I\'m a bit on autopilot', regulation_type: 'Mental', description: '', emoji: '🔄' },
+  { id: 'm12', indicator_id: 12, mood_label: 'Okay', label: 'I\'m a bit on autopilot', regulation_type: 'Identity', description: '', emoji: '🔄' },
   { id: 'm13', indicator_id: 13, mood_label: 'Okay', label: 'Managing but stretched', regulation_type: 'Mental', description: '', emoji: '😐' },
 
   // Struggling (Off)
@@ -59,7 +59,7 @@ export const MENTAL_INDICATORS: Indicator[] = [
   { id: 'm19', indicator_id: 19, mood_label: 'Struggling', label: 'Mind feels foggy', regulation_type: 'Mental', description: '', emoji: '🌫️' },
   { id: 'm20', indicator_id: 20, mood_label: 'Struggling', label: 'I can\'t think clearly', regulation_type: 'Mental', description: '', emoji: '😵' },
   { id: 'm21', indicator_id: 21, mood_label: 'Struggling', label: 'Overwhelmed by decisions', regulation_type: 'Mental', description: '', emoji: '🌀' },
-  { id: 'm22', indicator_id: 22, mood_label: 'Struggling', label: 'I\'m completely on autopilot', regulation_type: 'Mental', description: '', emoji: '🔄' },
+  { id: 'm22', indicator_id: 22, mood_label: 'Struggling', label: 'I\'m completely on autopilot', regulation_type: 'Identity', description: '', emoji: '🔄' },
   { id: 'm23', indicator_id: 23, mood_label: 'Struggling', label: 'I can\'t remember the last time I felt on top of things', regulation_type: 'Mental', description: '', emoji: '📋' },
 ]
 
@@ -118,19 +118,19 @@ export const EMOTIONAL_INDICATORS: Indicator[] = [
   { id: 'e12', indicator_id: 71, mood_label: 'Okay', label: 'Okay but a bit flat', regulation_type: 'Emotional', description: '', emoji: '😐' },
   { id: 'e13', indicator_id: 72, mood_label: 'Okay', label: 'Mild frustration in the background', regulation_type: 'Emotional', description: '', emoji: '⚡' },
   { id: 'e14', indicator_id: 73, mood_label: 'Okay', label: 'I\'m steady but not quite joyful', regulation_type: 'Emotional', description: '', emoji: '🌿' },
-  { id: 'e15', indicator_id: 74, mood_label: 'Okay', label: 'I feel a bit invisible today', regulation_type: 'Emotional', description: '', emoji: '😔' },
+  { id: 'e15', indicator_id: 74, mood_label: 'Okay', label: 'I feel a bit invisible today', regulation_type: 'Relational', description: '', emoji: '😔' },
 
   // Struggling (Off)
   { id: 'e16', indicator_id: 75, mood_label: 'Off', label: 'Feeling reactive', regulation_type: 'Emotional', description: '', emoji: '⚡' },
-  { id: 'e17', indicator_id: 76, mood_label: 'Off', label: 'I feel a bit disconnected', regulation_type: 'Emotional', description: '', emoji: '💧' },
-  { id: 'e18', indicator_id: 77, mood_label: 'Off', label: 'Feeling unseen or unheard', regulation_type: 'Emotional', description: '', emoji: '😔' },
+  { id: 'e17', indicator_id: 76, mood_label: 'Off', label: 'I feel a bit disconnected', regulation_type: 'Relational', description: '', emoji: '💧' },
+  { id: 'e18', indicator_id: 77, mood_label: 'Off', label: 'Feeling unseen or unheard', regulation_type: 'Relational', description: '', emoji: '😔' },
   { id: 'e19', indicator_id: 78, mood_label: 'Off', label: 'Carrying some sadness', regulation_type: 'Emotional', description: '', emoji: '💧' },
   { id: 'e20', indicator_id: 79, mood_label: 'Off', label: 'Frustrated and not sure why', regulation_type: 'Emotional', description: '', emoji: '😤' },
 
   // Overwhelmed (Struggling)
   { id: 'e21', indicator_id: 80, mood_label: 'Struggling', label: 'Emotionally depleted', regulation_type: 'Emotional', description: '', emoji: '💧' },
-  { id: 'e22', indicator_id: 81, mood_label: 'Struggling', label: 'I feel alone in this', regulation_type: 'Emotional', description: '', emoji: '😔' },
-  { id: 'e23', indicator_id: 82, mood_label: 'Struggling', label: 'I feel disconnected from myself', regulation_type: 'Emotional', description: '', emoji: '🌫️' },
+  { id: 'e22', indicator_id: 81, mood_label: 'Struggling', label: 'I feel alone in this', regulation_type: 'Relational', description: '', emoji: '😔' },
+  { id: 'e23', indicator_id: 82, mood_label: 'Struggling', label: 'I feel disconnected from myself', regulation_type: 'Identity', description: '', emoji: '🌫️' },
   { id: 'e24', indicator_id: 83, mood_label: 'Struggling', label: 'I\'m overwhelmed and tearful', regulation_type: 'Emotional', description: '', emoji: '😢' },
   { id: 'e25', indicator_id: 84, mood_label: 'Struggling', label: 'I feel like I\'m failing', regulation_type: 'Emotional', description: '', emoji: '💔' },
 ]
