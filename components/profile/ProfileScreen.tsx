@@ -2,8 +2,9 @@
 
 import { useState, useEffect } from 'react'
 import {
-  Heart, Star, Calendar, Users, Clock,
-  ChevronRight, ChevronLeft, X, Check, Sparkles, MessageCircle,
+  Gauge, Sun, Layers, Edit2, Plus,
+  Mail, Lock, Shield, LogOut, ChevronRight,
+  ChevronLeft, X, Check,
 } from 'lucide-react'
 import type { MotherhoodStage } from '@/lib/types'
 import { useAuth } from '@/lib/auth-context'
@@ -11,12 +12,7 @@ import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { FeedbackSheet } from '@/components/shared/FeedbackSheet'
 
-interface LiveStats {
-  totalCheckins: number
-  streakDays: number
-  topTechniques: { title: string; usedCount: number; likedCount: number }[]
-  preferredCategories: string[]
-}
+// ─── Types ────────────────────────────────────────────────────────────────────
 
 interface SavedProfile {
   motherhood_stage: MotherhoodStage | null
@@ -25,15 +21,15 @@ interface SavedProfile {
   support_people: { name: string; relationship: string }[]
 }
 
-type ProfileView = 'main' | 'update'
+// ─── Constants ────────────────────────────────────────────────────────────────
 
 const MOTHERHOOD_STAGES: { value: MotherhoodStage; label: string; emoji: string }[] = [
-  { value: 'expecting',   label: 'Expecting',         emoji: '✨' },
-  { value: 'newborn',     label: 'Newborn (0-3mo)',   emoji: '🌙' },
-  { value: 'infant',      label: 'Infant (3-12mo)',   emoji: '💛' },
-  { value: 'toddler',     label: 'Toddler (1-3yr)',   emoji: '⭐' },
-  { value: 'preschool',   label: 'Preschool (3-5yr)', emoji: '🎨' },
-  { value: 'school_age',  label: 'School Age (5+)',   emoji: '📚' },
+  { value: 'expecting',  label: 'Expecting',         emoji: '✨' },
+  { value: 'newborn',    label: 'Newborn (0-3mo)',   emoji: '🌙' },
+  { value: 'infant',     label: 'Infant (3-12mo)',   emoji: '💛' },
+  { value: 'toddler',    label: 'Toddler (1-3yr)',   emoji: '⭐' },
+  { value: 'preschool',  label: 'Preschool (3-5yr)', emoji: '🎨' },
+  { value: 'school_age', label: 'School Age (5+)',   emoji: '📚' },
 ]
 
 const TIME_OPTIONS = [
@@ -44,62 +40,69 @@ const TIME_OPTIONS = [
 ]
 
 const CATEGORIES = [
-  { value: 'Rest',            label: 'Rest & stillness',         emoji: '🌙' },
-  { value: 'Micro Practice',  label: 'Small things that help',   emoji: '✨' },
-  { value: 'Joy',             label: 'Doing what lights me up',  emoji: '💛' },
-  { value: 'Movement',        label: 'Moving my body',           emoji: '🌿' },
-  { value: 'Reflection',      label: 'Checking in with myself',  emoji: '🪞' },
-  { value: 'Connection',      label: 'Time with people I trust', emoji: '💬' },
+  { value: 'Rest',           label: 'Rest & stillness',         emoji: '🌙' },
+  { value: 'Micro Practice', label: 'Small things that help',   emoji: '✨' },
+  { value: 'Joy',            label: 'Doing what lights me up',  emoji: '💛' },
+  { value: 'Movement',       label: 'Moving my body',           emoji: '🌿' },
+  { value: 'Reflection',     label: 'Checking in with myself',  emoji: '🪞' },
+  { value: 'Connection',     label: 'Time with people I trust', emoji: '💬' },
 ]
 
-// Human-readable labels for displaying saved preferences
 const CATEGORY_LABELS: Record<string, string> = Object.fromEntries(
   CATEGORIES.map(c => [c.value, c.label])
 )
+
+const CATEGORY_EMOJI_MAP: Record<string, string> = {
+  'Rest':           '🌙',
+  'Micro Practice': '✨',
+  'Joy':            '💛',
+  'Movement':       '🌿',
+  'Reflection':     '🪞',
+  'Connection':     '💬',
+}
+
+// Map time window → effort label (matches what recommendation engine uses)
+const EFFORT_FROM_TIME: Record<string, string> = {
+  '2_minutes':       'Low · 2–5 minutes',
+  '5_minutes':       'Low · 2–5 minutes',
+  '10_minutes':      'Medium · 10 minutes',
+  '15_plus_minutes': 'Medium · 15+ minutes',
+}
+
+// Cycling avatar background colours for support circle
+const AVATAR_COLORS = ['#c9981f', '#30211a', '#a9743a', '#6d5a4e']
+
+// ─── Main Profile View ────────────────────────────────────────────────────────
 
 export function ProfileScreen() {
   const { user: authUser, signOut } = useAuth()
   const router = useRouter()
 
   const userId = authUser?.id ?? 'demo-user-001'
-  const name = authUser?.user_metadata?.name ?? authUser?.email?.split('@')[0] ?? 'You'
-  const email = authUser?.email ?? ''
+  const name   = authUser?.user_metadata?.name ?? authUser?.email?.split('@')[0] ?? 'You'
 
-  // Format member since from auth created_at
   const memberSince = authUser?.created_at
     ? new Date(authUser.created_at).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
     : null
 
-  const [view, setView]             = useState<ProfileView>('main')
-  const [editStep, setEditStep]     = useState<number>(1)
+  type ProfileView = 'main' | 'update'
+  const [view, setView]               = useState<ProfileView>('main')
+  const [editStep, setEditStep]       = useState(1)
   const [showFeedback, setShowFeedback] = useState(false)
+
+  const [savedProfile, setSavedProfile] = useState<SavedProfile>({
+    motherhood_stage:      null,
+    preferred_time_window: null,
+    preferred_categories:  [],
+    support_people:        [],
+  })
 
   function openEdit(step: number) {
     setEditStep(step)
     setView('update')
   }
-  const [stats, setStats]           = useState<LiveStats | null>(null)
-  const [savedProfile, setSavedProfile] = useState<SavedProfile>({
-    motherhood_stage: null,
-    preferred_time_window: null,
-    preferred_categories: [],
-    support_people: [],
-  })
 
-  useEffect(() => {
-    const fetchStats = () => {
-      fetch(`/api/stats?userId=${userId}`, { cache: 'no-store' })
-        .then(r => r.json())
-        .then(data => setStats(data))
-        .catch(() => {})
-    }
-    fetchStats()
-    const onVisible = () => { if (document.visibilityState === 'visible') fetchStats() }
-    document.addEventListener('visibilitychange', onVisible)
-    return () => document.removeEventListener('visibilitychange', onVisible)
-  }, [userId])
-
-  // Load saved profile from Supabase
+  // Load profile from Supabase
   useEffect(() => {
     if (!supabase || !authUser) return
     supabase
@@ -110,19 +113,14 @@ export function ProfileScreen() {
       .then(({ data }) => {
         if (data) {
           setSavedProfile({
-            motherhood_stage: data.motherhood_stage ?? null,
+            motherhood_stage:      data.motherhood_stage      ?? null,
             preferred_time_window: data.preferred_time_window ?? null,
-            preferred_categories: data.preferred_categories ?? [],
-            support_people: data.support_people ?? [],
+            preferred_categories:  data.preferred_categories  ?? [],
+            support_people:        data.support_people        ?? [],
           })
         }
       })
   }, [authUser])
-
-  function handleProfileSaved(updated: SavedProfile) {
-    setSavedProfile(updated)
-    setView('main')
-  }
 
   if (view === 'update') {
     return (
@@ -130,198 +128,223 @@ export function ProfileScreen() {
         userId={authUser?.id ?? ''}
         initial={savedProfile}
         initialStep={editStep}
-        onSaved={handleProfileSaved}
+        onSaved={updated => { setSavedProfile(updated); setView('main') }}
         onClose={() => setView('main')}
       />
     )
   }
 
-  const stageLabel = MOTHERHOOD_STAGES.find(s => s.value === savedProfile.motherhood_stage)
-  const timeLabel = TIME_OPTIONS.find(t => t.value === savedProfile.preferred_time_window)
+  // Derive display values
+  const effortLabel    = EFFORT_FROM_TIME[savedProfile.preferred_time_window ?? ''] ?? null
+  const timeLabel      = TIME_OPTIONS.find(t => t.value === savedProfile.preferred_time_window)
+  const topCategories  = savedProfile.preferred_categories.slice(0, 4)
+  const knownPeople    = savedProfile.support_people.filter(p => p.name.trim())
+
+  const knowsAnything  = effortLabel || timeLabel || topCategories.length > 0
 
   return (
     <div className="flex flex-col min-h-screen pb-24">
-      {/* Header */}
-      <div className="px-5 pt-12 pb-6 text-center">
-        <div className="w-16 h-16 bg-mustard/10 rounded-full flex items-center justify-center mx-auto mb-3">
-          <span className="font-display font-bold text-2xl text-mustard">
+
+      {/* Profile header ─────────────────────────────────────────────────── */}
+      <div className="px-5 pt-10 pb-2">
+        <div className="flex items-center gap-4">
+          <div
+            className="w-[60px] h-[60px] rounded-full flex items-center justify-center font-serif font-bold text-[26px] text-white flex-shrink-0"
+            style={{ background: '#c9981f' }}
+          >
             {name.charAt(0).toUpperCase()}
-          </span>
+          </div>
+          <div>
+            <h1 className="font-serif text-[24px] text-chocolate leading-[1.12]">{name}</h1>
+            {memberSince && (
+              <p className="font-display font-semibold text-[11px] uppercase tracking-[0.16em] text-mustard mt-1.5">
+                Member since {memberSince}
+              </p>
+            )}
+          </div>
         </div>
-        <h1 className="font-display font-bold text-chocolate text-xl">{name}</h1>
-        <p className="text-sm text-chocolate/50 font-sans">{email}</p>
       </div>
 
-      <div className="px-5 space-y-5">
-        {/* Wellness Journey */}
-        <div className="bg-white rounded-2xl p-4 border border-beige/20">
-          <div className="flex items-center gap-2 mb-3">
-            <Heart size={14} className="text-rose-400" />
-            <p className="font-display font-semibold text-chocolate text-sm">Your Wellness Journey</p>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            {[
-              { icon: <Calendar size={14} />, label: 'Check-Ins', value: stats?.totalCheckins },
-              { icon: <Heart size={14} />,    label: 'Day Streak', value: stats?.streakDays },
-            ].map(({ icon, label, value }) => (
-              <div key={label} className="text-center">
-                <div className="flex items-center justify-center gap-1 text-chocolate/40 mb-0.5">
-                  {icon}
-                </div>
-                {stats === null ? (
-                  <div className="h-7 w-10 bg-beige/40 rounded-lg animate-pulse mx-auto mt-0.5 mb-1" />
-                ) : (
-                  <p className="font-display font-bold text-xl text-chocolate">{value ?? '—'}</p>
-                )}
-                <p className="text-[10px] text-chocolate/40 font-sans">{label}</p>
-              </div>
-            ))}
-          </div>
-        </div>
+      <div className="px-5 mt-5">
+        {/* Desktop: two-column; Mobile: single-column */}
+        <div className="md:grid md:grid-cols-[1.25fr_1fr] md:gap-5 md:items-start space-y-4 md:space-y-0">
 
-        {/* Top Techniques */}
-        <div>
-          <p className="font-display font-semibold text-chocolate text-sm mb-2">Your Top Self-Care Techniques</p>
-          {stats && stats.topTechniques.length > 0 ? (
-            <div className="space-y-2">
-              {stats.topTechniques.slice(0, 3).map((tech, i) => (
-                <div key={i} className="bg-white rounded-xl p-3 flex items-center justify-between border border-beige/20">
-                  <div className="flex items-center gap-3">
-                    <div className={`w-7 h-7 rounded-lg flex items-center justify-center text-white font-display font-bold text-xs ${
-                      i === 0 ? 'bg-mustard' : i === 1 ? 'bg-chocolate' : 'bg-chocolate/60'
-                    }`}>
-                      {i + 1}
-                    </div>
-                    <div>
-                      <p className="font-display font-semibold text-sm text-chocolate">{tech.title}</p>
-                      <p className="text-[11px] text-chocolate/40 font-sans">
-                        Saved or done {tech.likedCount} time{tech.likedCount !== 1 ? 's' : ''}
-                      </p>
-                    </div>
-                  </div>
-                  <Heart size={14} className="text-rose-300" fill="currentColor" />
-                </div>
-              ))}
-            </div>
-          ) : (
-            <p className="text-sm text-chocolate/40 font-sans text-center py-3">
-              Complete a check-in to see your top techniques.
+          {/* Left column: What Kindrest knows + Support Circle ──────────── */}
+          <div className="space-y-4">
+            <p className="font-display font-semibold text-[12px] uppercase tracking-[0.14em] text-chocolate/40">
+              What Kindrest knows about me
             </p>
-          )}
-        </div>
 
-        {/* Profile snapshot */}
-        <div className="bg-white rounded-2xl p-4 border border-beige/20 space-y-3">
-          <div className="flex items-center gap-2">
-            <Star size={14} className="text-mustard" />
-            <p className="font-display font-semibold text-chocolate text-sm">Your Profile</p>
-          </div>
+            {/* Patterns card */}
+            <div className="bg-white rounded-2xl shadow-[0_6px_18px_-8px_rgba(48,33,26,0.18)] p-5">
+              <p className="font-display font-semibold text-[11px] uppercase tracking-[0.16em] text-mustard mb-1">
+                Your patterns
+              </p>
+              <h3 className="font-serif text-[19px] text-chocolate mb-3">Shaped by your check-ins</h3>
 
-          <div className="space-y-2">
-            {/* Journey / stage */}
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 bg-cream rounded-lg flex items-center justify-center flex-shrink-0">
-                <span className="text-base">{stageLabel?.emoji ?? '✨'}</span>
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-[10px] text-chocolate/40 font-sans uppercase tracking-wide">Journey</p>
-                <p className="font-display font-semibold text-sm text-chocolate">
-                  {stageLabel?.label ?? 'Not set'}
-                </p>
-              </div>
-              <button onClick={() => openEdit(1)} className="text-[11px] text-mustard font-display font-semibold flex-shrink-0">
-                Edit
-              </button>
-            </div>
+              {knowsAnything ? (
+                <div>
+                  {/* Effort */}
+                  {effortLabel && (
+                    <div className="flex items-center gap-3.5 py-3.5">
+                      <div className="w-9 h-9 rounded-[11px] flex items-center justify-center flex-shrink-0"
+                        style={{ background: 'rgba(201,152,31,0.13)' }}>
+                        <Gauge size={18} className="text-mustard" />
+                      </div>
+                      <div>
+                        <p className="text-[12.5px] text-chocolate/50 font-sans">Preferred effort</p>
+                        <p className="font-display font-semibold text-[14.5px] text-chocolate mt-0.5">{effortLabel}</p>
+                      </div>
+                    </div>
+                  )}
 
-            {/* Typical time */}
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 bg-cream rounded-lg flex items-center justify-center flex-shrink-0">
-                <Clock size={15} className="text-mustard" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-[10px] text-chocolate/40 font-sans uppercase tracking-wide">Typical self-care time</p>
-                <p className="font-display font-semibold text-sm text-chocolate">
-                  {timeLabel?.label ?? 'Not set'}
-                </p>
-              </div>
-              <button onClick={() => openEdit(2)} className="text-[11px] text-mustard font-display font-semibold flex-shrink-0">
-                Edit
-              </button>
-            </div>
+                  {/* Time preference */}
+                  {timeLabel && (
+                    <div className={`flex items-center gap-3.5 py-3.5 ${effortLabel ? 'border-t border-beige/30' : ''}`}>
+                      <div className="w-9 h-9 rounded-[11px] flex items-center justify-center flex-shrink-0"
+                        style={{ background: 'rgba(201,152,31,0.13)' }}>
+                        <Sun size={18} className="text-mustard" />
+                      </div>
+                      <div>
+                        <p className="text-[12.5px] text-chocolate/50 font-sans">Time preference</p>
+                        <p className="font-display font-semibold text-[14.5px] text-chocolate mt-0.5">
+                          {timeLabel.label} available
+                        </p>
+                      </div>
+                    </div>
+                  )}
 
-            {/* What helps */}
-            <div className="flex items-start gap-3">
-              <div className="w-8 h-8 bg-cream rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5">
-                <Sparkles size={15} className="text-mustard" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-[10px] text-chocolate/40 font-sans uppercase tracking-wide">What helps you</p>
-                <p className="font-display font-semibold text-sm text-chocolate">
-                  {savedProfile.preferred_categories.length > 0
-                    ? savedProfile.preferred_categories.map(c => CATEGORY_LABELS[c] ?? c).join(', ')
-                    : 'Not set'}
-                </p>
-              </div>
-              <button onClick={() => openEdit(3)} className="text-[11px] text-mustard font-display font-semibold flex-shrink-0 mt-0.5">
-                Edit
+                  {/* Top categories */}
+                  {topCategories.length > 0 && (
+                    <div className={`flex items-start gap-3.5 py-3.5 ${(effortLabel || timeLabel) ? 'border-t border-beige/30' : ''}`}>
+                      <div className="w-9 h-9 rounded-[11px] flex items-center justify-center flex-shrink-0 mt-0.5"
+                        style={{ background: 'rgba(201,152,31,0.13)' }}>
+                        <Layers size={18} className="text-mustard" />
+                      </div>
+                      <div className="flex-1">
+                        <p className="text-[12.5px] text-chocolate/50 font-sans mb-2">Top categories</p>
+                        <div className="flex flex-wrap gap-2">
+                          {topCategories.map((cat, i) => (
+                            <span key={i} className="inline-flex items-center gap-1.5 bg-[#f0e9e2] border border-beige/50 rounded-full px-3 py-1.5 font-display font-semibold text-[13px] text-chocolate">
+                              {CATEGORY_EMOJI_MAP[cat] ?? ''} {CATEGORY_LABELS[cat] ?? cat}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="py-3 text-center">
+                  <p className="text-sm text-chocolate/40 font-sans">
+                    Complete your profile to see your patterns here.
+                  </p>
+                </div>
+              )}
+
+              <button
+                onClick={() => openEdit(2)}
+                className="mt-2 text-mustard font-display font-semibold text-[13.5px]"
+              >
+                Update preferences →
               </button>
             </div>
 
             {/* Support circle */}
-            <div className="flex items-start gap-3">
-              <div className="w-8 h-8 bg-cream rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5">
-                <Users size={15} className="text-mustard" />
+            <div className="bg-white rounded-2xl shadow-[0_6px_18px_-8px_rgba(48,33,26,0.18)] p-5">
+              <p className="font-display font-semibold text-[11px] uppercase tracking-[0.16em] text-mustard mb-1 whitespace-nowrap">
+                Your support circle
+              </p>
+              <h3 className="font-serif text-[19px] text-chocolate mb-3">Who&apos;s in your corner</h3>
+
+              <div>
+                {knownPeople.map((person, i) => (
+                  <div key={i} className={`flex items-center gap-3 py-3 ${i > 0 ? 'border-t border-beige/30' : ''}`}>
+                    <div
+                      className="w-[42px] h-[42px] rounded-full flex items-center justify-center font-serif font-bold text-[17px] text-white flex-shrink-0"
+                      style={{ background: AVATAR_COLORS[i % AVATAR_COLORS.length] }}
+                    >
+                      {person.name.charAt(0).toUpperCase()}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-display font-semibold text-[14.5px] text-chocolate">{person.name}</p>
+                      <p className="text-[12.5px] text-chocolate/50 font-sans">{person.relationship}</p>
+                    </div>
+                    <button
+                      onClick={() => openEdit(4)}
+                      className="p-1.5 rounded-[8px] text-chocolate/40 hover:text-chocolate hover:bg-[#f0e9e2] transition-colors"
+                      aria-label="Edit support circle"
+                    >
+                      <Edit2 size={15} />
+                    </button>
+                  </div>
+                ))}
               </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-[10px] text-chocolate/40 font-sans uppercase tracking-wide">Support circle</p>
-                <p className="font-display font-semibold text-sm text-chocolate">
-                  {savedProfile.support_people.length > 0
-                    ? savedProfile.support_people.map(p => p.relationship ? `${p.name} (${p.relationship})` : p.name).join(', ')
-                    : 'Not set'}
-                </p>
-              </div>
-              <button onClick={() => openEdit(4)} className="text-[11px] text-mustard font-display font-semibold flex-shrink-0 mt-0.5">
-                Edit
+
+              {knownPeople.length === 0 && (
+                <p className="text-sm text-chocolate/40 font-sans pb-1">No one added yet.</p>
+              )}
+
+              <button
+                onClick={() => openEdit(4)}
+                className="inline-flex items-center gap-1.5 mt-3 text-mustard font-display font-semibold text-[13.5px]"
+              >
+                <Plus size={16} /> Add someone
               </button>
             </div>
           </div>
-        </div>
 
-        {/* Member since */}
-        {memberSince && (
-          <div className="flex items-center gap-3 bg-white rounded-2xl p-4 border border-beige/20">
-            <Heart size={16} className="text-rose-300" />
-            <div>
-              <p className="text-xs text-chocolate/40 font-sans">Member since</p>
-              <p className="font-display font-semibold text-chocolate text-sm">{memberSince}</p>
+          {/* Right column: Account & settings ───────────────────────────── */}
+          <div className="space-y-4 md:pt-[28px]">
+            <p className="font-display font-semibold text-[12px] uppercase tracking-[0.14em] text-chocolate/40">
+              Account &amp; settings
+            </p>
+
+            <div className="bg-white rounded-2xl border border-beige/40 p-5">
+              <p className="font-display font-semibold text-[11px] uppercase tracking-[0.16em] text-mustard mb-1">
+                Settings
+              </p>
+              <h3 className="font-serif text-[19px] text-chocolate mb-2">Account &amp; privacy</h3>
+
+              <div className="mt-1">
+                {[
+                  { icon: Mail,   label: 'Email & sign-in' },
+                  { icon: Lock,   label: 'Password' },
+                  { icon: Shield, label: 'Privacy & data' },
+                ].map(({ icon: Ico, label }, i) => (
+                  <div key={i} className={`flex items-center gap-3 py-3.5 cursor-pointer ${i > 0 ? 'border-t border-beige/20' : ''}`}>
+                    <Ico size={17} className="text-chocolate/40 flex-shrink-0" />
+                    <span className="flex-1 font-sans text-[14px] text-chocolate">{label}</span>
+                    <ChevronRight size={17} className="text-chocolate/25" />
+                  </div>
+                ))}
+
+                <div
+                  className="border-t border-beige/20 flex items-center gap-3 py-3.5 cursor-pointer"
+                  onClick={async () => { await signOut(); router.replace('/') }}
+                >
+                  <LogOut size={17} className="flex-shrink-0" style={{ color: '#9a3a1f' }} />
+                  <span className="font-sans text-[14px]" style={{ color: '#9a3a1f' }}>Sign out</span>
+                </div>
+              </div>
             </div>
+
+            {/* Feedback button */}
+            <button
+              onClick={() => setShowFeedback(true)}
+              className="w-full flex items-center justify-center gap-2 py-3 text-sm text-chocolate/50 font-sans border border-beige/40 rounded-2xl hover:border-mustard/40 transition-colors"
+            >
+              Share feedback
+            </button>
           </div>
-        )}
 
-        {/* Feedback */}
-        <button
-          onClick={() => setShowFeedback(true)}
-          className="w-full flex items-center justify-center gap-2 py-3 text-sm text-chocolate/50 font-sans border border-beige/40 rounded-2xl hover:border-mustard/40 transition-colors"
-        >
-          <MessageCircle size={14} className="text-chocolate/40" />
-          Share feedback
-        </button>
-
-        {/* Sign out */}
-        <button
-          onClick={async () => { await signOut(); router.replace('/') }}
-          className="w-full text-center text-sm text-chocolate/30 font-sans py-2 mt-2"
-        >
-          Sign out
-        </button>
+        </div>
       </div>
 
-      {/* Feedback sheet */}
       {showFeedback && (
         <FeedbackSheet
           userId={userId}
-          email={email}
+          email={authUser?.email ?? ''}
           onClose={() => setShowFeedback(false)}
         />
       )}
@@ -331,6 +354,8 @@ export function ProfileScreen() {
 
 
 // ── Update Profile Flow ───────────────────────────────────────────────────────
+// Preserved exactly — opens as a full-screen overlay from the profile page.
+
 function UpdateProfileFlow({
   userId,
   initial,
@@ -345,14 +370,14 @@ function UpdateProfileFlow({
   onClose: () => void
 }) {
   const totalSteps = 4
-  const [step, setStep] = useState(initialStep)
+  const [step, setStep]     = useState(initialStep)
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState('')
 
-  const [selectedStage, setSelectedStage]       = useState<MotherhoodStage | null>(initial.motherhood_stage)
-  const [selectedTime, setSelectedTime]         = useState<string | null>(initial.preferred_time_window)
+  const [selectedStage, setSelectedStage]           = useState<MotherhoodStage | null>(initial.motherhood_stage)
+  const [selectedTime, setSelectedTime]             = useState<string | null>(initial.preferred_time_window)
   const [selectedCategories, setSelectedCategories] = useState<string[]>(initial.preferred_categories)
-  const [supportPeople, setSupportPeople]       = useState<{ name: string; relationship: string }[]>(
+  const [supportPeople, setSupportPeople]           = useState<{ name: string; relationship: string }[]>(
     initial.support_people.length > 0 ? initial.support_people : [{ name: '', relationship: '' }]
   )
 
@@ -370,12 +395,12 @@ function UpdateProfileFlow({
     const cleanPeople = supportPeople.filter(p => p.name.trim().length > 0)
 
     const { error: profileError } = await supabase.from('user_profiles').upsert({
-      user_id: userId,
-      motherhood_stage: selectedStage,
-      preferred_time_window: selectedTime,
-      preferred_categories: selectedCategories,
-      support_people: cleanPeople,
-      updated_at: new Date().toISOString(),
+      user_id:                userId,
+      motherhood_stage:       selectedStage,
+      preferred_time_window:  selectedTime,
+      preferred_categories:   selectedCategories,
+      support_people:         cleanPeople,
+      updated_at:             new Date().toISOString(),
     }, { onConflict: 'user_id' })
 
     if (profileError) {
@@ -384,17 +409,22 @@ function UpdateProfileFlow({
       return
     }
 
-    // Also update preference profile categories so recommendations stay in sync
+    // Keep preference profile in sync so recommendations stay accurate
     await supabase.from('user_preference_profile').upsert(
       { user_id: userId, preferred_categories: selectedCategories, updated_at: new Date().toISOString() },
       { onConflict: 'user_id' }
     )
 
     setSaving(false)
-    onSaved({ motherhood_stage: selectedStage, preferred_time_window: selectedTime, preferred_categories: selectedCategories, support_people: cleanPeople })
+    onSaved({
+      motherhood_stage:      selectedStage,
+      preferred_time_window: selectedTime,
+      preferred_categories:  selectedCategories,
+      support_people:        cleanPeople,
+    })
   }
 
-  // ── Progress bar ─────────────────────────────────────────────────────────
+  // ── Progress bar ──────────────────────────────────────────────────────────
   const ProgressBar = ({ back }: { back: () => void }) => (
     <div className="px-5 pt-12 pb-4 flex items-center gap-3">
       <button onClick={back} className="text-chocolate/50">
@@ -578,8 +608,11 @@ function UpdateProfileFlow({
           >
             {saving ? 'Saving...' : 'Save Profile'}
           </button>
-          <button onClick={() => handleSave()} className="w-full text-center text-sm text-chocolate/40 font-sans underline py-1">
-            Skip support circle & save
+          <button
+            onClick={() => handleSave()}
+            className="w-full text-center text-sm text-chocolate/40 font-sans underline py-1"
+          >
+            Skip support circle &amp; save
           </button>
         </div>
       </div>
