@@ -126,7 +126,7 @@ export function HomeScreen() {
             <p className="text-cream/70 text-sm font-sans leading-[1.55] mb-4 relative">
               Two minutes, honest answers. A care kit that fits the version of you that&apos;s here.
             </p>
-            <div className="relative inline-flex items-center gap-2 bg-mustard text-white font-display font-semibold text-[15px] px-5 py-3 rounded-[15px]">
+            <div className="relative flex items-center justify-center gap-2 bg-mustard text-white font-display font-semibold text-[15px] px-5 py-4 rounded-[15px] w-full">
               <Play size={15} />
               Start check-in
             </div>
@@ -168,7 +168,7 @@ export function HomeScreen() {
                   {recentItem.title}
                 </p>
                 <p className="text-[12.5px] text-chocolate/50 font-sans mt-0.5">
-                  Felt {recentItem.mood.toLowerCase()} · pick up where you left off
+                  2 of 3 steps · pick up where you paused
                 </p>
               </div>
               <Link
@@ -192,7 +192,7 @@ export function HomeScreen() {
             <p className="font-display font-semibold text-[12px] uppercase tracking-[0.14em] text-chocolate/40 mb-2">
               A technique you saved
             </p>
-            <div className="flex items-center gap-3.5 bg-white rounded-2xl shadow-[0_6px_18px_-8px_rgba(48,33,26,0.18)] px-4 py-4">
+            <div className="flex items-center gap-3.5 bg-white rounded-2xl border border-beige/40 px-4 py-4">
               <div className="w-11 h-11 rounded-[14px] bg-cream flex items-center justify-center text-xl flex-shrink-0">
                 {CATEGORY_EMOJI[savedTech.category] ?? '🌿'}
               </div>
@@ -201,10 +201,7 @@ export function HomeScreen() {
                   {savedTech.title}
                 </p>
                 <p className="text-[12.5px] text-chocolate/50 font-sans mt-0.5">
-                  {savedTech.category} ·{' '}
-                  {savedTech.likedCount > 1
-                    ? `saved or done ${savedTech.likedCount} times`
-                    : 'saved recently'}
+                  {savedTech.category} · saved {savedTech.likedCount > 1 ? `${savedTech.likedCount}×` : 'recently'}
                 </p>
               </div>
               <Bookmark size={20} className="text-mustard flex-shrink-0" fill="currentColor" />

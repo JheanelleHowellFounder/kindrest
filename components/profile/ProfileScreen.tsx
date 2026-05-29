@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import {
-  Gauge, Sun, Layers, Edit2, Plus,
+  Gauge, Sun, Layers, Plus,
   Mail, Lock, Shield, LogOut, ChevronRight,
   ChevronLeft, X, Check,
 } from 'lucide-react'
@@ -165,15 +165,16 @@ export function ProfileScreen() {
         </div>
       </div>
 
-      <div className="px-5 mt-5">
-        {/* Desktop: two-column; Mobile: single-column */}
-        <div className="md:grid md:grid-cols-[1.25fr_1fr] md:gap-5 md:items-start space-y-4 md:space-y-0">
+      <div className="px-5 mt-5 space-y-5">
 
-          {/* Left column: What Kindrest knows + Support Circle ──────────── */}
-          <div className="space-y-4">
-            <p className="font-display font-semibold text-[12px] uppercase tracking-[0.14em] text-chocolate/40">
-              What Kindrest knows about me
-            </p>
+        {/* ── "What Kindrest knows" section ──────────────────────────────── */}
+        <div>
+          <p className="font-display font-semibold text-[12px] uppercase tracking-[0.14em] text-chocolate/40 mb-3">
+            What Kindrest knows about me
+          </p>
+
+          {/* Desktop: Patterns + Support side by side. Mobile: stacked. */}
+          <div className="md:grid md:grid-cols-[1.25fr_1fr] md:gap-5 md:items-start space-y-4 md:space-y-0">
 
             {/* Patterns card */}
             <div className="bg-white rounded-2xl shadow-[0_6px_18px_-8px_rgba(48,33,26,0.18)] p-5">
@@ -188,7 +189,7 @@ export function ProfileScreen() {
                   {effortLabel && (
                     <div className="flex items-center gap-3.5 py-3.5">
                       <div className="w-9 h-9 rounded-[11px] flex items-center justify-center flex-shrink-0"
-                        style={{ background: 'rgba(201,152,31,0.13)' }}>
+                        style={{ background: '#f0e9e2' }}>
                         <Gauge size={18} className="text-mustard" />
                       </div>
                       <div>
@@ -202,13 +203,13 @@ export function ProfileScreen() {
                   {timeLabel && (
                     <div className={`flex items-center gap-3.5 py-3.5 ${effortLabel ? 'border-t border-beige/30' : ''}`}>
                       <div className="w-9 h-9 rounded-[11px] flex items-center justify-center flex-shrink-0"
-                        style={{ background: 'rgba(201,152,31,0.13)' }}>
+                        style={{ background: '#f0e9e2' }}>
                         <Sun size={18} className="text-mustard" />
                       </div>
                       <div>
                         <p className="text-[12.5px] text-chocolate/50 font-sans">Time preference</p>
                         <p className="font-display font-semibold text-[14.5px] text-chocolate mt-0.5">
-                          {timeLabel.label} available
+                          {timeLabel.sub}
                         </p>
                       </div>
                     </div>
@@ -218,7 +219,7 @@ export function ProfileScreen() {
                   {topCategories.length > 0 && (
                     <div className={`flex items-start gap-3.5 py-3.5 ${(effortLabel || timeLabel) ? 'border-t border-beige/30' : ''}`}>
                       <div className="w-9 h-9 rounded-[11px] flex items-center justify-center flex-shrink-0 mt-0.5"
-                        style={{ background: 'rgba(201,152,31,0.13)' }}>
+                        style={{ background: '#f0e9e2' }}>
                         <Layers size={18} className="text-mustard" />
                       </div>
                       <div className="flex-1">
@@ -270,13 +271,6 @@ export function ProfileScreen() {
                       <p className="font-display font-semibold text-[14.5px] text-chocolate">{person.name}</p>
                       <p className="text-[12.5px] text-chocolate/50 font-sans">{person.relationship}</p>
                     </div>
-                    <button
-                      onClick={() => openEdit(4)}
-                      className="p-1.5 rounded-[8px] text-chocolate/40 hover:text-chocolate hover:bg-[#f0e9e2] transition-colors"
-                      aria-label="Edit support circle"
-                    >
-                      <Edit2 size={15} />
-                    </button>
                   </div>
                 ))}
               </div>
@@ -292,53 +286,52 @@ export function ProfileScreen() {
                 <Plus size={16} /> Add someone
               </button>
             </div>
-          </div>
+          </div>{/* end two-column grid */}
+        </div>{/* end "What Kindrest knows" section */}
 
-          {/* Right column: Account & settings ───────────────────────────── */}
-          <div className="space-y-4 md:pt-[28px]">
-            <p className="font-display font-semibold text-[12px] uppercase tracking-[0.14em] text-chocolate/40">
-              Account &amp; settings
+        {/* ── Account & settings — full width below both columns ──────────── */}
+        <div className="space-y-4">
+          <p className="font-display font-semibold text-[12px] uppercase tracking-[0.14em] text-chocolate/40">
+            Account &amp; settings
+          </p>
+
+          <div className="bg-white rounded-2xl border border-beige/40 p-5">
+            <p className="font-display font-semibold text-[11px] uppercase tracking-[0.16em] text-mustard mb-1">
+              Settings
             </p>
+            <h3 className="font-serif text-[19px] text-chocolate mb-2">Account &amp; privacy</h3>
 
-            <div className="bg-white rounded-2xl border border-beige/40 p-5">
-              <p className="font-display font-semibold text-[11px] uppercase tracking-[0.16em] text-mustard mb-1">
-                Settings
-              </p>
-              <h3 className="font-serif text-[19px] text-chocolate mb-2">Account &amp; privacy</h3>
-
-              <div className="mt-1">
-                {[
-                  { icon: Mail,   label: 'Email & sign-in' },
-                  { icon: Lock,   label: 'Password' },
-                  { icon: Shield, label: 'Privacy & data' },
-                ].map(({ icon: Ico, label }, i) => (
-                  <div key={i} className={`flex items-center gap-3 py-3.5 cursor-pointer ${i > 0 ? 'border-t border-beige/20' : ''}`}>
-                    <Ico size={17} className="text-chocolate/40 flex-shrink-0" />
-                    <span className="flex-1 font-sans text-[14px] text-chocolate">{label}</span>
-                    <ChevronRight size={17} className="text-chocolate/25" />
-                  </div>
-                ))}
-
-                <div
-                  className="border-t border-beige/20 flex items-center gap-3 py-3.5 cursor-pointer"
-                  onClick={async () => { await signOut(); router.replace('/') }}
-                >
-                  <LogOut size={17} className="flex-shrink-0" style={{ color: '#9a3a1f' }} />
-                  <span className="font-sans text-[14px]" style={{ color: '#9a3a1f' }}>Sign out</span>
+            <div className="mt-1">
+              {[
+                { icon: Mail,   label: 'Email & sign-in' },
+                { icon: Lock,   label: 'Password' },
+                { icon: Shield, label: 'Privacy & data' },
+              ].map(({ icon: Ico, label }, i) => (
+                <div key={i} className={`flex items-center gap-3 py-3.5 cursor-pointer ${i > 0 ? 'border-t border-beige/20' : ''}`}>
+                  <Ico size={17} className="text-chocolate/40 flex-shrink-0" />
+                  <span className="flex-1 font-sans text-[14px] text-chocolate">{label}</span>
+                  <ChevronRight size={17} className="text-chocolate/25" />
                 </div>
+              ))}
+
+              <div
+                className="border-t border-beige/20 flex items-center gap-3 py-3.5 cursor-pointer"
+                onClick={async () => { await signOut(); router.replace('/') }}
+              >
+                <LogOut size={17} className="flex-shrink-0" style={{ color: '#9a3a1f' }} />
+                <span className="font-sans text-[14px]" style={{ color: '#9a3a1f' }}>Sign out</span>
               </div>
             </div>
-
-            {/* Feedback button */}
-            <button
-              onClick={() => setShowFeedback(true)}
-              className="w-full flex items-center justify-center gap-2 py-3 text-sm text-chocolate/50 font-sans border border-beige/40 rounded-2xl hover:border-mustard/40 transition-colors"
-            >
-              Share feedback
-            </button>
           </div>
 
+          <button
+            onClick={() => setShowFeedback(true)}
+            className="w-full flex items-center justify-center gap-2 py-3 text-sm text-chocolate/50 font-sans border border-beige/40 rounded-2xl hover:border-mustard/40 transition-colors"
+          >
+            Share feedback
+          </button>
         </div>
+
       </div>
 
       {showFeedback && (
