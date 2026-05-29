@@ -2,10 +2,17 @@
 
 import Link from 'next/link'
 import { Play, Clock, Bookmark } from 'lucide-react'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/auth-context'
 import { FeedbackSheet } from '@/components/shared/FeedbackSheet'
+
+const QUOTE_POOL = [
+  '"One moment at a time."',
+  '"You are doing better than you think."',
+  '"Rest is not a reward — it is a requirement."',
+  '"You haven\'t lost yourself. You are still here."',
+]
 
 interface LiveStats {
   totalCheckins: number
@@ -49,6 +56,12 @@ export function HomeScreen() {
   const [stats, setStats]             = useState<LiveStats | null>(null)
   const [statsLoaded, setStatsLoaded] = useState(false)
   const [showFeedback, setShowFeedback] = useState(false)
+
+  const quote = useMemo(() => {
+    const start   = new Date(new Date().getFullYear(), 0, 0).getTime()
+    const dayOfYr = Math.floor((Date.now() - start) / 86400000)
+    return QUOTE_POOL[dayOfYr % QUOTE_POOL.length]
+  }, [])
 
   // Redirect unauthenticated users
   useEffect(() => {
@@ -107,6 +120,9 @@ export function HomeScreen() {
         <h1 className="font-serif text-[27px] text-chocolate leading-[1.12] mt-1.5">
           {getGreeting()},<br />{firstName}.
         </h1>
+        <p className="font-serif italic text-[14px] text-chocolate/40 mt-2 leading-snug">
+          {quote}
+        </p>
       </div>
 
       <div className="px-5 mt-4 space-y-4">
@@ -134,12 +150,14 @@ export function HomeScreen() {
         </Link>
 
         {/* Streak nudge ──────────────────────────────────────────────────── */}
-        {statsLoaded && streakDays > 0 && lastCheckinWhen && (
+        {statsLoaded && lastCheckinWhen && (
           <div className="flex items-center gap-2.5 px-1 text-[13.5px] text-chocolate/60 font-sans">
             <Clock size={16} className="text-mustard flex-shrink-0" />
             <span>
-              <strong className="text-chocolate font-semibold">{streakDays}-day streak.</strong>
-              {' '}Last check-in {lastCheckinWhen}.
+              {streakDays > 0 && (
+                <strong className="text-chocolate font-semibold">{streakDays}-day streak.{' '}</strong>
+              )}
+              Last check-in {lastCheckinWhen}.
             </span>
           </div>
         )}

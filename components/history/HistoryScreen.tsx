@@ -14,7 +14,7 @@ const MOOD_SCORE: Record<string, number> = {
   overwhelmed: 1, struggling: 1.5, okay: 2.5, good: 3.5, thriving: 4,
 }
 
-const RATING_LABEL: Record<number, string> = { 1: 'Not for me', 2: 'Saved', 3: 'Did it ✓' }
+const RATING_LABEL: Record<number, string> = { 1: 'Not for me', 2: 'Saved', 3: 'Done ✓' }
 
 const CATEGORY_EMOJI: Record<string, string> = {
   'Rest':           '🌙',
@@ -45,11 +45,16 @@ interface DaySheet {
   recs: HistoryItem[]
 }
 
+interface SessionEntry {
+  mood: string
+  date: Date
+  recs: HistoryItem[]
+}
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function buildMoodData(history: HistoryItem[]): (number | null)[] {
   const dayMap = new Map<string, number>()
-  // Process oldest-first so newest overwrites
   for (const item of [...history].reverse()) {
     const key = new Date(item.created_at).toDateString()
     if (item.mood in MOOD_SCORE) dayMap.set(key, MOOD_SCORE[item.mood])
@@ -60,7 +65,7 @@ function buildMoodData(history: HistoryItem[]): (number | null)[] {
   })
 }
 
-function buildSessionLog(history: HistoryItem[]) {
+function buildSessionLog(history: HistoryItem[]): SessionEntry[] {
   const dateMap = new Map<string, { mood: string; recs: HistoryItem[]; date: Date }>()
   for (const item of history) {
     const d   = new Date(item.created_at)
@@ -70,10 +75,53 @@ function buildSessionLog(history: HistoryItem[]) {
   }
   return Array.from(dateMap.entries())
     .sort(([a], [b]) => new Date(b).getTime() - new Date(a).getTime())
-    .map(([, session]) => {
-      const topRec = [...session.recs].sort((a, b) => b.rating - a.rating)[0]
-      return { mood: session.mood, date: session.date, rec: topRec }
-    })
+    .map(([, s]) => ({ mood: s.mood, date: s.date, recs: s.recs }))
+}
+
+interface TrendAnalysis {
+  trendLine: string
+  frequencyLine: string
+  moodLine: string
+}
+
+function buildTrendAnalysis(history: HistoryItem[], activeDays: string[]): TrendAnalysis | null {
+  if (history.length < 2) return null
+
+  const ordered = [...history].reverse() // oldest first
+  const mid = Math.floor(ordered.length / 2)
+  const avg = (arr: HistoryItem[]) => {
+    const scored = arr.filter(i => i.mood in MOOD_SCORE)
+    if (!scored.length) return 0
+    return scored.reduce((s, i) => s + MOOD_SCORE[i.mood], 0) / scored.length
+  }
+  const diff = avg(ordered.slice(mid)) - avg(ordered.slice(0, mid))
+
+  let trendLine = ''
+  if (diff > 0.4)       trendLine = "You've been moving toward a steadier place lately."
+  else if (diff < -0.4) trendLine = "You've had a harder stretch recently — and you're still here, still showing up."
+  else                  trendLine = "Your energy has been pretty consistent across these check-ins."
+
+  const twoWeeksAgo  = Date.now() - 14 * 86400000
+  const recentActive = activeDays.filter(d => new Date(d).getTime() >= twoWeeksAgo).length
+  let frequencyLine  = ''
+  if (recentActive >= 10)     frequencyLine = `You've shown up ${recentActive} out of the last 14 days. That's real consistency.`
+  else if (recentActive >= 5) frequencyLine = `You've checked in ${recentActive} times over the last two weeks.`
+  else if (recentActive > 0)  frequencyLine = `You've had ${recentActive} check-in${recentActive > 1 ? 's' : ''} in the past two weeks — every one matters.`
+  else                        frequencyLine = "You haven't checked in recently. When you're ready, this is here."
+
+  const moodCounts: Record<string, number> = {}
+  for (const i of history) moodCounts[i.mood] = (moodCounts[i.mood] ?? 0) + 1
+  const topMood = Object.entries(moodCounts).sort((a, b) => b[1] - a[1])[0]?.[0]
+  const moodLabels: Record<string, string> = {
+    overwhelmed: "You've most often arrived feeling overwhelmed. Coming here anyway — that takes courage.",
+    struggling:  "Most of the time you've arrived feeling like you're pushing through it.",
+    okay:        "Most check-ins have landed around okay — a solid, real place to build from.",
+    good:        "You've been showing up feeling good more often than not. Keep that.",
+    thriving:    "You've been coming in with real energy behind you.",
+  }
+  const moodLine = topMood ? (moodLabels[topMood] ?? '') : ''
+
+  return { trendLine, frequencyLine, moodLine }
 }
 
 // ─── Mood trend SVG chart ─────────────────────────────────────────────────────
@@ -90,27 +138,17 @@ function MoodChart({ data }: { data: (number | null)[] }) {
     return [x, y] as [number, number]
   })
 
-  let pathD = ''
-  let firstX = 0, firstY = 0, lastX = 0, lastY = 0
+  let pathD = '', firstX = 0, lastX = 0, lastY = 0
   let started = false
-
   for (const pt of pts) {
     if (!pt) continue
-    if (!started) {
-      pathD = `M${pt[0].toFixed(1)},${pt[1].toFixed(1)}`
-      firstX = pt[0]; firstY = pt[1]; started = true
-    } else {
-      pathD += ` L${pt[0].toFixed(1)},${pt[1].toFixed(1)}`
-    }
+    if (!started) { pathD = `M${pt[0].toFixed(1)},${pt[1].toFixed(1)}`; firstX = pt[0]; started = true }
+    else          { pathD += ` L${pt[0].toFixed(1)},${pt[1].toFixed(1)}` }
     lastX = pt[0]; lastY = pt[1]
   }
+  void lastY
 
-  // Silence unused-variable lint
-  void firstY; void lastY
-
-  const areaD = started
-    ? `${pathD} L${lastX.toFixed(1)},${H - pY} L${firstX.toFixed(1)},${H - pY} Z`
-    : ''
+  const areaD  = started ? `${pathD} L${lastX.toFixed(1)},${H - pY} L${firstX.toFixed(1)},${H - pY} Z` : ''
   const lastPt = pts.filter(Boolean).at(-1)
 
   if (!started) {
@@ -145,65 +183,14 @@ function MoodChart({ data }: { data: (number | null)[] }) {
   )
 }
 
-// ─── Activity heatmap (last 35 days) ─────────────────────────────────────────
-
-function Heatmap({ activeDays }: { activeDays: string[] }) {
-  const active = new Set(activeDays.map(d => new Date(d).toDateString()))
-  const today  = new Date()
-  const cells  = Array.from({ length: 35 }, (_, i) => {
-    const d = new Date(today)
-    d.setDate(d.getDate() - (34 - i))
-    return {
-      isToday:  d.toDateString() === today.toDateString(),
-      isActive: active.has(d.toDateString()),
-    }
-  })
-  const DOW = ['M', 'T', 'W', 'T', 'F', 'S', 'S']
-  return (
-    <>
-      <div className="grid grid-cols-7 gap-1 mb-1.5">
-        {DOW.map((d, i) => (
-          <span key={i} className="text-center font-display font-semibold text-[10px] text-chocolate/30 uppercase tracking-[0.06em]">
-            {d}
-          </span>
-        ))}
-      </div>
-      <div className="grid grid-cols-7 gap-1.5">
-        {cells.map((cell, i) => (
-          <div key={i} className={`aspect-square rounded-[6px] ${
-            cell.isToday
-              ? 'bg-mustard'
-              : cell.isActive
-              ? 'bg-mustard/60 border border-transparent'
-              : 'bg-[#f0e9e2] border border-beige/40'
-          }`} />
-        ))}
-      </div>
-      <div className="flex items-center gap-1.5 justify-end mt-2.5">
-        <span className="text-[11px] text-chocolate/35 font-sans">Fewer</span>
-        {[
-          'bg-[#f0e9e2] border border-beige/40',
-          'bg-mustard/20',
-          'bg-mustard/40',
-          'bg-mustard/60',
-          'bg-mustard',
-        ].map((cls, i) => (
-          <div key={i} className={`w-3 h-3 rounded-[4px] ${cls}`} />
-        ))}
-        <span className="text-[11px] text-chocolate/35 font-sans">More</span>
-      </div>
-    </>
-  )
-}
-
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export function HistoryScreen() {
   const { user } = useAuth()
   const userId   = user?.id ?? 'demo-user-001'
 
-  const [tab, setTab]   = useState<Tab>('insights')
-  const [stats, setStats] = useState<LiveStats | null>(null)
+  const [tab, setTab]       = useState<Tab>('insights')
+  const [stats, setStats]   = useState<LiveStats | null>(null)
   const [loading, setLoading] = useState(true)
 
   // Day-detail bottom sheet
@@ -220,8 +207,7 @@ export function HistoryScreen() {
     setTimeout(() => setDaySheet(null), 300)
   }, [])
 
-  // Silence unused warning — openSheet is available for future calendar use
-  void openSheet
+  void openSheet // available for future calendar use
 
   useEffect(() => {
     const fetchStats = () => {
@@ -239,10 +225,12 @@ export function HistoryScreen() {
   const history    = stats?.recentHistory ?? []
   const moodData   = buildMoodData(history)
   const sessionLog = buildSessionLog(history)
+  const trend      = buildTrendAnalysis(history, stats?.activeDays ?? [])
 
-  // ── Insights panel (used in both mobile tab and desktop left column) ──────
+  // ── Insights panel ────────────────────────────────────────────────────────
   const InsightsPanel = (
     <div className="space-y-4">
+
       {/* Mood trend */}
       <div className="bg-white rounded-2xl shadow-[0_6px_18px_-8px_rgba(48,33,26,0.18)] p-5">
         <div className="flex items-center justify-between mb-1">
@@ -296,24 +284,45 @@ export function HistoryScreen() {
         </div>
       )}
 
-      {/* Check-in activity heatmap */}
-      <div className="bg-white rounded-2xl shadow-[0_6px_18px_-8px_rgba(48,33,26,0.18)] p-5">
-        <p className="font-display font-semibold text-[11px] uppercase tracking-[0.16em] text-mustard mb-1">
-          Check-in activity
-        </p>
-        <h3 className="font-serif text-[19px] text-chocolate mb-4">Showing up for yourself</h3>
-        <Heatmap activeDays={stats?.activeDays ?? []} />
-        {stats && stats.activeDays.length > 0 && (
-          <div className="mt-3 bg-[#f0e9e2] rounded-[14px] px-4 py-3">
-            <p className="font-display font-semibold text-[11px] uppercase tracking-[0.14em] text-mustard mb-1">
-              Reading your activity
-            </p>
-            <p className="font-sans text-[13.5px] text-chocolate/60 leading-[1.6]">
-              Each filled square is a day you showed up for yourself. The last 5 weeks shown here.
-            </p>
+      {/* Trend analysis — replaces heatmap */}
+      {trend && (
+        <div className="bg-white rounded-2xl shadow-[0_6px_18px_-8px_rgba(48,33,26,0.18)] p-5">
+          <p className="font-display font-semibold text-[11px] uppercase tracking-[0.16em] text-mustard mb-1">
+            Where you&apos;ve been lately
+          </p>
+          <h3 className="font-serif text-[19px] text-chocolate mb-3">Reading your patterns</h3>
+          <div className="space-y-3">
+            {[trend.trendLine, trend.frequencyLine, trend.moodLine].filter(Boolean).map((line, i) => (
+              <div key={i} className="flex gap-3 items-start">
+                <div className="w-1.5 h-1.5 rounded-full bg-mustard flex-shrink-0 mt-[7px]" />
+                <p className="font-sans text-[14px] text-chocolate/70 leading-[1.6]">{line}</p>
+              </div>
+            ))}
           </div>
-        )}
-      </div>
+          {stats && stats.totalCheckins > 0 && (
+            <div className="mt-4 bg-[#f0e9e2] rounded-[14px] px-4 py-3 flex items-center gap-3">
+              <span className="font-serif text-[28px] text-chocolate leading-none">{stats.totalCheckins}</span>
+              <p className="font-sans text-[13px] text-chocolate/55 leading-snug">
+                check-in{stats.totalCheckins !== 1 ? 's' : ''} total —<br />
+                <span className="font-semibold text-chocolate/70">you keep coming back.</span>
+              </p>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Empty trend state */}
+      {!trend && !loading && (
+        <div className="bg-white rounded-2xl shadow-[0_6px_18px_-8px_rgba(48,33,26,0.18)] p-5">
+          <p className="font-display font-semibold text-[11px] uppercase tracking-[0.16em] text-mustard mb-1">
+            Where you&apos;ve been lately
+          </p>
+          <h3 className="font-serif text-[19px] text-chocolate mb-2">Reading your patterns</h3>
+          <p className="font-sans text-[14px] text-chocolate/45 leading-[1.6]">
+            After a few check-ins, this space will show you what&apos;s shifting and what&apos;s holding.
+          </p>
+        </div>
+      )}
     </div>
   )
 
@@ -321,14 +330,17 @@ export function HistoryScreen() {
   const LogPanel = (
     <div className="bg-white rounded-2xl shadow-[0_6px_18px_-8px_rgba(48,33,26,0.18)] p-5">
       <p className="font-display font-semibold text-[11px] uppercase tracking-[0.16em] text-mustard mb-1">
-        Your sessions
+        Your check-ins
       </p>
-      <h3 className="font-serif text-[19px] text-chocolate mb-3">Past check-ins</h3>
+      <h3 className="font-serif text-[19px] text-chocolate mb-4">What you&apos;ve done</h3>
 
       {loading ? (
-        <div className="space-y-3">
+        <div className="space-y-4">
           {[0, 1, 2].map(i => (
-            <div key={i} className="h-14 bg-beige/20 rounded-xl animate-pulse" />
+            <div key={i} className="space-y-2">
+              <div className="h-4 w-28 bg-beige/30 rounded animate-pulse" />
+              <div className="h-10 bg-beige/20 rounded-xl animate-pulse" />
+            </div>
           ))}
         </div>
       ) : sessionLog.length === 0 ? (
@@ -339,33 +351,49 @@ export function HistoryScreen() {
           </p>
         </div>
       ) : (
-        <div>
+        <div className="space-y-5">
           {sessionLog.map((session, i) => {
-            const when = (() => {
-              const diff = Date.now() - session.date.getTime()
-              const days = Math.floor(diff / 86400000)
-              if (days === 0) return `Today · ${session.date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}`
-              if (days === 1) return `Yesterday · ${session.date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}`
-              return session.date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
-            })()
+            const d    = session.date
+            const diff = Math.floor((Date.now() - d.getTime()) / 86400000)
+            const dateLabel = diff === 0 ? 'Today'
+              : diff === 1 ? 'Yesterday'
+              : d.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })
+
             return (
-              <div key={i} className={`flex gap-3.5 py-4 ${i > 0 ? 'border-t border-beige/30' : ''}`}>
-                <div className="text-2xl leading-none flex-shrink-0 w-7 text-center mt-0.5">
-                  {MOOD_EMOJI[session.mood] ?? '😐'}
+              <div key={i}>
+                {/* Date + mood header */}
+                <div className="flex items-center gap-2 mb-2.5">
+                  <span className="text-lg leading-none">{MOOD_EMOJI[session.mood] ?? '😐'}</span>
+                  <div>
+                    <p className="font-display font-semibold text-[13px] text-chocolate">{dateLabel}</p>
+                    <p className="text-[11.5px] text-chocolate/40 font-sans capitalize leading-tight">
+                      Felt {session.mood}
+                    </p>
+                  </div>
                 </div>
-                <div className="flex-1 min-w-0">
-                  <p className="font-display font-semibold text-[13.5px] text-chocolate">{when}</p>
-                  <p className="text-[12.5px] text-chocolate/50 font-sans mt-0.5 mb-1.5 capitalize">
-                    Felt {session.mood?.toLowerCase()}
-                  </p>
-                  {session.rec && (
-                    <div className="inline-flex items-center gap-1.5 text-[13px] text-chocolate/55 font-sans">
-                      Used{' '}
-                      <span className="bg-[#f0e9e2] rounded-full px-2.5 py-0.5 text-[12px] font-display font-semibold text-chocolate">
-                        {session.rec.title}
+
+                {/* Recs for this session */}
+                <div className="space-y-1.5 pl-1">
+                  {session.recs.map((rec, j) => (
+                    <div
+                      key={`${rec.rec_id}-${j}`}
+                      className="flex items-center gap-2.5 bg-[#f8f2ee] rounded-[14px] px-3.5 py-2.5"
+                    >
+                      <span className="text-base leading-none flex-shrink-0">
+                        {CATEGORY_EMOJI[rec.category] ?? '✨'}
                       </span>
+                      <p className="font-display font-semibold text-[13px] text-chocolate flex-1 min-w-0 truncate">
+                        {rec.title}
+                      </p>
+                      {rec.rating >= 2 && (
+                        <span className={`text-[11px] font-display font-semibold flex-shrink-0 ${
+                          rec.rating === 3 ? 'text-mustard' : 'text-chocolate/45'
+                        }`}>
+                          {RATING_LABEL[rec.rating]}
+                        </span>
+                      )}
                     </div>
-                  )}
+                  ))}
                 </div>
               </div>
             )
@@ -489,7 +517,7 @@ export function HistoryScreen() {
               ) : (
                 <div className="text-center py-8">
                   <p className="text-sm text-chocolate/40 font-sans">
-                    No recommendations recorded for this day.
+                    No recommendations recorded for this session.
                   </p>
                 </div>
               )}
