@@ -36,7 +36,7 @@ export async function GET(req: NextRequest) {
   // ── Fetch user preference profile ─────────────────────────────────────────
   const { data: profile } = await supabaseAdmin
     .from('user_preference_profile')
-    .select('preferred_categories, avoided_categories, total_checkins, updated_at')
+    .select('preferred_categories, avoided_categories, total_checkins, motherhood_stage, updated_at')
     .eq('user_id', userId)
     .single()
 
@@ -49,6 +49,7 @@ export async function GET(req: NextRequest) {
       commonMood: null,
       activeDays: [],
       preferredCategories: [],
+      motherhoodStage: null,
       streakDays: 0,
     })
   }
@@ -156,6 +157,7 @@ export async function GET(req: NextRequest) {
     commonMood,
     activeDays,
     preferredCategories: profile?.preferred_categories ?? [],
+    motherhoodStage: profile?.motherhood_stage ?? null,
     streakDays,
   })
 }

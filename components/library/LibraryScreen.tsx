@@ -18,16 +18,19 @@ const CATEGORY_EMOJI: Record<string, string> = {
 
 const ALL_CATEGORIES = ['Rest', 'Micro Practice', 'Joy', 'Movement', 'Reflection', 'Connection']
 
+type RatingFilter = 'all' | 'done' | 'saved'
+
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export function LibraryScreen() {
-  const router          = useRouter()
+  const router = useRouter()
   const { user, loading: authLoading } = useAuth()
-  const userId          = user?.id ?? 'demo-user-001'
+  const userId = user?.id ?? 'demo-user-001'
 
-  const [items, setItems]   = useState<LibraryItem[]>([])
-  const [loaded, setLoaded] = useState(false)
-  const [filter, setFilter] = useState<string>('All')
+  const [items, setItems]         = useState<LibraryItem[]>([])
+  const [loaded, setLoaded]       = useState(false)
+  const [ratingFilter, setRatingFilter] = useState<RatingFilter>('all')
+  const [categoryFilter, setCategoryFilter] = useState<string>('All')
 
   // Redirect unauthenticated users
   useEffect(() => {
@@ -42,19 +45,30 @@ export function LibraryScreen() {
       .catch(() => setLoaded(true))
   }, [user, userId])
 
-  // Only show category filters that appear in the user's library
+  // Categories that actually appear in this user's library
   const activeCategories = useMemo(() => {
     const cats = new Set(items.map(i => i.category).filter(Boolean))
     return ALL_CATEGORIES.filter(c => cats.has(c))
   }, [items])
 
+  // Apply both filters
   const visible = useMemo(() => {
-    if (filter === 'All') return items
-    return items.filter(i => i.category === filter)
-  }, [items, filter])
+    return items.filter(i => {
+      const ratingOk =
+        ratingFilter === 'all' ||
+        (ratingFilter === 'done'  && i.rating === 3) ||
+        (ratingFilter === 'saved' && i.rating === 2)
+      const categoryOk = categoryFilter === 'All' || i.category === categoryFilter
+      return ratingOk && categoryOk
+    })
+  }, [items, ratingFilter, categoryFilter])
 
   const doneCount  = items.filter(i => i.rating === 3).length
   const savedCount = items.filter(i => i.rating === 2).length
+
+  function toggleRating(r: RatingFilter) {
+    setRatingFilter(prev => prev === r ? 'all' : r)
+  }
 
   if (authLoading) {
     return (
@@ -77,27 +91,66 @@ export function LibraryScreen() {
         </h1>
       </div>
 
-      {/* Summary row ────────────────────────────────────────────────────── */}
+      {/* Summary cards — tap to filter ──────────────────────────────────── */}
       {loaded && items.length > 0 && (
         <div className="px-5 mt-3 flex gap-3">
-          <div className="flex-1 bg-white rounded-2xl border border-beige/40 px-4 py-3 text-center">
-            <p className="font-serif text-[26px] text-chocolate leading-none">{doneCount}</p>
-            <p className="font-display font-semibold text-[11px] text-chocolate/45 mt-0.5 uppercase tracking-[0.1em]">
+
+          {/* Done */}
+          <button
+            onClick={() => toggleRating('done')}
+            className={`flex-1 rounded-2xl border px-4 py-3 text-center transition-colors ${
+              ratingFilter === 'done'
+                ? 'bg-chocolate border-chocolate'
+                : 'bg-white border-beige/40 hover:border-beige'
+            }`}
+          >
+            <p className={`font-serif text-[26px] leading-none ${ratingFilter === 'done' ? 'text-cream' : 'text-chocolate'}`}>
+              {doneCount}
+            </p>
+            <p className={`font-display font-semibold text-[11px] mt-0.5 uppercase tracking-[0.1em] ${
+              ratingFilter === 'done' ? 'text-mustard' : 'text-chocolate/45'
+            }`}>
               Done
             </p>
-          </div>
-          <div className="flex-1 bg-white rounded-2xl border border-beige/40 px-4 py-3 text-center">
-            <p className="font-serif text-[26px] text-chocolate leading-none">{savedCount}</p>
-            <p className="font-display font-semibold text-[11px] text-chocolate/45 mt-0.5 uppercase tracking-[0.1em]">
+          </button>
+
+          {/* Saved */}
+          <button
+            onClick={() => toggleRating('saved')}
+            className={`flex-1 rounded-2xl border px-4 py-3 text-center transition-colors ${
+              ratingFilter === 'saved'
+                ? 'bg-chocolate border-chocolate'
+                : 'bg-white border-beige/40 hover:border-beige'
+            }`}
+          >
+            <p className={`font-serif text-[26px] leading-none ${ratingFilter === 'saved' ? 'text-cream' : 'text-chocolate'}`}>
+              {savedCount}
+            </p>
+            <p className={`font-display font-semibold text-[11px] mt-0.5 uppercase tracking-[0.1em] ${
+              ratingFilter === 'saved' ? 'text-mustard' : 'text-chocolate/45'
+            }`}>
               Saved
             </p>
-          </div>
-          <div className="flex-1 bg-white rounded-2xl border border-beige/40 px-4 py-3 text-center">
-            <p className="font-serif text-[26px] text-chocolate leading-none">{items.length}</p>
-            <p className="font-display font-semibold text-[11px] text-chocolate/45 mt-0.5 uppercase tracking-[0.1em]">
-              Total
+          </button>
+
+          {/* Total / All */}
+          <button
+            onClick={() => setRatingFilter('all')}
+            className={`flex-1 rounded-2xl border px-4 py-3 text-center transition-colors ${
+              ratingFilter === 'all'
+                ? 'bg-chocolate border-chocolate'
+                : 'bg-white border-beige/40 hover:border-beige'
+            }`}
+          >
+            <p className={`font-serif text-[26px] leading-none ${ratingFilter === 'all' ? 'text-cream' : 'text-chocolate'}`}>
+              {items.length}
             </p>
-          </div>
+            <p className={`font-display font-semibold text-[11px] mt-0.5 uppercase tracking-[0.1em] ${
+              ratingFilter === 'all' ? 'text-mustard' : 'text-chocolate/45'
+            }`}>
+              All
+            </p>
+          </button>
         </div>
       )}
 
@@ -108,14 +161,14 @@ export function LibraryScreen() {
             {['All', ...activeCategories].map(cat => (
               <button
                 key={cat}
-                onClick={() => setFilter(cat)}
+                onClick={() => setCategoryFilter(cat)}
                 className={`flex-shrink-0 font-display font-semibold text-[12.5px] px-4 py-2 rounded-full border transition-colors ${
-                  filter === cat
-                    ? 'bg-chocolate text-cream border-chocolate'
+                  categoryFilter === cat
+                    ? 'bg-mustard text-white border-mustard'
                     : 'bg-white text-chocolate/55 border-beige/50 hover:text-chocolate/70'
                 }`}
               >
-                {cat === 'All' ? 'All' : `${CATEGORY_EMOJI[cat] ?? ''} ${cat}`}
+                {cat === 'All' ? 'All categories' : `${CATEGORY_EMOJI[cat] ?? ''} ${cat}`}
               </button>
             ))}
           </div>
@@ -134,7 +187,7 @@ export function LibraryScreen() {
           </div>
         )}
 
-        {/* Empty state — no items at all */}
+        {/* Empty state — nothing saved yet */}
         {loaded && items.length === 0 && (
           <div className="mt-8 text-center px-4">
             <p className="text-4xl mb-4">🌿</p>
@@ -147,11 +200,11 @@ export function LibraryScreen() {
           </div>
         )}
 
-        {/* Empty state — no items in this category */}
+        {/* Empty state — filter has no results */}
         {loaded && items.length > 0 && visible.length === 0 && (
-          <div className="mt-6 text-center">
+          <div className="mt-6 text-center py-4">
             <p className="font-sans text-[14px] text-chocolate/40">
-              Nothing in {filter} yet.
+              Nothing matches this filter yet.
             </p>
           </div>
         )}

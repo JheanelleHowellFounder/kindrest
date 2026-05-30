@@ -25,7 +25,17 @@ const CATEGORY_EMOJI: Record<string, string> = {
   'Connection':     '💬',
 }
 
+// Y-axis reference levels
+const Y_LEVELS = [
+  { score: 4,   label: 'Thriving' },
+  { score: 3.5, label: 'Good'     },
+  { score: 2.5, label: 'Okay'     },
+  { score: 1,   label: 'Low'      },
+]
+
 // ─── Types ────────────────────────────────────────────────────────────────────
+
+type TimeRange = '30d' | '90d' | 'ytd' | 'all'
 
 interface LiveStats {
   totalCheckins: number
@@ -51,18 +61,57 @@ interface SessionEntry {
   recs: HistoryItem[]
 }
 
+interface MoodChartData {
+  data:      (number | null)[]
+  startDate: Date
+  endDate:   Date
+}
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function buildMoodData(history: HistoryItem[]): (number | null)[] {
+function getRangeStart(range: TimeRange, history: HistoryItem[]): Date {
+  const now = Date.now()
+  switch (range) {
+    case '30d': return new Date(now - 29 * 86400000)
+    case '90d': return new Date(now - 89 * 86400000)
+    case 'ytd': return new Date(new Date().getFullYear(), 0, 1)
+    case 'all': {
+      if (history.length === 0) return new Date(now - 29 * 86400000)
+      const oldest = Math.min(...history.map(h => new Date(h.created_at).getTime()))
+      return new Date(oldest)
+    }
+  }
+}
+
+function buildMoodChartData(history: HistoryItem[], range: TimeRange): MoodChartData {
+  const endDate   = new Date()
+  const startDate = getRangeStart(range, history)
+
+  // Build day → score map for the range
   const dayMap = new Map<string, number>()
   for (const item of [...history].reverse()) {
-    const key = new Date(item.created_at).toDateString()
+    const d = new Date(item.created_at)
+    if (d < startDate || d > endDate) continue
+    const key = d.toDateString()
     if (item.mood in MOOD_SCORE) dayMap.set(key, MOOD_SCORE[item.mood])
   }
-  return Array.from({ length: 30 }, (_, i) => {
-    const d = new Date(Date.now() - (29 - i) * 86400000)
+
+  // Build dense array from startDate to today
+  const numDays = Math.max(1, Math.floor((endDate.getTime() - startDate.getTime()) / 86400000) + 1)
+  const full: (number | null)[] = Array.from({ length: numDays }, (_, i) => {
+    const d = new Date(startDate.getTime() + i * 86400000)
     return dayMap.get(d.toDateString()) ?? null
   })
+
+  // Trim leading nulls so chart starts at first real data point
+  const firstIdx = full.findIndex(v => v !== null)
+  const trimmed  = firstIdx > 0 ? full.slice(firstIdx) : full
+
+  const actualStart = firstIdx > 0
+    ? new Date(startDate.getTime() + firstIdx * 86400000)
+    : startDate
+
+  return { data: trimmed, startDate: actualStart, endDate }
 }
 
 function buildSessionLog(history: HistoryItem[]): SessionEntry[] {
@@ -87,7 +136,7 @@ interface TrendAnalysis {
 function buildTrendAnalysis(history: HistoryItem[], activeDays: string[]): TrendAnalysis | null {
   if (history.length < 2) return null
 
-  const ordered = [...history].reverse() // oldest first
+  const ordered = [...history].reverse()
   const mid = Math.floor(ordered.length / 2)
   const avg = (arr: HistoryItem[]) => {
     const scored = arr.filter(i => i.mood in MOOD_SCORE)
@@ -124,36 +173,44 @@ function buildTrendAnalysis(history: HistoryItem[], activeDays: string[]): Trend
   return { trendLine, frequencyLine, moodLine }
 }
 
-// ─── Mood trend SVG chart ─────────────────────────────────────────────────────
+// ─── Mood chart ───────────────────────────────────────────────────────────────
 
-function MoodChart({ data }: { data: (number | null)[] }) {
-  const W = 300, H = 120, pX = 6, pY = 14
+function MoodChart({ chartData }: { chartData: MoodChartData }) {
+  const { data, startDate, endDate } = chartData
+
+  // SVG dimensions — left margin leaves room for Y labels
+  const W = 320, H = 130
+  const pXL = 52, pXR = 8, pY = 12
   const min = 1, max = 4
-  const w = W - pX * 2, h = H - pY * 2
+  const w = W - pXL - pXR, h = H - pY * 2
+
+  const toY = (score: number) => pY + (1 - (score - min) / (max - min)) * h
 
   const pts = data.map((v, i) => {
     if (v === null) return null
-    const x = pX + (i / (data.length - 1)) * w
-    const y = pY + (1 - (v - min) / (max - min)) * h
-    return [x, y] as [number, number]
+    const x = pXL + (data.length > 1 ? (i / (data.length - 1)) * w : w / 2)
+    return [x, toY(v)] as [number, number]
   })
 
-  let pathD = '', firstX = 0, lastX = 0, lastY = 0
+  let pathD = '', firstX = 0, lastX = 0
   let started = false
   for (const pt of pts) {
     if (!pt) continue
     if (!started) { pathD = `M${pt[0].toFixed(1)},${pt[1].toFixed(1)}`; firstX = pt[0]; started = true }
     else          { pathD += ` L${pt[0].toFixed(1)},${pt[1].toFixed(1)}` }
-    lastX = pt[0]; lastY = pt[1]
+    lastX = pt[0]
   }
-  void lastY
 
   const areaD  = started ? `${pathD} L${lastX.toFixed(1)},${H - pY} L${firstX.toFixed(1)},${H - pY} Z` : ''
   const lastPt = pts.filter(Boolean).at(-1)
 
+  // Axis labels
+  const startLabel = startDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+  const endLabel   = 'Today'
+
   if (!started) {
     return (
-      <div className="flex items-center justify-center h-[100px]">
+      <div className="flex items-center justify-center h-[110px]">
         <p className="text-[13px] text-chocolate/30 font-sans text-center">
           Complete check-ins to see your mood trend
         </p>
@@ -162,38 +219,87 @@ function MoodChart({ data }: { data: (number | null)[] }) {
   }
 
   return (
-    <svg width="100%" viewBox={`0 0 ${W} ${H}`} style={{ display: 'block' }}>
-      {[0, 0.5, 1].map((t, i) => (
-        <line key={i}
-          x1={pX} x2={W - pX}
-          y1={pY + t * h} y2={pY + t * h}
-          stroke="rgba(48,33,26,0.08)" strokeWidth="1"
-        />
-      ))}
-      {areaD && <path d={areaD} fill="rgba(201,152,31,0.12)" />}
-      {pathD && (
-        <path d={pathD} fill="none" stroke="#c9981f"
-          strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-      )}
-      {lastPt && (
-        <circle cx={lastPt[0]} cy={lastPt[1]} r="4"
-          fill="#c9981f" stroke="#f8f2ee" strokeWidth="2" />
-      )}
-    </svg>
+    <div>
+      <svg width="100%" viewBox={`0 0 ${W} ${H}`} style={{ display: 'block' }}>
+        {/* Y-axis reference lines + labels */}
+        {Y_LEVELS.map(({ score, label }) => {
+          const y = toY(score)
+          // Only render if within chart area
+          if (y < pY - 2 || y > H - pY + 2) return null
+          return (
+            <g key={label}>
+              <line
+                x1={pXL} x2={W - pXR}
+                y1={y} y2={y}
+                stroke="rgba(48,33,26,0.07)"
+                strokeWidth="1"
+                strokeDasharray="3 3"
+              />
+              <text
+                x={pXL - 6} y={y + 4}
+                textAnchor="end"
+                fontSize="9"
+                fontFamily="inherit"
+                fill="rgba(48,33,26,0.35)"
+                fontWeight="600"
+              >
+                {label}
+              </text>
+            </g>
+          )
+        })}
+
+        {/* Area fill */}
+        {areaD && <path d={areaD} fill="rgba(201,152,31,0.10)" />}
+
+        {/* Trend line */}
+        {pathD && (
+          <path d={pathD} fill="none" stroke="#c9981f"
+            strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+        )}
+
+        {/* Data point dots */}
+        {pts.map((pt, i) => pt && (
+          <circle key={i} cx={pt[0]} cy={pt[1]} r="3"
+            fill="#c9981f" stroke="#f8f2ee" strokeWidth="1.5"
+            opacity={i === pts.filter(Boolean).length - 1 ? 1 : 0.55}
+          />
+        ))}
+
+        {/* Highlight last point */}
+        {lastPt && (
+          <circle cx={lastPt[0]} cy={lastPt[1]} r="4.5"
+            fill="#c9981f" stroke="#f8f2ee" strokeWidth="2" />
+        )}
+      </svg>
+
+      {/* X-axis labels */}
+      <div className="flex justify-between mt-1" style={{ paddingLeft: pXL, paddingRight: pXR }}>
+        <span className="text-[10.5px] text-chocolate/30 font-display font-semibold">{startLabel}</span>
+        <span className="text-[10.5px] text-chocolate/30 font-display font-semibold">{endLabel}</span>
+      </div>
+    </div>
   )
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
+const RANGE_LABELS: { value: TimeRange; label: string }[] = [
+  { value: '30d', label: '30 days' },
+  { value: '90d', label: '3 months' },
+  { value: 'ytd', label: 'This year' },
+  { value: 'all', label: 'All time' },
+]
+
 export function HistoryScreen() {
   const { user } = useAuth()
   const userId   = user?.id ?? 'demo-user-001'
 
-  const [tab, setTab]       = useState<Tab>('insights')
-  const [stats, setStats]   = useState<LiveStats | null>(null)
+  const [tab, setTab]         = useState<Tab>('insights')
+  const [range, setRange]     = useState<TimeRange>('30d')
+  const [stats, setStats]     = useState<LiveStats | null>(null)
   const [loading, setLoading] = useState(true)
 
-  // Day-detail bottom sheet
   const [daySheet, setDaySheet]         = useState<DaySheet | null>(null)
   const [sheetVisible, setSheetVisible] = useState(false)
 
@@ -207,7 +313,7 @@ export function HistoryScreen() {
     setTimeout(() => setDaySheet(null), 300)
   }, [])
 
-  void openSheet // available for future calendar use
+  void openSheet
 
   useEffect(() => {
     const fetchStats = () => {
@@ -223,7 +329,7 @@ export function HistoryScreen() {
   }, [userId])
 
   const history    = stats?.recentHistory ?? []
-  const moodData   = buildMoodData(history)
+  const chartData  = buildMoodChartData(history, range)
   const sessionLog = buildSessionLog(history)
   const trend      = buildTrendAnalysis(history, stats?.activeDays ?? [])
 
@@ -235,7 +341,7 @@ export function HistoryScreen() {
       <div className="bg-white rounded-2xl shadow-[0_6px_18px_-8px_rgba(48,33,26,0.18)] p-5">
         <div className="flex items-center justify-between mb-1">
           <p className="font-display font-semibold text-[11px] uppercase tracking-[0.16em] text-mustard">
-            Mood · last 30 days
+            Mood · {RANGE_LABELS.find(r => r.value === range)?.label}
           </p>
           {stats?.commonMood && (
             <p className="text-[12px] text-chocolate/45 font-sans capitalize">
@@ -244,11 +350,25 @@ export function HistoryScreen() {
           )}
         </div>
         <h3 className="font-serif text-[19px] text-chocolate mb-3">Your emotional weather</h3>
-        <MoodChart data={moodData} />
-        <div className="flex justify-between text-[11px] text-chocolate/30 font-display font-semibold mt-1.5">
-          <span>30 days ago</span>
-          <span>Today</span>
+
+        {/* Range toggle */}
+        <div className="flex gap-1.5 mb-3">
+          {RANGE_LABELS.map(r => (
+            <button
+              key={r.value}
+              onClick={() => setRange(r.value)}
+              className={`font-display font-semibold text-[11px] px-3 py-1.5 rounded-full border transition-colors ${
+                range === r.value
+                  ? 'bg-chocolate text-cream border-chocolate'
+                  : 'text-chocolate/45 border-beige/50 hover:text-chocolate/65'
+              }`}
+            >
+              {r.label}
+            </button>
+          ))}
         </div>
+
+        <MoodChart chartData={chartData} />
       </div>
 
       {/* Top techniques */}
@@ -284,7 +404,7 @@ export function HistoryScreen() {
         </div>
       )}
 
-      {/* Trend analysis — replaces heatmap */}
+      {/* Trend analysis */}
       {trend && (
         <div className="bg-white rounded-2xl shadow-[0_6px_18px_-8px_rgba(48,33,26,0.18)] p-5">
           <p className="font-display font-semibold text-[11px] uppercase tracking-[0.16em] text-mustard mb-1">
@@ -311,7 +431,6 @@ export function HistoryScreen() {
         </div>
       )}
 
-      {/* Empty trend state */}
       {!trend && !loading && (
         <div className="bg-white rounded-2xl shadow-[0_6px_18px_-8px_rgba(48,33,26,0.18)] p-5">
           <p className="font-display font-semibold text-[11px] uppercase tracking-[0.16em] text-mustard mb-1">
@@ -361,7 +480,6 @@ export function HistoryScreen() {
 
             return (
               <div key={i}>
-                {/* Date + mood header */}
                 <div className="flex items-center gap-2 mb-2.5">
                   <span className="text-lg leading-none">{MOOD_EMOJI[session.mood] ?? '😐'}</span>
                   <div>
@@ -371,8 +489,6 @@ export function HistoryScreen() {
                     </p>
                   </div>
                 </div>
-
-                {/* Recs for this session */}
                 <div className="space-y-1.5 pl-1">
                   {session.recs.map((rec, j) => (
                     <div
@@ -406,7 +522,7 @@ export function HistoryScreen() {
   return (
     <div className="flex flex-col min-h-screen pb-24">
 
-      {/* Header ─────────────────────────────────────────────────────────── */}
+      {/* Header */}
       <div className="px-5 pt-10 pb-2">
         <p className="font-display font-semibold text-[11px] uppercase tracking-[0.16em] text-mustard">
           History
@@ -416,7 +532,7 @@ export function HistoryScreen() {
         </h1>
       </div>
 
-      {/* Mobile tab toggle ────────────────────────────────────────────── */}
+      {/* Mobile tab toggle */}
       <div className="px-5 mt-4 flex justify-center md:hidden">
         <div className="inline-flex p-1 gap-1 bg-[#f0e9e2] border border-beige/50 rounded-full">
           {(['insights', 'log'] as Tab[]).map(t => (
@@ -433,15 +549,11 @@ export function HistoryScreen() {
         </div>
       </div>
 
-      {/* Content ─────────────────────────────────────────────────────────── */}
+      {/* Content */}
       <div className="px-5 mt-4 pb-4">
-
-        {/* Mobile: single column, tab-controlled */}
         <div className="md:hidden">
           {tab === 'insights' ? InsightsPanel : LogPanel}
         </div>
-
-        {/* Desktop: two-column side-by-side */}
         <div className="hidden md:grid md:grid-cols-2 md:gap-5 md:items-start">
           <div>
             <p className="font-display font-semibold text-[11px] uppercase tracking-[0.16em] text-chocolate/35 mb-3">
@@ -458,7 +570,7 @@ export function HistoryScreen() {
         </div>
       </div>
 
-      {/* Day-detail bottom sheet ─────────────────────────────────────────── */}
+      {/* Day-detail bottom sheet */}
       {daySheet && (
         <>
           <div

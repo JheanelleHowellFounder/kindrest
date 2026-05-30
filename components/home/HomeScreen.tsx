@@ -1,11 +1,13 @@
 'use client'
 
 import Link from 'next/link'
-import { Play, Clock, Bookmark } from 'lucide-react'
+import { Play, Clock, Bookmark, MessageCircle } from 'lucide-react'
 import { useState, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/auth-context'
 import { FeedbackSheet } from '@/components/shared/FeedbackSheet'
+
+// ─── Constants ────────────────────────────────────────────────────────────────
 
 const QUOTE_POOL = [
   '"One moment at a time."',
@@ -14,22 +16,84 @@ const QUOTE_POOL = [
   '"You haven\'t lost yourself. You are still here."',
 ]
 
+const CATEGORY_EMOJI: Record<string, string> = {
+  'Rest':           '🌙',
+  'Micro Practice': '✨',
+  'Joy':            '💛',
+  'Movement':       '🌿',
+  'Reflection':     '🪞',
+  'Connection':     '💬',
+}
+
+const STAGE_CONTENT: Record<string, { label: string; emoji: string; facts: string[] }> = {
+  expecting: {
+    label: 'Expecting',
+    emoji: '✨',
+    facts: [
+      'Your body is doing something remarkable right now. Rest without guilt.',
+      'Preparing for a baby is also preparing for a new version of yourself.',
+      'Every worry you carry about being a good mother? That\'s already the love.',
+    ],
+  },
+  newborn: {
+    label: 'Newborn (0–3 months)',
+    emoji: '🌙',
+    facts: [
+      'The fourth trimester is real. You\'re recovering while also learning someone new.',
+      'Survival mode is a valid mode. You\'re doing it.',
+      'There\'s no such thing as too much rest in these early weeks.',
+    ],
+  },
+  infant: {
+    label: 'Infant (3–12 months)',
+    emoji: '💛',
+    facts: [
+      'You\'re learning this baby at the same time they\'re learning the world.',
+      'Development milestones are ranges, not deadlines. You both have time.',
+      'Sleep deprivation is a real stressor. What you\'re carrying is heavy.',
+    ],
+  },
+  toddler: {
+    label: 'Toddler years (1–3)',
+    emoji: '⭐',
+    facts: [
+      'Toddlers test limits because they trust you enough to test them.',
+      'The big feelings make sense — they\'re learning to be human.',
+      'You don\'t have to love every stage. You just have to get through it.',
+    ],
+  },
+  preschool: {
+    label: 'Preschool years (3–5)',
+    emoji: '🎨',
+    facts: [
+      'Their questions aren\'t interruptions — though needing a break from them is okay too.',
+      'Play is work at this age. You\'ve been right there with them.',
+      'There\'s a lot of you in who they\'re becoming.',
+    ],
+  },
+  school_age: {
+    label: 'School age (5+)',
+    emoji: '📚',
+    facts: [
+      'They\'re building independence now. Your role is quietly, slowly changing.',
+      'Driving them everywhere, answering hard questions — this is still deep care.',
+      'The distance they\'re growing into is healthy. It doesn\'t mean they need you less.',
+    ],
+  },
+}
+
+// ─── Types ────────────────────────────────────────────────────────────────────
+
 interface LiveStats {
   totalCheckins: number
   streakDays: number
   topTechniques: { title: string; usedCount: number; likedCount: number; category: string; lastUsed?: string }[]
   recentHistory: { rec_id: number; title: string; rating: number; mood: string; category: string; created_at: string }[]
   activeDays: string[]
+  motherhoodStage: string | null
 }
 
-const CATEGORY_EMOJI: Record<string, string> = {
-  'Rest': '🌙',
-  'Micro Practice': '✨',
-  'Joy': '💛',
-  'Movement': '🌿',
-  'Reflection': '🪞',
-  'Connection': '💬',
-}
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function getGreeting() {
   const h = new Date().getHours()
@@ -46,6 +110,8 @@ function getDateLabel() {
   })
 }
 
+// ─── Component ────────────────────────────────────────────────────────────────
+
 export function HomeScreen() {
   const router = useRouter()
   const { user, loading: authLoading } = useAuth()
@@ -53,8 +119,8 @@ export function HomeScreen() {
   const userId    = user?.id ?? 'demo-user-001'
   const firstName = user?.user_metadata?.name?.split(' ')[0] ?? 'there'
 
-  const [stats, setStats]             = useState<LiveStats | null>(null)
-  const [statsLoaded, setStatsLoaded] = useState(false)
+  const [stats, setStats]               = useState<LiveStats | null>(null)
+  const [statsLoaded, setStatsLoaded]   = useState(false)
   const [showFeedback, setShowFeedback] = useState(false)
 
   const quote = useMemo(() => {
@@ -62,6 +128,16 @@ export function HomeScreen() {
     const dayOfYr = Math.floor((Date.now() - start) / 86400000)
     return QUOTE_POOL[dayOfYr % QUOTE_POOL.length]
   }, [])
+
+  // Stage fact also rotates by day
+  const stageFact = useMemo(() => {
+    const start   = new Date(new Date().getFullYear(), 0, 0).getTime()
+    const dayOfYr = Math.floor((Date.now() - start) / 86400000)
+    const stage   = stats?.motherhoodStage
+    if (!stage || !STAGE_CONTENT[stage]) return ''
+    const facts = STAGE_CONTENT[stage].facts
+    return facts[dayOfYr % facts.length]
+  }, [stats?.motherhoodStage])
 
   // Redirect unauthenticated users
   useEffect(() => {
@@ -92,14 +168,10 @@ export function HomeScreen() {
     )
   }
 
-  // Derive display values ────────────────────────────────────────────────────
-  const savedTech   = stats?.topTechniques.find(t => t.likedCount > 0) ?? null
-  const recentItem  = stats?.recentHistory[0] ?? null
-  const isRecent    = recentItem
-    ? Date.now() - new Date(recentItem.created_at).getTime() < 36 * 3600 * 1000
-    : false
-
+  // Derive display values
+  const savedTech  = stats?.topTechniques.find(t => t.likedCount > 0) ?? null
   const streakDays = stats?.streakDays ?? 0
+
   let lastCheckinWhen = ''
   if (stats?.activeDays && stats.activeDays.length > 0) {
     const latestMs = Math.max(...stats.activeDays.map(d => new Date(d).getTime()))
@@ -107,7 +179,8 @@ export function HomeScreen() {
     lastCheckinWhen = days === 0 ? 'today' : days === 1 ? 'yesterday' : `${days} days ago`
   }
 
-  const isNewUser = !statsLoaded || !stats || stats.totalCheckins === 0
+  const isNewUser    = !statsLoaded || !stats || stats.totalCheckins === 0
+  const stageInfo    = stats?.motherhoodStage ? STAGE_CONTENT[stats.motherhoodStage] : null
 
   return (
     <div className="flex flex-col min-h-screen pb-24">
@@ -127,12 +200,10 @@ export function HomeScreen() {
 
       <div className="px-5 mt-4 space-y-4">
 
-        {/* Primary CTA — dark hero card with mustard glow ──────────────── */}
+        {/* Primary CTA — dark hero card ────────────────────────────────── */}
         <Link href="/check-in" className="block">
           <div className="relative bg-chocolate rounded-[32px] p-6 overflow-hidden">
-            {/* Glow */}
             <div className="absolute -right-16 -top-16 w-48 h-48 rounded-full bg-mustard/30 blur-2xl pointer-events-none" />
-
             <p className="font-display font-semibold text-[11px] uppercase tracking-[0.16em] text-mustard relative">
               Today · Check-in
             </p>
@@ -149,7 +220,7 @@ export function HomeScreen() {
           </div>
         </Link>
 
-        {/* Streak nudge ──────────────────────────────────────────────────── */}
+        {/* Streak nudge ────────────────────────────────────────────────── */}
         {statsLoaded && lastCheckinWhen && (
           <div className="flex items-center gap-2.5 px-1 text-[13.5px] text-chocolate/60 font-sans">
             <Clock size={16} className="text-mustard flex-shrink-0" />
@@ -162,49 +233,32 @@ export function HomeScreen() {
           </div>
         )}
 
-        {/* Continue where you left off ──────────────────────────────────── */}
-        {statsLoaded && recentItem && isRecent && (
-          <div className="bg-white rounded-[28px] border border-beige/40 p-5">
-            <div className="flex items-center justify-between mb-3">
-              <p className="font-display font-semibold text-[11px] uppercase tracking-[0.16em] text-mustard">
-                Continue where you left off
-              </p>
-              <p className="text-[12px] text-chocolate/40 font-sans">
-                {new Date(recentItem.created_at).toLocaleDateString('en-US', {
-                  weekday: 'short',
-                  hour: 'numeric',
-                  minute: '2-digit',
-                })}
-              </p>
-            </div>
-            <div className="flex items-center gap-3.5">
-              <div className="w-12 h-12 rounded-[14px] bg-cream flex items-center justify-center text-2xl flex-shrink-0">
-                {CATEGORY_EMOJI[recentItem.category] ?? '🌙'}
+        {/* Motherhood stage card ───────────────────────────────────────── */}
+        {statsLoaded && stageInfo && stageFact && (
+          <div className="bg-[#faf6f0] border border-mustard/20 rounded-[24px] p-5">
+            <p className="font-display font-semibold text-[11px] uppercase tracking-[0.16em] text-mustard mb-3">
+              Where you are right now
+            </p>
+            <div className="flex items-start gap-4">
+              <div
+                className="w-12 h-12 rounded-[14px] flex items-center justify-center text-[22px] flex-shrink-0"
+                style={{ background: 'rgba(201,152,31,0.12)' }}
+              >
+                {stageInfo.emoji}
               </div>
               <div className="flex-1 min-w-0">
-                <p className="font-serif text-[17px] text-chocolate leading-tight truncate">
-                  {recentItem.title}
+                <p className="font-display font-semibold text-[14px] text-chocolate">
+                  {stageInfo.label}
                 </p>
-                <p className="text-[12.5px] text-chocolate/50 font-sans mt-0.5">
-                  2 of 3 steps · pick up where you paused
+                <p className="font-serif italic text-[14px] text-chocolate/60 mt-1 leading-snug">
+                  {stageFact}
                 </p>
               </div>
-              <Link
-                href="/check-in"
-                onClick={e => e.stopPropagation()}
-                className="flex-shrink-0 bg-cream text-chocolate font-display font-semibold text-[13px] px-4 py-2.5 rounded-[15px]"
-              >
-                Resume
-              </Link>
-            </div>
-            {/* Progress indicator */}
-            <div className="mt-3.5 h-1.5 rounded-full bg-beige/40 overflow-hidden">
-              <div className="h-full bg-mustard rounded-full" style={{ width: '66%' }} />
             </div>
           </div>
         )}
 
-        {/* A technique you saved ─────────────────────────────────────────── */}
+        {/* A technique you saved ──────────────────────────────────────── */}
         {statsLoaded && savedTech && (
           <div>
             <p className="font-display font-semibold text-[12px] uppercase tracking-[0.14em] text-chocolate/40 mb-2">
@@ -227,7 +281,7 @@ export function HomeScreen() {
           </div>
         )}
 
-        {/* New user empty state ──────────────────────────────────────────── */}
+        {/* New user empty state ────────────────────────────────────────── */}
         {isNewUser && (
           <div className="bg-mustard/5 border border-mustard/20 rounded-2xl p-5">
             <p className="font-serif text-chocolate text-lg leading-snug">
@@ -238,6 +292,17 @@ export function HomeScreen() {
             </p>
           </div>
         )}
+
+        {/* Share feedback ─────────────────────────────────────────────── */}
+        <div className="pt-1 pb-2 flex justify-center">
+          <button
+            onClick={() => setShowFeedback(true)}
+            className="flex items-center gap-1.5 font-display font-semibold text-[12.5px] text-chocolate/35 hover:text-chocolate/60 transition-colors"
+          >
+            <MessageCircle size={14} strokeWidth={1.8} />
+            Share feedback
+          </button>
+        </div>
 
       </div>
 
