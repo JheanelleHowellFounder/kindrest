@@ -223,10 +223,6 @@ function MoodChart({ chartData }: { chartData: MoodChartData }) {
   const areaD  = started ? `${pathD} L${lastX.toFixed(1)},${H - pY} L${firstX.toFixed(1)},${H - pY} Z` : ''
   const lastPt = pts.filter(Boolean).at(-1)
 
-  // Axis labels
-  const startLabel = startDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-  const endLabel   = 'Today'
-
   if (!started) {
     return (
       <div className="flex items-center justify-center h-[110px]">
@@ -237,13 +233,20 @@ function MoodChart({ chartData }: { chartData: MoodChartData }) {
     )
   }
 
+  // Build 4 evenly spaced X-axis labels
+  const spanMs    = endDate.getTime() - startDate.getTime()
+  const xLabels   = [0, 1, 2, 3].map(i => {
+    if (i === 3) return 'Today'
+    const d = new Date(startDate.getTime() + (i / 3) * spanMs)
+    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+  })
+
   return (
     <div>
       <svg width="100%" viewBox={`0 0 ${W} ${H}`} style={{ display: 'block' }}>
         {/* Y-axis reference lines + labels */}
         {Y_LEVELS.map(({ score, label }) => {
           const y = toY(score)
-          // Only render if within chart area
           if (y < pY - 2 || y > H - pY + 2) return null
           return (
             <g key={label}>
@@ -290,12 +293,32 @@ function MoodChart({ chartData }: { chartData: MoodChartData }) {
           <circle cx={lastPt[0]} cy={lastPt[1]} r="4.5"
             fill="#c9981f" stroke="#f8f2ee" strokeWidth="2" />
         )}
+
+        {/* X-axis tick marks — 4 evenly spaced vertical lines */}
+        {[0, 1, 2, 3].map(i => {
+          const x = pXL + (i / 3) * w
+          return (
+            <line key={i}
+              x1={x} x2={x}
+              y1={H - pY} y2={H - pY + 4}
+              stroke="rgba(48,33,26,0.20)"
+              strokeWidth="1"
+            />
+          )
+        })}
       </svg>
 
-      {/* X-axis labels */}
+      {/* X-axis labels — 4 equally spaced */}
       <div className="flex justify-between mt-1" style={{ paddingLeft: pXL, paddingRight: pXR }}>
-        <span className="text-[10.5px] text-chocolate/30 font-display font-semibold">{startLabel}</span>
-        <span className="text-[10.5px] text-chocolate/30 font-display font-semibold">{endLabel}</span>
+        {xLabels.map((label, i) => (
+          <span
+            key={i}
+            className="text-[10px] text-chocolate/30 font-display font-semibold leading-none"
+            style={{ textAlign: i === 0 ? 'left' : i === 3 ? 'right' : 'center', minWidth: 0, flex: 1 }}
+          >
+            {label}
+          </span>
+        ))}
       </div>
     </div>
   )
@@ -387,6 +410,40 @@ export function HistoryScreen() {
         </div>
       )}
 
+      {/* Reading your patterns — paragraph, sits above the chart */}
+      {trend && (
+        <div className="bg-white rounded-2xl shadow-[0_6px_18px_-8px_rgba(48,33,26,0.18)] p-5">
+          <p className="font-display font-semibold text-[11px] uppercase tracking-[0.16em] text-mustard mb-1">
+            Reading your patterns
+          </p>
+          <h3 className="font-serif text-[19px] text-chocolate mb-3">What Kindrest is noticing</h3>
+          <p className="font-sans text-[14.5px] text-chocolate/70 leading-[1.75]">
+            {[trend.trendLine, trend.frequencyLine, trend.moodLine].filter(Boolean).join(' ')}
+          </p>
+          {stats && stats.totalCheckins > 0 && (
+            <div className="mt-4 flex items-center gap-2.5">
+              <span className="font-serif text-[26px] text-chocolate leading-none">{stats.totalCheckins}</span>
+              <p className="font-sans text-[13px] text-chocolate/50 leading-snug">
+                total check-in{stats.totalCheckins !== 1 ? 's' : ''} —{' '}
+                <span className="text-chocolate/70 font-semibold">you keep coming back.</span>
+              </p>
+            </div>
+          )}
+        </div>
+      )}
+
+      {!trend && !loading && (
+        <div className="bg-white rounded-2xl shadow-[0_6px_18px_-8px_rgba(48,33,26,0.18)] p-5">
+          <p className="font-display font-semibold text-[11px] uppercase tracking-[0.16em] text-mustard mb-1">
+            Reading your patterns
+          </p>
+          <h3 className="font-serif text-[19px] text-chocolate mb-2">What Kindrest is noticing</h3>
+          <p className="font-sans text-[14px] text-chocolate/45 leading-[1.6]">
+            After a few check-ins, this space will reflect what&apos;s shifting, what&apos;s holding, and how often you&apos;re showing up for yourself.
+          </p>
+        </div>
+      )}
+
       {/* Mood trend */}
       <div className="bg-white rounded-2xl shadow-[0_6px_18px_-8px_rgba(48,33,26,0.18)] p-5">
         <div className="flex items-center justify-between mb-1">
@@ -454,44 +511,6 @@ export function HistoryScreen() {
         </div>
       )}
 
-      {/* Trend analysis */}
-      {trend && (
-        <div className="bg-white rounded-2xl shadow-[0_6px_18px_-8px_rgba(48,33,26,0.18)] p-5">
-          <p className="font-display font-semibold text-[11px] uppercase tracking-[0.16em] text-mustard mb-1">
-            Where you&apos;ve been lately
-          </p>
-          <h3 className="font-serif text-[19px] text-chocolate mb-3">Reading your patterns</h3>
-          <div className="space-y-3">
-            {[trend.trendLine, trend.frequencyLine, trend.moodLine].filter(Boolean).map((line, i) => (
-              <div key={i} className="flex gap-3 items-start">
-                <div className="w-1.5 h-1.5 rounded-full bg-mustard flex-shrink-0 mt-[7px]" />
-                <p className="font-sans text-[14px] text-chocolate/70 leading-[1.6]">{line}</p>
-              </div>
-            ))}
-          </div>
-          {stats && stats.totalCheckins > 0 && (
-            <div className="mt-4 bg-[#f0e9e2] rounded-[14px] px-4 py-3 flex items-center gap-3">
-              <span className="font-serif text-[28px] text-chocolate leading-none">{stats.totalCheckins}</span>
-              <p className="font-sans text-[13px] text-chocolate/55 leading-snug">
-                check-in{stats.totalCheckins !== 1 ? 's' : ''} total —<br />
-                <span className="font-semibold text-chocolate/70">you keep coming back.</span>
-              </p>
-            </div>
-          )}
-        </div>
-      )}
-
-      {!trend && !loading && (
-        <div className="bg-white rounded-2xl shadow-[0_6px_18px_-8px_rgba(48,33,26,0.18)] p-5">
-          <p className="font-display font-semibold text-[11px] uppercase tracking-[0.16em] text-mustard mb-1">
-            Where you&apos;ve been lately
-          </p>
-          <h3 className="font-serif text-[19px] text-chocolate mb-2">Reading your patterns</h3>
-          <p className="font-sans text-[14px] text-chocolate/45 leading-[1.6]">
-            After a few check-ins, this space will show you what&apos;s shifting and what&apos;s holding.
-          </p>
-        </div>
-      )}
     </div>
   )
 
