@@ -146,31 +146,50 @@ function buildTrendAnalysis(history: HistoryItem[], activeDays: string[]): Trend
   const diff = avg(ordered.slice(mid)) - avg(ordered.slice(0, mid))
 
   let trendLine = ''
-  if (diff > 0.4)       trendLine = "You've been moving toward a steadier place lately."
-  else if (diff < -0.4) trendLine = "You've had a harder stretch recently — and you're still here, still showing up."
-  else                  trendLine = "Your energy has been pretty consistent across these check-ins."
+  if (diff > 0.4)       trendLine = "Things have been getting a bit lighter for you lately — that shift is real."
+  else if (diff < -0.4) trendLine = "It's been a harder stretch recently. You're still showing up, and that means something."
+  else                  trendLine = "Your days have been fairly steady — no big swings either way."
 
   const twoWeeksAgo  = Date.now() - 14 * 86400000
   const recentActive = activeDays.filter(d => new Date(d).getTime() >= twoWeeksAgo).length
   let frequencyLine  = ''
-  if (recentActive >= 10)     frequencyLine = `You've shown up ${recentActive} out of the last 14 days. That's real consistency.`
-  else if (recentActive >= 5) frequencyLine = `You've checked in ${recentActive} times over the last two weeks.`
-  else if (recentActive > 0)  frequencyLine = `You've had ${recentActive} check-in${recentActive > 1 ? 's' : ''} in the past two weeks — every one matters.`
-  else                        frequencyLine = "You haven't checked in recently. When you're ready, this is here."
+  if (recentActive >= 10)     frequencyLine = `You've checked in ${recentActive} out of the last 14 days — that's a real habit.`
+  else if (recentActive >= 5) frequencyLine = `You've checked in ${recentActive} times in the last two weeks. That adds up.`
+  else if (recentActive > 0)  frequencyLine = `You've had ${recentActive} check-in${recentActive > 1 ? 's' : ''} in the past two weeks. Every one counts.`
+  else                        frequencyLine = "You haven't checked in lately. Come back when you're ready — this is here."
 
   const moodCounts: Record<string, number> = {}
   for (const i of history) moodCounts[i.mood] = (moodCounts[i.mood] ?? 0) + 1
   const topMood = Object.entries(moodCounts).sort((a, b) => b[1] - a[1])[0]?.[0]
   const moodLabels: Record<string, string> = {
-    overwhelmed: "You've most often arrived feeling overwhelmed. Coming here anyway — that takes courage.",
-    struggling:  "Most of the time you've arrived feeling like you're pushing through it.",
-    okay:        "Most check-ins have landed around okay — a solid, real place to build from.",
-    good:        "You've been showing up feeling good more often than not. Keep that.",
-    thriving:    "You've been coming in with real energy behind you.",
+    overwhelmed: "You've mostly arrived here feeling overwhelmed. Showing up even then — that's not nothing.",
+    struggling:  "More often than not, you've come in feeling like you're pushing through. That's exhausting.",
+    okay:        "Most of your check-ins have been somewhere around okay. That's a real foundation.",
+    good:        "A lot of your days have been good ones. That energy is worth noticing.",
+    thriving:    "You've been coming in with real energy behind you. Anchor that.",
   }
   const moodLine = topMood ? (moodLabels[topMood] ?? '') : ''
 
   return { trendLine, frequencyLine, moodLine }
+}
+
+/**
+ * Returns true when the user's last 3 distinct check-in sessions were all
+ * 'struggling' or 'overwhelmed'. This triggers the mental health support card.
+ */
+function checkConsecutiveStruggle(history: HistoryItem[]): boolean {
+  // Build one-mood-per-day session list (most recent first)
+  const dateMap = new Map<string, string>()
+  for (const item of history) {
+    const key = new Date(item.created_at).toDateString()
+    if (!dateMap.has(key)) dateMap.set(key, item.mood)
+  }
+  const sessions = Array.from(dateMap.entries())
+    .sort(([a], [b]) => new Date(b).getTime() - new Date(a).getTime())
+    .map(([, mood]) => mood)
+
+  if (sessions.length < 3) return false
+  return sessions.slice(0, 3).every(m => m === 'struggling' || m === 'overwhelmed')
 }
 
 // ─── Mood chart ───────────────────────────────────────────────────────────────
@@ -328,14 +347,45 @@ export function HistoryScreen() {
     return () => document.removeEventListener('visibilitychange', onVisible)
   }, [userId])
 
-  const history    = stats?.recentHistory ?? []
-  const chartData  = buildMoodChartData(history, range)
-  const sessionLog = buildSessionLog(history)
-  const trend      = buildTrendAnalysis(history, stats?.activeDays ?? [])
+  const history        = stats?.recentHistory ?? []
+  const chartData      = buildMoodChartData(history, range)
+  const sessionLog     = buildSessionLog(history)
+  const trend          = buildTrendAnalysis(history, stats?.activeDays ?? [])
+  const showSupportCard = !loading && checkConsecutiveStruggle(history)
 
   // ── Insights panel ────────────────────────────────────────────────────────
   const InsightsPanel = (
     <div className="space-y-4">
+
+      {/* Mental health support nudge — shown after 3 consecutive hard sessions */}
+      {showSupportCard && (
+        <div className="bg-white rounded-2xl shadow-[0_6px_18px_-8px_rgba(48,33,26,0.18)] p-5 border-l-4 border-mustard">
+          <p className="font-display font-semibold text-[11px] uppercase tracking-[0.16em] text-mustard mb-2">
+            A note just for you
+          </p>
+          <p className="font-serif text-[18px] text-chocolate leading-snug mb-3">
+            You&apos;ve had a rough few days.
+          </p>
+          <p className="font-sans text-[14px] text-chocolate/70 leading-[1.7]">
+            We&apos;ve noticed your last few check-ins have been really hard ones. That kind of weight
+            is real, and it matters. Kindrest is here for the everyday stuff — but when things stay
+            heavy for a stretch, talking to someone trained to help can make a real difference.
+          </p>
+          <p className="font-sans text-[14px] text-chocolate/70 leading-[1.7] mt-2">
+            You don&apos;t have to be in a crisis to reach out. A therapist, your OB/GYN, or even
+            your primary care doctor are all good places to start. You deserve that kind of support —
+            not instead of this, but alongside it.
+          </p>
+          <a
+            href="https://www.psychologytoday.com/us/therapists"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 mt-4 font-display font-semibold text-[13px] text-mustard hover:text-chocolate transition-colors"
+          >
+            Find a therapist near you →
+          </a>
+        </div>
+      )}
 
       {/* Mood trend */}
       <div className="bg-white rounded-2xl shadow-[0_6px_18px_-8px_rgba(48,33,26,0.18)] p-5">

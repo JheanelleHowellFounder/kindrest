@@ -40,12 +40,14 @@ export async function POST(req: NextRequest) {
       selectedIndicators = [],
       regulationTypes = [],
       userId,
+      excludedIds = [],
     } = body as {
       mood: string
       timeAvailable: string
       selectedIndicators: string[]
       regulationTypes: RegulationType[]
       userId?: string
+      excludedIds?: number[]  // IDs currently shown — skip these on "try again"
     }
 
     if (!mood || !timeAvailable) {
@@ -120,13 +122,27 @@ export async function POST(req: NextRequest) {
     }
 
     // ── Step 3: Score and pick top 3 ────────────────────────────────────────
+    // On "try again" requests, filter out currently-shown recs so the user
+    // always gets fresh suggestions. If the pool shrinks below 3, fall back
+    // to the full candidate set (the scoring novelty penalty still applies).
+    const excludedSet    = new Set(excludedIds)
+    const freshCandidates = candidates.filter(c => !excludedSet.has(c.rec_id))
+    const scoringPool    = freshCandidates.length >= 3 ? freshCandidates : candidates
+
+    // Merge excludedIds into recentlyUsedIds so the scoring engine penalises
+    // them even in the fallback path (they'll end up at the bottom of the sort)
+    const mergedRecentIds = [
+      ...excludedIds,
+      ...recentlyUsedIds.filter(id => !excludedSet.has(id)),
+    ]
+
     const recommendations = pickTopN(
       mood,
       timeAvailable as any,
-      candidates,
+      scoringPool,
       3,
       feedbackWeights,
-      recentlyUsedIds,
+      mergedRecentIds,
       userPrefs
     )
 

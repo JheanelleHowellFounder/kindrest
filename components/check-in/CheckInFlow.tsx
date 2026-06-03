@@ -49,12 +49,14 @@ export function CheckInFlow() {
   const [timeAvailable, setTimeAvailable] = useState<TimeAvailable | null>(null)
 
   // Care kit state
-  const [careKit, setCareKit]           = useState<Recommendation[]>([])
+  const [careKit, setCareKit]             = useState<Recommendation[]>([])
   const [claudeMessage, setClaudeMessage] = useState<string>('')
-  const [isLoading, setIsLoading]       = useState(false)
-  const [feedbackSent, setFeedbackSent]           = useState<Record<number, FeedbackRating>>({})
-  const [expandedRecs, setExpandedRecs]           = useState<Set<number>>(new Set())
+  const [isLoading, setIsLoading]         = useState(false)
+  const [feedbackSent, setFeedbackSent]   = useState<Record<number, FeedbackRating>>({})
+  const [expandedRecs, setExpandedRecs]   = useState<Set<number>>(new Set())
   const [mailingSubscribed, setMailingSubscribed] = useState(false)
+  const [retryCount, setRetryCount]       = useState(0)
+  const [shownIds, setShownIds]           = useState<number[]>([])
 
   const stepIndex = STEPS.indexOf(step)
   const progress  = (stepIndex / (STEPS.length - 1)) * 100
@@ -70,7 +72,7 @@ export function CheckInFlow() {
     return Array.from(types)
   }
 
-  async function fetchCareKit() {
+  async function fetchCareKit(excludedIds: number[] = []) {
     if (!mood || !timeAvailable) return
     setIsLoading(true)
     try {
@@ -83,10 +85,21 @@ export function CheckInFlow() {
           selectedIndicators: [...mentalIndicators, ...physicalIndicators, ...emotionalIndicators],
           regulationTypes: getRegulationTypes(),
           userId,
+          excludedIds,
         }),
       })
       const data = await res.json()
-      if (data.recommendations) setCareKit(data.recommendations)
+      if (data.recommendations) {
+        setCareKit(data.recommendations)
+        // Accumulate all IDs ever shown so future retries avoid them too
+        setShownIds(prev => {
+          const next = [...prev]
+          for (const r of data.recommendations) {
+            if (!next.includes(r.rec_id)) next.push(r.rec_id)
+          }
+          return next
+        })
+      }
       if (data.message) setClaudeMessage(data.message)
 
       // First check-in complete: add to MailerLite Active Users (fire-and-forget)
@@ -134,6 +147,8 @@ export function CheckInFlow() {
     const next = STEPS[stepIndex + 1]
     if (!next) return
     if (next === 'carekit') {
+      setRetryCount(0)
+      setShownIds([])
       fetchCareKit()
     }
     setStep(next)
@@ -465,11 +480,12 @@ export function CheckInFlow() {
                   onClick={() => {
                     setFeedbackSent({})
                     setExpandedRecs(new Set())
-                    fetchCareKit()
+                    setRetryCount(c => c + 1)
+                    fetchCareKit(shownIds)
                   }}
-                  className="w-full text-center text-sm text-chocolate/40 font-sans py-2"
+                  className="w-full text-center text-sm text-chocolate/40 font-sans py-2 hover:text-chocolate/60 transition-colors"
                 >
-                  Try different suggestions
+                  {retryCount === 0 ? 'Try different suggestions' : 'Show me something else'}
                 </button>
               )}
             </div>
