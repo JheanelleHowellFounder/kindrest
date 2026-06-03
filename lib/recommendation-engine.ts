@@ -107,6 +107,9 @@ export function scoreRecommendations(
       if (userPrefs.avoided_categories?.includes(rec.category)) score -= 0.5
       if (userPrefs.preferred_effort === rec.effort_level) score += 0.2
 
+      // 3b. Regulation type affinity — boost recs matching types she engages with most
+      if (userPrefs.strong_regulation_types?.includes(rec.regulation_type)) score += 0.3
+
       // 4. Historical feedback weight (1–3 scale: skip/save/did_it)
       const weight = weightMap.get(rec.rec_id)
       if (weight && weight.usage_count > 0) {

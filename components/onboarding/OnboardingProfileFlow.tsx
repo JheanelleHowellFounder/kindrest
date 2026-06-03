@@ -27,7 +27,7 @@ const TIME_OPTIONS = [
 
 const CATEGORIES = [
   { value: 'Rest',             emoji: '🌙' },
-  { value: 'Micro Practices',  emoji: '✨' },
+  { value: 'Micro Practice',   emoji: '✨' },
   { value: 'Joy',              emoji: '💛' },
   { value: 'Movement',         emoji: '🌿' },
   { value: 'Reflection',       emoji: '🪞' },

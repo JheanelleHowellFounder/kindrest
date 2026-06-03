@@ -103,7 +103,7 @@ export async function POST(req: NextRequest) {
       const [{ data: profile }, { data: userProfile }] = await Promise.all([
         supabaseAdmin
           .from('user_preference_profile')
-          .select('preferred_categories, avoided_categories, preferred_effort')
+          .select('preferred_categories, avoided_categories, preferred_effort, strong_regulation_types, recent_indicators')
           .eq('user_id', userId)
           .single(),
         supabaseAdmin
@@ -155,7 +155,13 @@ export async function POST(req: NextRequest) {
         .join('\n')
 
       const indicatorText = selectedIndicators.length > 0
-        ? `The user selected these indicators: ${selectedIndicators.join(', ')}.`
+        ? `Right now she selected: ${selectedIndicators.join(', ')}.`
+        : ''
+
+      // Surface recurring patterns from past sessions if available
+      const recentIndicators = (userPrefs as any)?.recent_indicators as string[] | undefined
+      const patternText = recentIndicators?.length
+        ? `She commonly experiences: ${recentIndicators.slice(0, 5).join(', ')}.`
         : ''
 
       const prefText = userPrefs.preferred_categories?.length
@@ -178,6 +184,7 @@ Mothers using this app are often exhausted and time-short — every word must co
             role: 'user',
             content: `A mother just completed a check-in. She feels: ${mood}.
 ${indicatorText}
+${patternText}
 Her regulation phase is: ${regulationPhase}.
 She has ${timeAvailable.replace('_', ' ')} available.
 ${prefText}
@@ -224,6 +231,24 @@ Do not list the recommendations. Do not use quotes.`,
         await supabaseAdmin
           .from('user_preference_profile')
           .insert({ user_id: userId, total_checkins: 1, updated_at: new Date().toISOString() })
+      }
+    }
+
+    // ── Step 6: Store selected indicators for pattern tracking ──────────────
+    // Persists the indicators this mom selected so future sessions and the
+    // patterns card can reference what she commonly experiences.
+    // Requires: ALTER TABLE user_preference_profile ADD COLUMN IF NOT EXISTS
+    //           recent_indicators TEXT[] DEFAULT '{}';
+    if (userId && supabaseAdmin && selectedIndicators.length > 0) {
+      try {
+        await supabaseAdmin
+          .from('user_preference_profile')
+          .upsert(
+            { user_id: userId, recent_indicators: selectedIndicators, updated_at: new Date().toISOString() },
+            { onConflict: 'user_id', ignoreDuplicates: false }
+          )
+      } catch {
+        // Non-fatal — column may not exist yet until migration is run
       }
     }
 

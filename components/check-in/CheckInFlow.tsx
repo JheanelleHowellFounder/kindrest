@@ -1,11 +1,12 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { X, ChevronRight, ChevronLeft, ThumbsDown, Bookmark, CheckCircle2, ChevronDown } from 'lucide-react'
 import { MOODS, MENTAL_INDICATORS, PHYSICAL_INDICATORS, EMOTIONAL_INDICATORS } from '@/lib/mock-data'
 import type { MoodLabel, TimeAvailable, Recommendation, RegulationType } from '@/lib/types'
 import { useAuth } from '@/lib/auth-context'
+import { supabase } from '@/lib/supabase'
 
 type Step = 'mood' | 'mental' | 'physical' | 'emotional' | 'time' | 'carekit'
 type FeedbackRating = 1 | 2 | 3  // 1=skip  2=save  3=did_it
@@ -57,6 +58,23 @@ export function CheckInFlow() {
   const [mailingSubscribed, setMailingSubscribed] = useState(false)
   const [retryCount, setRetryCount]       = useState(0)
   const [shownIds, setShownIds]           = useState<number[]>([])
+
+  // Pre-load the user's preferred time window from their profile so the time
+  // step shows their usual choice already selected (they can always change it)
+  useEffect(() => {
+    if (!user || !supabase) return
+    supabase
+      .from('user_profiles')
+      .select('preferred_time_window')
+      .eq('user_id', user.id)
+      .single()
+      .then(({ data }) => {
+        if (data?.preferred_time_window && !timeAvailable) {
+          setTimeAvailable(data.preferred_time_window as TimeAvailable)
+        }
+      })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user])
 
   const stepIndex = STEPS.indexOf(step)
   const progress  = (stepIndex / (STEPS.length - 1)) * 100
