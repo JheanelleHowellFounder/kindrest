@@ -128,15 +128,15 @@ function buildSessionLog(history: HistoryItem[]): SessionEntry[] {
 }
 
 interface TrendAnalysis {
-  trendLine: string
-  frequencyLine: string
-  moodLine: string
+  headline:  string
+  paragraph: string
 }
 
 function buildTrendAnalysis(history: HistoryItem[], activeDays: string[]): TrendAnalysis | null {
   if (history.length < 2) return null
 
-  const ordered = [...history].reverse()
+  // ── Mood trajectory ───────────────────────────────────────────────────────
+  const ordered = [...history].reverse() // oldest first
   const mid = Math.floor(ordered.length / 2)
   const avg = (arr: HistoryItem[]) => {
     const scored = arr.filter(i => i.mood in MOOD_SCORE)
@@ -144,33 +144,103 @@ function buildTrendAnalysis(history: HistoryItem[], activeDays: string[]): Trend
     return scored.reduce((s, i) => s + MOOD_SCORE[i.mood], 0) / scored.length
   }
   const diff = avg(ordered.slice(mid)) - avg(ordered.slice(0, mid))
+  const isImproving = diff > 0.4
+  const isDeclining = diff < -0.4
 
-  let trendLine = ''
-  if (diff > 0.4)       trendLine = "Things have been getting a bit lighter for you lately — that shift is real."
-  else if (diff < -0.4) trendLine = "It's been a harder stretch recently. You're still showing up, and that means something."
-  else                  trendLine = "Your days have been fairly steady — no big swings either way."
-
+  // ── Consistency over last 14 days ─────────────────────────────────────────
   const twoWeeksAgo  = Date.now() - 14 * 86400000
   const recentActive = activeDays.filter(d => new Date(d).getTime() >= twoWeeksAgo).length
-  let frequencyLine  = ''
-  if (recentActive >= 10)     frequencyLine = `You've checked in ${recentActive} out of the last 14 days — that's a real habit.`
-  else if (recentActive >= 5) frequencyLine = `You've checked in ${recentActive} times in the last two weeks. That adds up.`
-  else if (recentActive > 0)  frequencyLine = `You've had ${recentActive} check-in${recentActive > 1 ? 's' : ''} in the past two weeks. Every one counts.`
-  else                        frequencyLine = "You haven't checked in lately. Come back when you're ready — this is here."
+  const isConsistent = recentActive >= 5
 
-  const moodCounts: Record<string, number> = {}
-  for (const i of history) moodCounts[i.mood] = (moodCounts[i.mood] ?? 0) + 1
-  const topMood = Object.entries(moodCounts).sort((a, b) => b[1] - a[1])[0]?.[0]
-  const moodLabels: Record<string, string> = {
-    overwhelmed: "You've mostly arrived here feeling overwhelmed. Showing up even then — that's not nothing.",
-    struggling:  "More often than not, you've come in feeling like you're pushing through. That's exhausting.",
-    okay:        "Most of your check-ins have been somewhere around okay. That's a real foundation.",
-    good:        "A lot of your days have been good ones. That energy is worth noticing.",
-    thriving:    "You've been coming in with real energy behind you. Anchor that.",
+  // ── Top completed category (rating === 3) ─────────────────────────────────
+  // Primary signal: what has she actually followed through on?
+  const doneCounts: Record<string, number> = {}
+  for (const item of history) {
+    if (item.rating === 3 && item.category) {
+      doneCounts[item.category] = (doneCounts[item.category] ?? 0) + 1
+    }
   }
-  const moodLine = topMood ? (moodLabels[topMood] ?? '') : ''
+  const topDoneCategory = Object.entries(doneCounts)
+    .sort((a, b) => b[1] - a[1])[0]?.[0] ?? null
 
-  return { trendLine, frequencyLine, moodLine }
+  // Fallback: most saved (rating === 2) if nothing completed yet
+  const savedCounts: Record<string, number> = {}
+  for (const item of history) {
+    if (item.rating === 2 && item.category) {
+      savedCounts[item.category] = (savedCounts[item.category] ?? 0) + 1
+    }
+  }
+  const topSavedCategory = Object.entries(savedCounts)
+    .sort((a, b) => b[1] - a[1])[0]?.[0] ?? null
+
+  const topCategory  = topDoneCategory ?? topSavedCategory
+  const wasCompleted = !!topDoneCategory
+
+  // Category phrases for natural sentence use
+  const CATEGORY_PHRASE: Record<string, string> = {
+    'Rest':           'rest practices',
+    'Micro Practice': 'small, quick practices',
+    'Joy':            'joy-based practices',
+    'Movement':       'movement practices',
+    'Reflection':     'reflection practices',
+    'Connection':     'connection-focused practices',
+  }
+  const catPhrase = topCategory ? (CATEGORY_PHRASE[topCategory] ?? topCategory.toLowerCase()) : null
+
+  // ── Headline: one clear TL;DR sentence ───────────────────────────────────
+  let headline = ''
+  if (isImproving && isConsistent) {
+    headline = "You've been showing up consistently, and it's making a difference."
+  } else if (isImproving) {
+    headline = "Things have been getting a bit lighter for you lately."
+  } else if (isDeclining && isConsistent) {
+    headline = "It's been a hard stretch, and you keep coming back anyway."
+  } else if (isDeclining) {
+    headline = "It's been a harder stretch lately."
+  } else if (isConsistent) {
+    headline = "You've been consistent, and that's worth more than it sounds."
+  } else {
+    headline = "You've been holding steady."
+  }
+
+  // ── Sentence 1: connects mood direction to what she's been doing ──────────
+  let sentence1 = ''
+  if (isImproving && catPhrase) {
+    sentence1 = wasCompleted
+      ? `Your mood has been shifting in a better direction, and ${catPhrase} are the ones you've actually been completing, not just saving.`
+      : `Your mood has been shifting in a better direction, and ${catPhrase} have been your most-reached-for tool.`
+  } else if (isImproving) {
+    sentence1 = `Your recent check-ins are trending toward a better place, even if the shift doesn't feel dramatic yet.`
+  } else if (isDeclining && catPhrase) {
+    sentence1 = `The last few check-ins have been harder ones, and when things get heavy, you tend to reach for ${catPhrase}.`
+  } else if (isDeclining) {
+    sentence1 = `The last few check-ins have been heavier. That kind of stretch is real, and it's okay to name it.`
+  } else if (catPhrase) {
+    sentence1 = `You've been in a steady place, and ${catPhrase} have been your most-used tool across your check-ins.`
+  } else {
+    sentence1 = `You've been in a steady place across your recent check-ins.`
+  }
+
+  // ── Sentence 2: the "so what" grounded in her specific data ──────────────
+  // Avoid repeating catPhrase if sentence 1 already named it
+  const catAlreadyUsed = catPhrase ? sentence1.includes(catPhrase) : false
+
+  let sentence2 = ''
+  if (isConsistent && catPhrase && wasCompleted) {
+    sentence2 = `You've checked in ${recentActive} times in the last two weeks and have been following through on ${catPhrase}. That's a pattern worth trusting.`
+  } else if (isConsistent && catPhrase) {
+    sentence2 = `You've checked in ${recentActive} times in the last two weeks, and your nervous system keeps reaching for ${catPhrase}.`
+  } else if (isConsistent) {
+    sentence2 = `You've shown up ${recentActive} times in the last two weeks. That kind of consistency builds something over time.`
+  } else if (!catAlreadyUsed && catPhrase && wasCompleted) {
+    sentence2 = `Of everything in your care kit, ${catPhrase} are what you actually follow through on. That's useful to know about yourself.`
+  } else if (!catAlreadyUsed && catPhrase) {
+    sentence2 = `You tend to reach for ${catPhrase} most often. That's your nervous system telling you what it needs.`
+  } else {
+    sentence2 = `That pattern is worth trusting.`
+  }
+
+  return { headline, paragraph: `${sentence1} ${sentence2}` }
 }
 
 /**
@@ -410,22 +480,24 @@ export function HistoryScreen() {
         </div>
       )}
 
-      {/* Reading your patterns — paragraph, sits above the chart */}
+      {/* Reading your patterns — sits above the chart */}
       {trend && (
         <div className="bg-white rounded-2xl shadow-[0_6px_18px_-8px_rgba(48,33,26,0.18)] p-5">
-          <p className="font-display font-semibold text-[11px] uppercase tracking-[0.16em] text-mustard mb-1">
+          <p className="font-display font-semibold text-[11px] uppercase tracking-[0.16em] text-mustard mb-2">
             Reading your patterns
           </p>
-          <h3 className="font-serif text-[19px] text-chocolate mb-3">What Kindrest is noticing</h3>
-          <p className="font-sans text-[14.5px] text-chocolate/70 leading-[1.75]">
-            {[trend.trendLine, trend.frequencyLine, trend.moodLine].filter(Boolean).join(' ')}
+          <p className="font-serif text-[20px] text-chocolate leading-snug mb-3">
+            {trend.headline}
+          </p>
+          <p className="font-sans text-[14px] text-chocolate/70 leading-[1.75]">
+            {trend.paragraph}
           </p>
           {stats && stats.totalCheckins > 0 && (
-            <div className="mt-4 flex items-center gap-2.5">
+            <div className="mt-4 flex items-center gap-2.5 pt-4 border-t border-beige/30">
               <span className="font-serif text-[26px] text-chocolate leading-none">{stats.totalCheckins}</span>
               <p className="font-sans text-[13px] text-chocolate/50 leading-snug">
-                total check-in{stats.totalCheckins !== 1 ? 's' : ''} —{' '}
-                <span className="text-chocolate/70 font-semibold">you keep coming back.</span>
+                total check-in{stats.totalCheckins !== 1 ? 's' : ''}.{' '}
+                <span className="text-chocolate/70 font-semibold">You keep coming back.</span>
               </p>
             </div>
           )}
@@ -434,10 +506,12 @@ export function HistoryScreen() {
 
       {!trend && !loading && (
         <div className="bg-white rounded-2xl shadow-[0_6px_18px_-8px_rgba(48,33,26,0.18)] p-5">
-          <p className="font-display font-semibold text-[11px] uppercase tracking-[0.16em] text-mustard mb-1">
+          <p className="font-display font-semibold text-[11px] uppercase tracking-[0.16em] text-mustard mb-2">
             Reading your patterns
           </p>
-          <h3 className="font-serif text-[19px] text-chocolate mb-2">What Kindrest is noticing</h3>
+          <p className="font-serif text-[20px] text-chocolate leading-snug mb-2">
+            Your story is just starting.
+          </p>
           <p className="font-sans text-[14px] text-chocolate/45 leading-[1.6]">
             After a few check-ins, this space will reflect what&apos;s shifting, what&apos;s holding, and how often you&apos;re showing up for yourself.
           </p>
