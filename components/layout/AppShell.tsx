@@ -23,22 +23,21 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     <>
       <SidebarNav collapsed={collapsed} onToggle={toggle} />
 
-      {/* Mobile: plain mobile shell. Desktop: web-width content shifted past sidebar. */}
+      {/*
+        Single render — children appear exactly once in the DOM.
+        "mobile-shell" gives the 430px phone layout on small screens.
+        "md-web-shell" overrides to max-w-2xl desktop layout at md+.
+        Dual render was previously used but caused position:fixed children
+        to render twice on desktop (visible through display:none in Safari/Chrome
+        on macOS), breaking click events on the landing page.
+      */}
       <div
         className={`transition-all duration-300 md:min-h-screen md:bg-[#e8e0d8] ${
           collapsed ? 'md:ml-[72px]' : 'md:ml-[280px]'
         }`}
       >
-        {/* Mobile shell (≤ md) */}
-        <div className="mobile-shell md:hidden">
+        <div className="mobile-shell md-web-shell">
           {children}
-        </div>
-
-        {/* Web shell (md+) */}
-        <div className="hidden md:block w-full min-h-screen">
-          <div className="max-w-2xl mx-auto px-10 py-8">
-            {children}
-          </div>
         </div>
       </div>
     </>

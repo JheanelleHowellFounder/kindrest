@@ -37,12 +37,29 @@ html, body {
   }
 }
 
-/* Desktop sidebar layout */
+/* Desktop sidebar layout — phone shadow */
 @media (min-width: 768px) {
   .mobile-shell {
     box-shadow: 0 0 80px rgba(48, 33, 26, 0.12);
     min-height: 100svh;
     margin: 0;
+  }
+}
+
+/*
+  When AppShell uses a single render (mobile-shell + md-web-shell together),
+  override to desktop web layout at md+. The double-class selector (0-2-0)
+  wins over .mobile-shell (0-1-0) so these values take effect cleanly.
+*/
+@media (min-width: 768px) {
+  .mobile-shell.md-web-shell {
+    max-width: 42rem;       /* = max-w-2xl */
+    margin: 0 auto;         /* = mx-auto */
+    padding: 2rem 2.5rem;   /* = py-8 px-10 */
+    box-shadow: none;
+    background-color: transparent;
+    min-height: 100vh;
+    overflow-x: visible;
   }
 }
 
