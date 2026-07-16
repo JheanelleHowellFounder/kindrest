@@ -223,7 +223,8 @@ export function ProfileScreen() {
                         <Layers size={18} className="text-mustard" />
                       </div>
                       <div className="flex-1">
-                        <p className="text-[12.5px] text-chocolate/50 font-sans mb-2">Top categories</p>
+                        <p className="text-[12.5px] text-chocolate/50 font-sans mb-1">Categories you chose</p>
+                        <p className="text-[11px] text-chocolate/35 font-sans mb-2">From your profile setup, not your usage data</p>
                         <div className="flex flex-wrap gap-2">
                           {topCategories.map((cat, i) => (
                             <span key={i} className="inline-flex items-center gap-1.5 bg-[#f0e9e2] border border-beige/50 rounded-full px-3 py-1.5 font-display font-semibold text-[13px] text-chocolate">

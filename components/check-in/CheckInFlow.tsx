@@ -7,8 +7,10 @@ import { MOODS, MENTAL_INDICATORS, PHYSICAL_INDICATORS, EMOTIONAL_INDICATORS } f
 import type { MoodLabel, TimeAvailable, Recommendation, RegulationType } from '@/lib/types'
 import { useAuth } from '@/lib/auth-context'
 import { supabase } from '@/lib/supabase'
+import { detectCrisisLanguage } from '@/lib/safety'
+import { CrisisCard } from '@/components/shared/CrisisCard'
 
-type Step = 'mood' | 'mental' | 'physical' | 'emotional' | 'time' | 'carekit'
+type Step = 'mood' | 'mental' | 'physical' | 'emotional' | 'time' | 'carekit' | 'journal'
 type FeedbackRating = 1 | 2 | 3  // 1=skip  2=save  3=did_it
 
 const TIME_OPTIONS = [
@@ -19,6 +21,19 @@ const TIME_OPTIONS = [
 ]
 
 const STEPS: Step[] = ['mood','mental','physical','emotional','time','carekit']
+
+const JOURNAL_AFFIRMATIONS = [
+  "Getting it out of your head is one of the most powerful things you can do for yourself.",
+  "You don't have to have it figured out. Writing it down is enough.",
+  "The act of naming what you're feeling is already a form of healing.",
+  "You showed up for yourself today. That's not a small thing.",
+  "There's no right way to feel. You're doing this exactly right.",
+  "Sometimes the most productive thing you can do is just let it out.",
+  "Your feelings deserve space. Thank you for giving them some.",
+  "Writing is how we make sense of the things that don't quite make sense yet.",
+  "You are not too much. You are a mother doing her best — and that is everything.",
+  "This moment of honesty with yourself matters more than you know.",
+]
 
 // Map indicator labels back to their regulation_type for the API
 const INDICATOR_TYPE_MAP: Record<string, RegulationType> = {}
@@ -49,6 +64,13 @@ export function CheckInFlow() {
   const [emotionalIndicators, setEmotionalIndicators] = useState<string[]>([])
   const [timeAvailable, setTimeAvailable] = useState<TimeAvailable | null>(null)
 
+  // Journal state (unknown door)
+  const [journalEntry, setJournalEntry]   = useState('')
+  const [journalSaving, setJournalSaving] = useState(false)
+  const [journalDone, setJournalDone]     = useState(false)
+  const [journalAffirmation, setJournalAffirmation] = useState('')
+  const [journalCrisis, setJournalCrisis] = useState(false)
+
   // Care kit state
   const [careKit, setCareKit]             = useState<Recommendation[]>([])
   const [claudeMessage, setClaudeMessage] = useState<string>('')
@@ -58,6 +80,14 @@ export function CheckInFlow() {
   const [mailingSubscribed, setMailingSubscribed] = useState(false)
   const [retryCount, setRetryCount]       = useState(0)
   const [shownIds, setShownIds]           = useState<number[]>([])
+
+  // Reflective rec — inline journal response
+  const [reflectingRecId, setReflectingRecId] = useState<number | null>(null)
+  const [reflectionText, setReflectionText]   = useState('')
+  const [reflectionSaving, setReflectionSaving] = useState(false)
+  const [reflectionDone, setReflectionDone]   = useState<Set<number>>(new Set())
+  const [reflectionAffirmations, setReflectionAffirmations] = useState<Record<number, string>>({})
+  const [reflectionCrisis, setReflectionCrisis] = useState<Set<number>>(new Set())
 
   // Pre-load the user's preferred time window from their profile so the time
   // step shows their usual choice already selected (they can always change it)
@@ -90,7 +120,7 @@ export function CheckInFlow() {
     return Array.from(types)
   }
 
-  async function fetchCareKit(excludedIds: number[] = []) {
+  async function fetchCareKit(excludedIds: number[] = [], broaden = false) {
     if (!mood || !timeAvailable) return
     setIsLoading(true)
     try {
@@ -101,7 +131,9 @@ export function CheckInFlow() {
           mood,
           timeAvailable,
           selectedIndicators: [...mentalIndicators, ...physicalIndicators, ...emotionalIndicators],
-          regulationTypes: getRegulationTypes(),
+          // On retry, skip the regulation-type pre-filter so the pool widens
+          // to all recs for the current phase — avoids the same 3 coming back.
+          regulationTypes: broaden ? [] : getRegulationTypes(),
           userId,
           excludedIds,
         }),
@@ -161,6 +193,56 @@ export function CheckInFlow() {
     }
   }
 
+  async function saveJournalEntry() {
+    if (!journalEntry.trim() || !user) return
+    setJournalSaving(true)
+    try {
+      await fetch('/api/journal-entry', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content: journalEntry.trim(), userId: user.id, source: 'unknown_door' }),
+      })
+      setJournalCrisis(detectCrisisLanguage(journalEntry))
+      const affirmation = JOURNAL_AFFIRMATIONS[Math.floor(Math.random() * JOURNAL_AFFIRMATIONS.length)]
+      setJournalAffirmation(affirmation)
+      setJournalDone(true)
+    } catch (err) {
+      console.error('[CheckInFlow] Journal save failed:', err)
+    } finally {
+      setJournalSaving(false)
+    }
+  }
+
+  async function saveReflection(rec: Recommendation) {
+    if (!reflectionText.trim() || !user) return
+    setReflectionSaving(true)
+    try {
+      await fetch('/api/journal-entry', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          content: reflectionText.trim(),
+          userId: user.id,
+          source: 'reflective_rec',
+        }),
+      })
+      if (detectCrisisLanguage(reflectionText)) {
+        setReflectionCrisis(prev => new Set(prev).add(rec.rec_id))
+      }
+      const affirmation = JOURNAL_AFFIRMATIONS[Math.floor(Math.random() * JOURNAL_AFFIRMATIONS.length)]
+      setReflectionAffirmations(prev => ({ ...prev, [rec.rec_id]: affirmation }))
+      setReflectionDone(prev => new Set(prev).add(rec.rec_id))
+      setReflectingRecId(null)
+      setReflectionText('')
+      // Reflecting counts as engagement — log it as "did it"
+      sendFeedback(rec, 3)
+    } catch (err) {
+      console.error('[CheckInFlow] Reflection save failed:', err)
+    } finally {
+      setReflectionSaving(false)
+    }
+  }
+
   function goNext() {
     const next = STEPS[stepIndex + 1]
     if (!next) return
@@ -191,7 +273,7 @@ export function CheckInFlow() {
   return (
     <div className="flex flex-col min-h-screen">
       {/* Progress bar */}
-      {step !== 'carekit' && (
+      {step !== 'carekit' && step !== 'journal' && (
         <div className="px-5 pt-12 pb-4">
           <div className="flex items-center gap-3">
             {step !== 'mood' && (
@@ -245,11 +327,77 @@ export function CheckInFlow() {
                   </button>
                 )
               })}
+              <button
+                onClick={() => setStep('journal')}
+                className="w-full flex items-center gap-4 p-4 rounded-2xl border-2 border-dashed border-beige/50 bg-transparent hover:border-beige transition-all text-left"
+              >
+                <span className="text-2xl">✍️</span>
+                <div>
+                  <p className="font-display font-semibold text-chocolate">I&apos;m not sure</p>
+                  <p className="text-xs text-chocolate/50 font-sans">Let&apos;s write it out instead</p>
+                </div>
+              </button>
             </div>
             {mood && (
               <button onClick={goNext} className="btn-primary">
                 Continue <ChevronRight size={16} className="inline ml-1" />
               </button>
+            )}
+          </div>
+        )}
+
+        {/* ── JOURNAL (unknown door) ────────────────────────────────────────── */}
+        {step === 'journal' && (
+          <div className="space-y-6 pt-2">
+            {!journalDone ? (
+              <>
+                <div>
+                  <h1 className="font-serif text-3xl text-chocolate leading-tight">
+                    How are you really?
+                  </h1>
+                  <p className="font-sans text-sm text-chocolate/50 mt-2">
+                    No structure needed. Just write what&apos;s true right now.
+                  </p>
+                </div>
+                <textarea
+                  value={journalEntry}
+                  onChange={e => setJournalEntry(e.target.value)}
+                  placeholder="Start anywhere..."
+                  rows={8}
+                  className="w-full bg-white border border-beige/30 rounded-2xl px-4 py-3 text-sm font-sans text-chocolate placeholder:text-chocolate/25 outline-none focus:border-mustard/40 resize-none leading-relaxed"
+                  autoFocus
+                />
+                <button
+                  onClick={saveJournalEntry}
+                  disabled={!journalEntry.trim() || journalSaving}
+                  className="btn-primary disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  {journalSaving ? 'Saving...' : 'I\'m done writing'}
+                </button>
+                <button
+                  onClick={() => setStep('mood')}
+                  className="w-full text-center text-sm text-chocolate/40 font-sans py-2 hover:text-chocolate/60 transition-colors"
+                >
+                  Back to check-in
+                </button>
+              </>
+            ) : journalCrisis ? (
+              <div className="space-y-5 pt-2">
+                <CrisisCard />
+                <button onClick={() => router.push('/')} className="btn-primary">
+                  Back to Home
+                </button>
+              </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center min-h-[60vh] text-center space-y-6">
+                <div className="text-5xl">🤎</div>
+                <p className="font-serif text-2xl text-chocolate leading-snug px-4">
+                  {journalAffirmation}
+                </p>
+                <button onClick={() => router.push('/')} className="btn-primary">
+                  Back to Home
+                </button>
+              </div>
             )}
           </div>
         )}
@@ -449,10 +597,68 @@ export function CheckInFlow() {
 
                       {/* Feedback row — stacked layout so buttons never overflow */}
                       <div className={`mt-3 pt-3 border-t ${isPrimary ? 'border-white/10' : 'border-beige/30'}`}>
-                        {fb ? (
+                        {reflectionDone.has(rec.rec_id) && reflectionCrisis.has(rec.rec_id) ? (
+                          <CrisisCard />
+                        ) : reflectionDone.has(rec.rec_id) ? (
+                          <p className={`text-xs font-sans leading-relaxed ${isPrimary ? 'text-white/60' : 'text-chocolate/50'}`}>
+                            🤎 {reflectionAffirmations[rec.rec_id] ?? 'You reflected on this. That matters.'}
+                          </p>
+                        ) : fb ? (
                           <p className={`text-xs font-sans ${isPrimary ? 'text-white/50' : 'text-chocolate/40'}`}>
                             {fb === 1 ? 'Not for me' : fb === 2 ? '✓ Saved for later' : '✓ I did this!'}
                           </p>
+                        ) : rec.category === 'Reflection' && reflectingRecId === rec.rec_id ? (
+                          <div className="space-y-2">
+                            <textarea
+                              value={reflectionText}
+                              onChange={e => setReflectionText(e.target.value)}
+                              placeholder="Write here..."
+                              rows={5}
+                              autoFocus
+                              className={`w-full rounded-xl px-3 py-2.5 text-sm font-sans resize-none outline-none leading-relaxed ${
+                                isPrimary
+                                  ? 'bg-white/10 text-white placeholder:text-white/30 border border-white/10 focus:border-white/30'
+                                  : 'bg-beige/20 text-chocolate placeholder:text-chocolate/25 border border-beige/30 focus:border-mustard/40'
+                              }`}
+                            />
+                            <div className="flex gap-1.5">
+                              <button
+                                onClick={() => { setReflectingRecId(null); setReflectionText('') }}
+                                className={`flex-1 px-2 py-1.5 rounded-full text-[11px] font-display font-semibold ${
+                                  isPrimary ? 'bg-white/10 text-white' : 'bg-beige/30 text-chocolate'
+                                }`}
+                              >
+                                Cancel
+                              </button>
+                              <button
+                                onClick={() => saveReflection(rec)}
+                                disabled={!reflectionText.trim() || reflectionSaving}
+                                className="flex-1 px-2 py-1.5 rounded-full text-[11px] font-display font-semibold bg-mustard text-white disabled:opacity-40"
+                              >
+                                {reflectionSaving ? 'Saving...' : 'Done'}
+                              </button>
+                            </div>
+                          </div>
+                        ) : rec.category === 'Reflection' ? (
+                          <div>
+                            <p className={`text-xs font-sans mb-2 ${isPrimary ? 'text-white/50' : 'text-chocolate/40'}`}>
+                              Want to reflect on this right here?
+                            </p>
+                            <div className="flex gap-1.5">
+                              <button
+                                onClick={() => setReflectingRecId(rec.rec_id)}
+                                className={`flex-1 flex items-center justify-center gap-1 px-1.5 py-1.5 rounded-full text-[11px] font-display font-semibold transition-all active:scale-95 bg-mustard text-white`}
+                              >
+                                Do this here
+                              </button>
+                              <FeedbackButton
+                                icon={<ThumbsDown size={12} />}
+                                label="Not for me"
+                                onClick={() => sendFeedback(rec, 1)}
+                                isPrimary={isPrimary}
+                              />
+                            </div>
+                          </div>
                         ) : (
                           <div>
                             <p className={`text-xs font-sans mb-2 ${isPrimary ? 'text-white/50' : 'text-chocolate/40'}`}>
@@ -498,8 +704,11 @@ export function CheckInFlow() {
                   onClick={() => {
                     setFeedbackSent({})
                     setExpandedRecs(new Set())
-                    setRetryCount(c => c + 1)
-                    fetchCareKit(shownIds)
+                    const nextCount = retryCount + 1
+                    setRetryCount(nextCount)
+                    // broaden=true from the first retry onward so the pool
+                    // widens beyond the user's selected indicator types
+                    fetchCareKit(shownIds, nextCount >= 1)
                   }}
                   className="w-full text-center text-sm text-chocolate/40 font-sans py-2 hover:text-chocolate/60 transition-colors"
                 >
