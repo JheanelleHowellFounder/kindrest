@@ -7,6 +7,7 @@ import { MOODS, MENTAL_INDICATORS, PHYSICAL_INDICATORS, EMOTIONAL_INDICATORS } f
 import type { MoodLabel, TimeAvailable, Recommendation, RegulationType } from '@/lib/types'
 import { useAuth } from '@/lib/auth-context'
 import { supabase } from '@/lib/supabase'
+import { authedFetch } from '@/lib/api-client'
 import { detectCrisisLanguage } from '@/lib/safety'
 import { CrisisCard } from '@/components/shared/CrisisCard'
 
@@ -31,7 +32,7 @@ const JOURNAL_AFFIRMATIONS = [
   "Sometimes the most productive thing you can do is just let it out.",
   "Your feelings deserve space. Thank you for giving them some.",
   "Writing is how we make sense of the things that don't quite make sense yet.",
-  "You are not too much. You are a mother doing her best — and that is everything.",
+  "You are not too much. You are a mother doing her best, and that is everything.",
   "This moment of honesty with yourself matters more than you know.",
 ]
 
@@ -54,8 +55,15 @@ const MOOD_TO_LABEL: Record<string, string> = {
 
 export function CheckInFlow() {
   const router = useRouter()
-  const { user } = useAuth()
-  const userId = user?.id ?? 'demo-user-001'
+  const { user, loading: authLoading } = useAuth()
+  const userId = user?.id
+
+  // Redirect unauthenticated visitors to sign in, then bring them right back
+  // here — the check-in flow calls real, costed AI endpoints and writes real
+  // data, so it must never run for someone who isn't actually signed in.
+  useEffect(() => {
+    if (!authLoading && !user) router.push('/signin?redirect=/check-in')
+  }, [authLoading, user, router])
 
   const [step, setStep]             = useState<Step>('mood')
   const [mood, setMood]             = useState<MoodLabel | null>(null)
@@ -173,7 +181,7 @@ export function CheckInFlow() {
     setFeedbackSent(prev => ({ ...prev, [rec.rec_id]: rating }))
 
     try {
-      await fetch('/api/feedback', {
+      await authedFetch('/api/feedback', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -197,7 +205,7 @@ export function CheckInFlow() {
     if (!journalEntry.trim() || !user) return
     setJournalSaving(true)
     try {
-      await fetch('/api/journal-entry', {
+      await authedFetch('/api/journal-entry', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ content: journalEntry.trim(), userId: user.id, source: 'unknown_door' }),
@@ -217,7 +225,7 @@ export function CheckInFlow() {
     if (!reflectionText.trim() || !user) return
     setReflectionSaving(true)
     try {
-      await fetch('/api/journal-entry', {
+      await authedFetch('/api/journal-entry', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -270,6 +278,14 @@ export function CheckInFlow() {
   const filteredPhysical = PHYSICAL_INDICATORS.filter(i => i.mood_label === moodLabel)
   const filteredEmotional = EMOTIONAL_INDICATORS.filter(i => i.mood_label === moodLabel)
 
+  if (authLoading || !user) {
+    return (
+      <div className="min-h-screen bg-cream flex items-center justify-center">
+        <div className="w-8 h-8 border-2 border-mustard border-t-transparent rounded-full animate-spin" />
+      </div>
+    )
+  }
+
   return (
     <div className="flex flex-col min-h-screen">
       {/* Progress bar */}
@@ -304,7 +320,7 @@ export function CheckInFlow() {
                 How are you feeling right now?
               </h1>
               <p className="font-sans text-sm text-chocolate/50 mt-2">
-                There&apos;s no wrong answer — just check in with yourself
+                There&apos;s no wrong answer, just check in with yourself
               </p>
             </div>
             <div className="space-y-3">
@@ -364,7 +380,7 @@ export function CheckInFlow() {
                   onChange={e => setJournalEntry(e.target.value)}
                   placeholder="Start anywhere..."
                   rows={8}
-                  className="w-full bg-white border border-beige/30 rounded-2xl px-4 py-3 text-sm font-sans text-chocolate placeholder:text-chocolate/25 outline-none focus:border-mustard/40 resize-none leading-relaxed"
+                  className="w-full bg-white border border-beige/30 rounded-2xl px-4 py-3 text-base font-sans text-chocolate placeholder:text-chocolate/25 outline-none focus:border-mustard/40 resize-none leading-relaxed"
                   autoFocus
                 />
                 <button
@@ -473,7 +489,7 @@ export function CheckInFlow() {
             <div className="bg-rose-50 rounded-xl p-3 flex items-center gap-2">
               <span className="text-rose-400">❤</span>
               <p className="text-xs text-rose-600 font-sans">
-                Remember: caring for yourself isn&apos;t selfish — it&apos;s essential
+                Remember: caring for yourself isn&apos;t selfish, it&apos;s essential
               </p>
             </div>
             {timeAvailable && (
@@ -615,7 +631,7 @@ export function CheckInFlow() {
                               placeholder="Write here..."
                               rows={5}
                               autoFocus
-                              className={`w-full rounded-xl px-3 py-2.5 text-sm font-sans resize-none outline-none leading-relaxed ${
+                              className={`w-full rounded-xl px-3 py-2.5 text-base font-sans resize-none outline-none leading-relaxed ${
                                 isPrimary
                                   ? 'bg-white/10 text-white placeholder:text-white/30 border border-white/10 focus:border-white/30'
                                   : 'bg-beige/20 text-chocolate placeholder:text-chocolate/25 border border-beige/30 focus:border-mustard/40'

@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { Suspense, useState, useEffect } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/auth-context'
 
@@ -10,13 +10,28 @@ function isEmailValid(e: string) {
 }
 
 export default function SignInPage() {
+  return (
+    <Suspense fallback={null}>
+      <SignInForm />
+    </Suspense>
+  )
+}
+
+function SignInForm() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { user, loading } = useAuth()
 
   const [email, setEmail]           = useState('')
   const [password, setPassword]     = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError]           = useState('')
+
+  // Only allow same-origin relative paths — never redirect off-site
+  const redirectTo = (() => {
+    const r = searchParams.get('redirect')
+    return r && r.startsWith('/') && !r.startsWith('//') ? r : '/'
+  })()
 
   // Already signed in — route based on onboarding status
   useEffect(() => {
@@ -30,11 +45,11 @@ export default function SignInPage() {
       if (!profile?.onboarding_completed) {
         router.replace('/onboarding/profile')
       } else {
-        router.replace('/')
+        router.replace(redirectTo)
       }
     }
     checkAndRedirect()
-  }, [user, loading, router])
+  }, [user, loading, router, redirectTo])
 
   const canSubmit = isEmailValid(email) && password.length >= 6
 
@@ -66,7 +81,7 @@ export default function SignInPage() {
         }
       }
 
-      router.replace('/')
+      router.replace(redirectTo)
     } finally {
       setIsSubmitting(false)
     }

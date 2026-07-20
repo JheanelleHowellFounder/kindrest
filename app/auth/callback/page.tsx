@@ -99,7 +99,7 @@ export default function AuthCallbackPage() {
         <div className="h-px w-12 bg-mustard/30 my-6" />
 
         <p className="font-sans text-sm text-cream/50 leading-relaxed max-w-xs mb-5">
-          Skip this step next time — set a password while you&apos;re here.
+          Want to skip the email link next time? Set a password while you&apos;re here.
         </p>
 
         <a

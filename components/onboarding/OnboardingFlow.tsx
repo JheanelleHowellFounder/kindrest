@@ -203,11 +203,11 @@ export function OnboardingFlow() {
           </p>
           <div className="space-y-4">
             {[
-              'Find a comfortable position — seated or lying down. Close your eyes if that feels okay.',
+              'Find a comfortable position, seated or lying down. Close your eyes if that feels okay.',
               'Take three slow breaths. Breathe in for 4 counts, hold for 2, out for 6.',
-              'Notice your feet and legs. Are they heavy? Tense? Just observe — no need to change anything.',
+              'Notice your feet and legs. Are they heavy? Tense? Just observe. No need to change anything.',
               'Move your awareness up through your belly, chest, shoulders. Where are you holding tension? Breathe into that place.',
-              'Notice your face — your jaw, your forehead. Let them soften. You are safe in this moment.',
+              'Notice your face, your jaw, your forehead. Let them soften. You are safe in this moment.',
             ].map((step, i) => (
               <div key={i} className="flex items-start gap-3">
                 <div className="w-6 h-6 rounded-full bg-mustard flex items-center justify-center flex-shrink-0 mt-0.5">
@@ -245,7 +245,7 @@ export function OnboardingFlow() {
             I&apos;m ready to continue
           </button>
           <p className="text-center text-[11px] font-sans text-cream/40">
-            Or take more time — come back whenever you&apos;re ready.
+            Or take more time. Come back whenever you&apos;re ready.
           </p>
         </div>
       </div>
@@ -374,7 +374,7 @@ export function OnboardingFlow() {
       </p>
 
       <p className="font-sans text-[13px] text-chocolate/40 mt-5 leading-relaxed max-w-xs">
-        Click the link to verify your account. On iPhone, it will open in your browser — once confirmed, come back to the Kindrest app and sign in to continue.
+        Click the link to verify your account. On iPhone, it will open in your browser. Once confirmed, come back to the Kindrest app and sign in to continue.
       </p>
 
       <p className="font-sans text-xs text-chocolate/30 italic mt-4">

@@ -75,8 +75,12 @@ const AVATAR_COLORS = ['#c9981f', '#30211a', '#a9743a', '#6d5a4e']
 // ─── Main Profile View ────────────────────────────────────────────────────────
 
 export function ProfileScreen() {
-  const { user: authUser, signOut } = useAuth()
+  const { user: authUser, loading: authLoading, signOut } = useAuth()
   const router = useRouter()
+
+  useEffect(() => {
+    if (!authLoading && !authUser) router.push('/signin?redirect=/profile')
+  }, [authLoading, authUser, router])
 
   const userId = authUser?.id ?? 'demo-user-001'
   const name   = authUser?.user_metadata?.name ?? authUser?.email?.split('@')[0] ?? 'You'
@@ -141,6 +145,14 @@ export function ProfileScreen() {
   const knownPeople    = savedProfile.support_people.filter(p => p.name.trim())
 
   const knowsAnything  = effortLabel || timeLabel || topCategories.length > 0
+
+  if (authLoading || !authUser) {
+    return (
+      <div className="min-h-screen bg-cream flex items-center justify-center">
+        <div className="w-8 h-8 border-2 border-mustard border-t-transparent rounded-full animate-spin" />
+      </div>
+    )
+  }
 
   return (
     <div className="flex flex-col min-h-screen pb-24">

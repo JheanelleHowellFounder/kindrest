@@ -60,8 +60,28 @@ export interface UserPreferences {
   strong_regulation_types?: string[]
 }
 
+export interface JournalContext {
+  whatHelps?: string[]          // phrases from journal_profile.what_helps
+  recurringTriggers?: string[]  // phrases from journal_profile.recurring_triggers
+}
+
 export interface ScoredRecommendation extends Recommendation {
   score: number
+}
+
+// ─── Text matching helpers ───────────────────────────────────────────────────
+
+const STEM_LEN = 6
+
+// Splits a phrase into lowercase words and truncates each to a fixed-length
+// stem, so word variants (connecting/connection, reflecting/reflection)
+// still match without a full stemming library.
+function stems(text: string): string[] {
+  return text
+    .toLowerCase()
+    .split(/[^a-z]+/)
+    .filter(w => w.length >= 4)
+    .map(w => w.slice(0, STEM_LEN))
 }
 
 // ─── Scoring ─────────────────────────────────────────────────────────────────
@@ -77,11 +97,15 @@ export function scoreRecommendations(
   candidates: Recommendation[],
   feedbackWeights: FeedbackWeight[] = [],
   recentlyUsedIds: number[] = [],
-  userPrefs: UserPreferences = {}
+  userPrefs: UserPreferences = {},
+  journalContext: JournalContext = {}
 ): ScoredRecommendation[] {
   const allowedLevels = TIME_LEVEL_MAP[timeAvailable] ?? [1, 2]
   const effortFilter = EFFORT_MAP[mood] ?? 'any'
   const weightMap = new Map(feedbackWeights.map(w => [w.rec_id, w]))
+
+  // Normalize journal phrases once for cheap substring matching below
+  const whatHelpsLower = (journalContext.whatHelps ?? []).map(p => p.toLowerCase())
 
   return candidates
     .map((rec): ScoredRecommendation => {
@@ -124,6 +148,19 @@ export function scoreRecommendations(
         score -= 0.3 * (1 - recencyIdx / Math.max(recentlyUsedIds.length, 1))
       }
 
+      // 6. Journal-derived signal — boost recs that match what she's written
+      // helps her. Uses word-stem matching (first 6 chars of each word) so
+      // variants like "connecting" still match "connection".
+      if (whatHelpsLower.length > 0) {
+        const catStems  = stems(rec.category)
+        const typeStems = stems(rec.regulation_type)
+        const targetStems = [...catStems, ...typeStems]
+        const matches = whatHelpsLower.some(phrase =>
+          stems(phrase).some(phraseStem => targetStems.includes(phraseStem))
+        )
+        if (matches) score += 0.25
+      }
+
       return { ...rec, score }
     })
     .sort((a, b) => b.score - a.score)
@@ -140,10 +177,11 @@ export function pickTopN(
   n = 3,
   feedbackWeights: FeedbackWeight[] = [],
   recentlyUsedIds: number[] = [],
-  userPrefs: UserPreferences = {}
+  userPrefs: UserPreferences = {},
+  journalContext: JournalContext = {}
 ): Recommendation[] {
   const scored = scoreRecommendations(
-    mood, timeAvailable, candidates, feedbackWeights, recentlyUsedIds, userPrefs
+    mood, timeAvailable, candidates, feedbackWeights, recentlyUsedIds, userPrefs, journalContext
   )
   return scored.slice(0, n)
 }

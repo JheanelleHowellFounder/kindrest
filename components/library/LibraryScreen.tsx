@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/auth-context'
+import { authedFetch } from '@/lib/api-client'
 import type { LibraryItem } from '@/app/api/library/route'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -39,7 +40,7 @@ export function LibraryScreen() {
 
   useEffect(() => {
     if (!user) return
-    fetch(`/api/library?userId=${userId}`, { cache: 'no-store' })
+    authedFetch(`/api/library?userId=${userId}`, { cache: 'no-store' })
       .then(r => r.json())
       .then(data => { setItems(data.items ?? []); setLoaded(true) })
       .catch(() => setLoaded(true))
@@ -195,7 +196,7 @@ export function LibraryScreen() {
               Nothing here yet
             </p>
             <p className="font-sans text-[14px] text-chocolate/50 leading-relaxed max-w-[280px] mx-auto">
-              When you save or complete a technique during a check-in, it&apos;ll live here — ready whenever you need it.
+              When you save or complete a technique during a check-in, it will live here, ready whenever you need it.
             </p>
           </div>
         )}

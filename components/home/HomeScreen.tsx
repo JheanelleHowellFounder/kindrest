@@ -5,6 +5,7 @@ import { Play, Clock, Bookmark, MessageCircle } from 'lucide-react'
 import { useState, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/auth-context'
+import { authedFetch } from '@/lib/api-client'
 import { FeedbackSheet } from '@/components/shared/FeedbackSheet'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -12,7 +13,7 @@ import { FeedbackSheet } from '@/components/shared/FeedbackSheet'
 const QUOTE_POOL = [
   '"One moment at a time."',
   '"You are doing better than you think."',
-  '"Rest is not a reward — it is a requirement."',
+  '"Rest is not a reward. It is a requirement."',
   '"You haven\'t lost yourself. You are still here."',
 ]
 
@@ -58,7 +59,7 @@ const STAGE_CONTENT: Record<string, { label: string; emoji: string; facts: strin
     emoji: '⭐',
     facts: [
       'Toddlers test limits because they trust you enough to test them.',
-      'The big feelings make sense — they\'re learning to be human.',
+      'The big feelings make sense. They are learning to be human.',
       'You don\'t have to love every stage. You just have to get through it.',
     ],
   },
@@ -66,7 +67,7 @@ const STAGE_CONTENT: Record<string, { label: string; emoji: string; facts: strin
     label: 'Preschool years (3–5)',
     emoji: '🎨',
     facts: [
-      'Their questions aren\'t interruptions — though needing a break from them is okay too.',
+      'Their questions are not interruptions, though needing a break from them is okay too.',
       'Play is work at this age. You\'ve been right there with them.',
       'There\'s a lot of you in who they\'re becoming.',
     ],
@@ -76,7 +77,7 @@ const STAGE_CONTENT: Record<string, { label: string; emoji: string; facts: strin
     emoji: '📚',
     facts: [
       'They\'re building independence now. Your role is quietly, slowly changing.',
-      'Driving them everywhere, answering hard questions — this is still deep care.',
+      'Driving them everywhere, answering hard questions: this is still deep care.',
       'The distance they\'re growing into is healthy. It doesn\'t mean they need you less.',
     ],
   },
@@ -146,7 +147,7 @@ export function HomeScreen() {
 
   const fetchStats = () => {
     if (!user) return
-    fetch(`/api/stats?userId=${userId}`, { cache: 'no-store' })
+    authedFetch(`/api/stats?userId=${userId}`, { cache: 'no-store' })
       .then(r => r.json())
       .then(data => { setStats(data); setStatsLoaded(true) })
       .catch(() => setStatsLoaded(true))

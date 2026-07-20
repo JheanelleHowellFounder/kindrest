@@ -1,8 +1,11 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useRouter } from 'next/navigation'
 import { X } from 'lucide-react'
 import { useAuth } from '@/lib/auth-context'
+import { authedFetch } from '@/lib/api-client'
+import type { LibraryItem } from '@/app/api/library/route'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -36,6 +39,8 @@ const Y_LEVELS = [
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type TimeRange = '30d' | '90d' | 'ytd' | 'all'
+type RatingFilter = 'all' | 'done' | 'saved'
+const ALL_LIB_CATEGORIES = ['Rest', 'Micro Practice', 'Joy', 'Movement', 'Reflection', 'Connection']
 
 interface LiveStats {
   totalCheckins: number
@@ -48,7 +53,7 @@ interface LiveStats {
 }
 
 type HistoryItem = LiveStats['recentHistory'][number]
-type Tab = 'insights' | 'log'
+type Tab = 'insights' | 'log' | 'library'
 
 interface DaySheet {
   label: string
@@ -404,8 +409,13 @@ const RANGE_LABELS: { value: TimeRange; label: string }[] = [
 ]
 
 export function HistoryScreen() {
-  const { user } = useAuth()
+  const router = useRouter()
+  const { user, loading: authLoading } = useAuth()
   const userId   = user?.id ?? 'demo-user-001'
+
+  useEffect(() => {
+    if (!authLoading && !user) router.push('/signin?redirect=/history')
+  }, [authLoading, user, router])
 
   const [tab, setTab]         = useState<Tab>('insights')
   const [range, setRange]     = useState<TimeRange>('30d')
@@ -427,9 +437,16 @@ export function HistoryScreen() {
 
   void openSheet
 
+  // Library state
+  const [libItems, setLibItems]   = useState<LibraryItem[]>([])
+  const [libLoaded, setLibLoaded] = useState(false)
+  const [ratingFilter, setRatingFilter]     = useState<RatingFilter>('all')
+  const [categoryFilter, setCategoryFilter] = useState<string>('All')
+
   useEffect(() => {
+    if (!user) return
     const fetchStats = () => {
-      fetch(`/api/stats?userId=${userId}`, { cache: 'no-store' })
+      authedFetch(`/api/stats?userId=${userId}`, { cache: 'no-store' })
         .then(r => r.json())
         .then(data => { setStats(data); setLoading(false) })
         .catch(() => setLoading(false))
@@ -438,7 +455,38 @@ export function HistoryScreen() {
     const onVisible = () => { if (document.visibilityState === 'visible') fetchStats() }
     document.addEventListener('visibilitychange', onVisible)
     return () => document.removeEventListener('visibilitychange', onVisible)
-  }, [userId])
+  }, [user, userId])
+
+  useEffect(() => {
+    if (!user) return
+    authedFetch(`/api/library?userId=${userId}`, { cache: 'no-store' })
+      .then(r => r.json())
+      .then(data => { setLibItems(data.items ?? []); setLibLoaded(true) })
+      .catch(() => setLibLoaded(true))
+  }, [user, userId])
+
+  const activeLibCategories = useMemo(() => {
+    const cats = new Set(libItems.map(i => i.category).filter(Boolean))
+    return ALL_LIB_CATEGORIES.filter(c => cats.has(c))
+  }, [libItems])
+
+  const visibleLibItems = useMemo(() => {
+    return libItems.filter(i => {
+      const ratingOk =
+        ratingFilter === 'all' ||
+        (ratingFilter === 'done'  && i.rating === 3) ||
+        (ratingFilter === 'saved' && i.rating === 2)
+      const categoryOk = categoryFilter === 'All' || i.category === categoryFilter
+      return ratingOk && categoryOk
+    })
+  }, [libItems, ratingFilter, categoryFilter])
+
+  const libDoneCount  = libItems.filter(i => i.rating === 3).length
+  const libSavedCount = libItems.filter(i => i.rating === 2).length
+
+  function toggleRating(r: RatingFilter) {
+    setRatingFilter(prev => prev === r ? 'all' : r)
+  }
 
   const history        = stats?.recentHistory ?? []
   const chartData      = buildMoodChartData(history, range)
@@ -461,12 +509,12 @@ export function HistoryScreen() {
           </p>
           <p className="font-sans text-[14px] text-chocolate/70 leading-[1.7]">
             We&apos;ve noticed your last few check-ins have been really hard ones. That kind of weight
-            is real, and it matters. Kindrest is here for the everyday stuff — but when things stay
+            is real, and it matters. Kindrest is here for the everyday stuff, but when things stay
             heavy for a stretch, talking to someone trained to help can make a real difference.
           </p>
           <p className="font-sans text-[14px] text-chocolate/70 leading-[1.7] mt-2">
             You don&apos;t have to be in a crisis to reach out. A therapist, your OB/GYN, or even
-            your primary care doctor are all good places to start. You deserve that kind of support —
+            your primary care doctor are all good places to start. You deserve that kind of support,
             not instead of this, but alongside it.
           </p>
           <a
@@ -662,6 +710,161 @@ export function HistoryScreen() {
     </div>
   )
 
+  // ── Library panel ─────────────────────────────────────────────────────────
+  const LibraryPanel = (
+    <div className="space-y-4">
+      {/* Summary cards — tap to filter */}
+      {libLoaded && libItems.length > 0 && (
+        <div className="flex gap-3">
+          <button
+            onClick={() => toggleRating('done')}
+            className={`flex-1 rounded-2xl border px-4 py-3 text-center transition-colors ${
+              ratingFilter === 'done' ? 'bg-chocolate border-chocolate' : 'bg-white border-beige/40 hover:border-beige'
+            }`}
+          >
+            <p className={`font-serif text-[26px] leading-none ${ratingFilter === 'done' ? 'text-cream' : 'text-chocolate'}`}>
+              {libDoneCount}
+            </p>
+            <p className={`font-display font-semibold text-[11px] mt-0.5 uppercase tracking-[0.1em] ${
+              ratingFilter === 'done' ? 'text-mustard' : 'text-chocolate/45'
+            }`}>
+              Done
+            </p>
+          </button>
+          <button
+            onClick={() => toggleRating('saved')}
+            className={`flex-1 rounded-2xl border px-4 py-3 text-center transition-colors ${
+              ratingFilter === 'saved' ? 'bg-chocolate border-chocolate' : 'bg-white border-beige/40 hover:border-beige'
+            }`}
+          >
+            <p className={`font-serif text-[26px] leading-none ${ratingFilter === 'saved' ? 'text-cream' : 'text-chocolate'}`}>
+              {libSavedCount}
+            </p>
+            <p className={`font-display font-semibold text-[11px] mt-0.5 uppercase tracking-[0.1em] ${
+              ratingFilter === 'saved' ? 'text-mustard' : 'text-chocolate/45'
+            }`}>
+              Saved
+            </p>
+          </button>
+          <button
+            onClick={() => setRatingFilter('all')}
+            className={`flex-1 rounded-2xl border px-4 py-3 text-center transition-colors ${
+              ratingFilter === 'all' ? 'bg-chocolate border-chocolate' : 'bg-white border-beige/40 hover:border-beige'
+            }`}
+          >
+            <p className={`font-serif text-[26px] leading-none ${ratingFilter === 'all' ? 'text-cream' : 'text-chocolate'}`}>
+              {libItems.length}
+            </p>
+            <p className={`font-display font-semibold text-[11px] mt-0.5 uppercase tracking-[0.1em] ${
+              ratingFilter === 'all' ? 'text-mustard' : 'text-chocolate/45'
+            }`}>
+              All
+            </p>
+          </button>
+        </div>
+      )}
+
+      {/* Category filter pills */}
+      {libLoaded && activeLibCategories.length > 1 && (
+        <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
+          {['All', ...activeLibCategories].map(cat => (
+            <button
+              key={cat}
+              onClick={() => setCategoryFilter(cat)}
+              className={`flex-shrink-0 font-display font-semibold text-[12.5px] px-4 py-2 rounded-full border transition-colors ${
+                categoryFilter === cat
+                  ? 'bg-mustard text-white border-mustard'
+                  : 'bg-white text-chocolate/55 border-beige/50 hover:text-chocolate/70'
+              }`}
+            >
+              {cat === 'All' ? 'All categories' : `${CATEGORY_EMOJI[cat] ?? ''} ${cat}`}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Loading skeleton */}
+      {!libLoaded && (
+        <div className="space-y-3">
+          {[0, 1, 2, 3].map(i => (
+            <div key={i} className="h-[72px] bg-white rounded-2xl border border-beige/30 animate-pulse" />
+          ))}
+        </div>
+      )}
+
+      {/* Empty state — nothing saved yet */}
+      {libLoaded && libItems.length === 0 && (
+        <div className="mt-4 text-center px-4 py-6">
+          <p className="text-4xl mb-4">🌿</p>
+          <p className="font-serif text-[20px] text-chocolate leading-snug mb-2">
+            Nothing here yet
+          </p>
+          <p className="font-sans text-[14px] text-chocolate/50 leading-relaxed max-w-[280px] mx-auto">
+            When you save or complete a technique during a check-in, it will live here, ready whenever you need it.
+          </p>
+        </div>
+      )}
+
+      {/* Empty state — filter has no results */}
+      {libLoaded && libItems.length > 0 && visibleLibItems.length === 0 && (
+        <div className="text-center py-4">
+          <p className="font-sans text-[14px] text-chocolate/40">
+            Nothing matches this filter yet.
+          </p>
+        </div>
+      )}
+
+      {/* Item list */}
+      {libLoaded && visibleLibItems.length > 0 && (
+        <div className="space-y-2">
+          {visibleLibItems.map((item, i) => (
+            <div
+              key={`${item.rec_id}-${i}`}
+              className="bg-white rounded-2xl border border-beige/30 px-4 py-4 flex items-center gap-3.5"
+            >
+              <div
+                className="w-12 h-12 rounded-[14px] flex items-center justify-center text-[22px] flex-shrink-0"
+                style={{ background: '#f0e9e2' }}
+              >
+                {CATEGORY_EMOJI[item.category] ?? '✨'}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="font-serif text-[16px] text-chocolate leading-snug truncate">
+                  {item.title}
+                </p>
+                <p className="font-sans text-[12px] text-chocolate/40 mt-0.5">
+                  {item.category}
+                  {item.count > 1 && (
+                    <span className="ml-1.5 text-chocolate/30">· {item.count}×</span>
+                  )}
+                </p>
+              </div>
+              <div className="flex-shrink-0">
+                {item.rating === 3 ? (
+                  <span className="font-display font-semibold text-[12px] text-mustard bg-mustard/10 px-3 py-1.5 rounded-full">
+                    Done ✓
+                  </span>
+                ) : (
+                  <span className="font-display font-semibold text-[12px] text-chocolate/50 bg-[#f0e9e2] px-3 py-1.5 rounded-full">
+                    Saved
+                  </span>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+
+  if (authLoading || !user) {
+    return (
+      <div className="min-h-screen bg-cream flex items-center justify-center">
+        <div className="w-8 h-8 border-2 border-mustard border-t-transparent rounded-full animate-spin" />
+      </div>
+    )
+  }
+
   return (
     <div className="flex flex-col min-h-screen pb-24">
 
@@ -675,42 +878,26 @@ export function HistoryScreen() {
         </h1>
       </div>
 
-      {/* Mobile tab toggle */}
-      <div className="px-5 mt-4 flex justify-center md:hidden">
+      {/* Tab toggle — same slider on mobile and desktop */}
+      <div className="px-5 mt-4 flex justify-center">
         <div className="inline-flex p-1 gap-1 bg-[#f0e9e2] border border-beige/50 rounded-full">
-          {(['insights', 'log'] as Tab[]).map(t => (
+          {(['insights', 'log', 'library'] as Tab[]).map(t => (
             <button
               key={t}
               onClick={() => setTab(t)}
-              className={`font-display font-semibold text-[13px] px-5 py-2 rounded-full transition-colors ${
+              className={`font-display font-semibold text-[13px] px-4 py-2 rounded-full transition-colors ${
                 tab === t ? 'bg-chocolate text-cream' : 'text-chocolate/50'
               }`}
             >
-              {t === 'insights' ? 'Insights' : 'Log'}
+              {t === 'insights' ? 'Insights' : t === 'log' ? 'Log' : 'Library'}
             </button>
           ))}
         </div>
       </div>
 
       {/* Content */}
-      <div className="px-5 mt-4 pb-4">
-        <div className="md:hidden">
-          {tab === 'insights' ? InsightsPanel : LogPanel}
-        </div>
-        <div className="hidden md:grid md:grid-cols-2 md:gap-5 md:items-start">
-          <div>
-            <p className="font-display font-semibold text-[11px] uppercase tracking-[0.16em] text-chocolate/35 mb-3">
-              Insights
-            </p>
-            {InsightsPanel}
-          </div>
-          <div>
-            <p className="font-display font-semibold text-[11px] uppercase tracking-[0.16em] text-chocolate/35 mb-3">
-              Log
-            </p>
-            {LogPanel}
-          </div>
-        </div>
+      <div className="px-5 mt-4 pb-4 md:max-w-xl md:mx-auto">
+        {tab === 'insights' ? InsightsPanel : tab === 'log' ? LogPanel : LibraryPanel}
       </div>
 
       {/* Day-detail bottom sheet */}

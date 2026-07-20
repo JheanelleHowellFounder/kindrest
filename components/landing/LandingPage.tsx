@@ -79,7 +79,7 @@ function WaitlistForm({ dark = false }: { dark?: boolean }) {
               You&apos;re in. We&apos;ll keep you in the loop. 🤎
             </p>
             <p className="font-sans text-sm text-chocolate/50">
-              Kindrest is built for moms right now — but the moms in your life will thank you for knowing about it.
+              Kindrest is built for moms right now, but the moms in your life will thank you for knowing about it.
             </p>
           </>
         )}
@@ -337,6 +337,14 @@ export function LandingPage() {
                 {['How It Works', 'What It Does', 'The Founder'][i]}
               </a>
             ))}
+            <a
+              href="/organizations"
+              className={`font-display text-sm transition-colors duration-300 ${
+                navDark ? 'text-cream/50 hover:text-cream' : 'text-chocolate/50 hover:text-chocolate'
+              }`}
+            >
+              For organizations
+            </a>
           </div>
           <div className="flex items-center gap-4">
             <a
@@ -506,7 +514,7 @@ export function LandingPage() {
                   number: '01',
                   title: 'Know where you are',
                   teaser: 'Most moms are running on autopilot. Kindrest helps you pause long enough to notice.',
-                  detail: 'Your nervous system is always communicating. Through a quick check-in, Kindrest identifies your current regulation state — whether you\'re in survival mode, stabilizing, or thriving — and responds accordingly. Naming it is the first step to shifting it.',
+                  detail: 'Your nervous system is always communicating. Through a quick check-in, Kindrest identifies your current regulation state (survival mode, stabilizing, or thriving) and responds accordingly. Naming it is the first step to shifting it.',
                 },
                 {
                   number: '02',
@@ -650,6 +658,7 @@ export function LandingPage() {
           </div>
           <div className="flex items-center gap-8">
             <a href="https://www.instagram.com/kindrestco" target="_blank" rel="noopener noreferrer" className="font-display text-sm text-cream/40 hover:text-cream transition-colors">Instagram</a>
+            <a href="/organizations" className="font-display text-sm text-cream/40 hover:text-cream transition-colors">For organizations</a>
             <a href="/privacy" className="font-display text-sm text-cream/40 hover:text-cream transition-colors">Privacy</a>
             <a href="/terms" className="font-display text-sm text-cream/40 hover:text-cream transition-colors">Terms</a>
           </div>

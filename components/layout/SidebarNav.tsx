@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { Home, Clock, Bookmark, User, MessageCircle, PanelLeftClose, PanelLeftOpen } from 'lucide-react'
+import { Home, Clock, BookOpen, User, MessageCircle, PanelLeftClose, PanelLeftOpen } from 'lucide-react'
 import { useAuth } from '@/lib/auth-context'
 import { useState } from 'react'
 import { FeedbackSheet } from '@/components/shared/FeedbackSheet'
@@ -10,7 +10,7 @@ import { FeedbackSheet } from '@/components/shared/FeedbackSheet'
 const NAV_ITEMS = [
   { href: '/',         label: 'Home',    icon: Home,     num: '01' },
   { href: '/history',  label: 'History', icon: Clock,    num: '02' },
-  { href: '/library',  label: 'Library', icon: Bookmark, num: '03' },
+  { href: '/journal',  label: 'Journal', icon: BookOpen, num: '03' },
   { href: '/profile',  label: 'Profile', icon: User,     num: '04' },
 ]
 

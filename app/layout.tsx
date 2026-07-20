@@ -5,7 +5,7 @@ import { AppShell } from '@/components/layout/AppShell'
 
 export const metadata: Metadata = {
   title: 'Kindrest',
-  description: 'Meet yourself again — personalized wellness for mothers.',
+  description: 'Meet yourself again. Personalized wellness for mothers.',
   manifest: '/manifest.json',
 }
 

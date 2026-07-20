@@ -23,6 +23,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
+import { requireUser } from '@/lib/auth-server'
 
 export async function POST(req: NextRequest) {
   try {
@@ -57,6 +58,13 @@ export async function POST(req: NextRequest) {
       // Supabase not configured — acknowledge but don't fail the UX
       console.warn('[feedback] Supabase not configured, skipping persistence')
       return NextResponse.json({ ok: true, persisted: false })
+    }
+
+    // Only the real, signed-in owner of this userId may write feedback under it —
+    // otherwise anyone could spoof ratings and skew another mom's recommendations.
+    const requester = await requireUser(req)
+    if (!requester || requester.id !== userId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
     const timeOfDay = getTimeOfDay()

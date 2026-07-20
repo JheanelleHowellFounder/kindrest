@@ -74,6 +74,7 @@ export function OnboardingProfileFlow() {
     setSaveError(null)
 
     const cleanPeople = supportPeople.filter(p => p.name.trim().length > 0)
+    const signupSource = localStorage.getItem('kindrest_signup_source')
 
     const { error: profileError } = await supabase.from('user_profiles').upsert({
       user_id: user.id,
@@ -83,6 +84,7 @@ export function OnboardingProfileFlow() {
       preferred_categories: selectedCategories,
       support_people: cleanPeople,
       onboarding_completed: true,
+      signup_source: signupSource,
       updated_at: new Date().toISOString(),
     })
 
@@ -400,7 +402,7 @@ export function OnboardingProfileFlow() {
       </h1>
 
       <p className="font-sans text-sm text-cream/60 mt-3 leading-relaxed max-w-xs">
-        Kindrest will meet you where you are — every single time.
+        Kindrest will meet you where you are, every single time.
       </p>
 
       <div className="h-0.5 w-16 bg-mustard mx-auto mt-6" />

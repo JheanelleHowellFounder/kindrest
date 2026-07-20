@@ -26,7 +26,7 @@ export default function PrivacyPage() {
         <p className="font-sans text-sm text-chocolate/40 mb-10">Last updated: April 2026</p>
 
         <p className="font-sans text-[15px] text-chocolate/70 leading-relaxed mb-10">
-          Kindrest is a wellness app for mothers. We take your privacy seriously — especially because what you share here is personal. This policy explains what we collect, why we collect it, and how we protect it. We've written it in plain language on purpose.
+          Kindrest is a wellness app for mothers. We take your privacy seriously, especially because what you share here is personal. This policy explains what we collect, why we collect it, and how we protect it. We've written it in plain language on purpose.
         </p>
 
         <div className="space-y-10 font-sans text-[15px] text-chocolate/70 leading-relaxed">
@@ -37,7 +37,7 @@ export default function PrivacyPage() {
             <ul className="space-y-3">
               {[
                 'Your name and email address, provided during sign-up.',
-                'Your check-in responses — how you\'re feeling mentally, physically, and emotionally, how much time you have, and which care recommendations resonated with you.',
+                'Your check-in responses: how you\'re feeling mentally, physically, and emotionally, how much time you have, and which care recommendations resonated with you.',
                 'Your journal entries, if you choose to write them.',
                 'Your check-in history, mood patterns, and streak data.',
                 'Authentication tokens stored in your browser to keep you logged in.',
@@ -57,7 +57,7 @@ export default function PrivacyPage() {
               {[
                 'Your name and email let us create and secure your account.',
                 'Your check-in responses power the care recommendations you receive. They help Kindrest understand where you are and what you need.',
-                'Your history and patterns let you see your own trends over time — and help the app learn what works for you.',
+                'Your history and patterns let you see your own trends over time and help the app learn what works for you.',
                 'We use your email to send you important account information and, if you\'ve opted in, our email sequences about Kindrest.',
               ].map((item, i) => (
                 <li key={i} className="flex items-start gap-3">

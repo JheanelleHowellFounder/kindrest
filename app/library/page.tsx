@@ -1,11 +1,5 @@
-import { LibraryScreen } from '@/components/library/LibraryScreen'
-import { BottomNav } from '@/components/layout/BottomNav'
+import { redirect } from 'next/navigation'
 
 export default function LibraryPage() {
-  return (
-    <>
-      <LibraryScreen />
-      <BottomNav />
-    </>
-  )
+  redirect('/history')
 }

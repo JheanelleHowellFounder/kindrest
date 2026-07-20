@@ -25,6 +25,7 @@ import Anthropic from '@anthropic-ai/sdk'
 import { getFilteredRecommendations } from '@/lib/airtable'
 import { pickTopN, getMoodPhase } from '@/lib/recommendation-engine'
 import { supabaseAdmin } from '@/lib/supabase'
+import { requireUser } from '@/lib/auth-server'
 import type { RegulationType } from '@/lib/types'
 
 const anthropic = process.env.ANTHROPIC_API_KEY
@@ -54,6 +55,15 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'mood and timeAvailable are required' }, { status: 400 })
     }
 
+    // When a userId is supplied, verify the requester owns that account.
+    // This prevents one user from fetching or writing data for another user's id.
+    if (userId) {
+      const requester = await requireUser(req)
+      if (!requester || requester.id !== userId) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      }
+    }
+
     const regulationPhase = getMoodPhase(mood)
 
     // ── Step 1: Pre-filter recommendations (Option B) ────────────────────────
@@ -67,6 +77,13 @@ export async function POST(req: NextRequest) {
     let userPrefs: { preferred_categories?: string[]; avoided_categories?: string[]; preferred_effort?: string } = {}
     let recentlyUsedIds: number[] = []
     let supportPeople: { name: string; relationship: string }[] = []
+    let journalContext: {
+      patterns_summary?: string | null
+      recurring_triggers?: string[]
+      what_helps?: string[]
+      current_thread?: string | null
+      tone_notes?: string | null
+    } = {}
 
     if (userId && supabaseAdmin) {
       // Aggregate past feedback for this user
@@ -99,8 +116,8 @@ export async function POST(req: NextRequest) {
         recentlyUsedIds = Array.from(seen)
       }
 
-      // Load user preference profile and support circle in parallel
-      const [{ data: profile }, { data: userProfile }] = await Promise.all([
+      // Load user preference profile, support circle, and journal profile in parallel
+      const [{ data: profile }, { data: userProfile }, { data: journalProfile }] = await Promise.all([
         supabaseAdmin
           .from('user_preference_profile')
           .select('preferred_categories, avoided_categories, preferred_effort, strong_regulation_types, recent_indicators')
@@ -111,6 +128,11 @@ export async function POST(req: NextRequest) {
           .select('support_people')
           .eq('user_id', userId)
           .single(),
+        supabaseAdmin
+          .from('journal_profile')
+          .select('patterns_summary, recurring_triggers, what_helps, current_thread, tone_notes')
+          .eq('user_id', userId)
+          .single(),
       ])
 
       if (profile) userPrefs = profile
@@ -119,6 +141,7 @@ export async function POST(req: NextRequest) {
           (p: { name: string; relationship: string }) => p.name?.trim()
         )
       }
+      if (journalProfile) journalContext = journalProfile
     }
 
     // ── Step 3: Score and pick top 3 ────────────────────────────────────────
@@ -143,7 +166,8 @@ export async function POST(req: NextRequest) {
       3,
       feedbackWeights,
       mergedRecentIds,
-      userPrefs
+      userPrefs,
+      { whatHelps: journalContext.what_helps, recurringTriggers: journalContext.recurring_triggers }
     )
 
     // ── Step 4: Ask Claude for a warm acknowledgment ─────────────────────────
@@ -172,9 +196,15 @@ export async function POST(req: NextRequest) {
         ? `Her support circle: ${supportPeople.map(p => `${p.name} (${p.relationship})`).join(', ')}.`
         : ''
 
+      // Surface journal patterns if she's written entries — gives Claude a
+      // fuller picture beyond just this single check-in
+      const journalText = journalContext.patterns_summary || journalContext.current_thread
+        ? `From her journal entries, you also know: ${[journalContext.patterns_summary, journalContext.current_thread].filter(Boolean).join(' ')}`
+        : ''
+
       try {
         const response = await anthropic.messages.create({
-          model: 'claude-3-5-haiku-20241022',
+          model: 'claude-haiku-4-5-20251001',
           max_tokens: 120,
           system: `You are Kindrest — a warm, grounded wellness companion for mothers.
 Your tone is like a trusted friend: honest, non-clinical, never preachy.
@@ -189,6 +219,7 @@ Her regulation phase is: ${regulationPhase}.
 She has ${timeAvailable.replace('_', ' ')} available.
 ${prefText}
 ${supportText}
+${journalText}
 
 These are the care suggestions prepared for her:
 ${recList}
@@ -262,9 +293,9 @@ Do not list the recommendations. Do not use quotes.`,
 function defaultMessage(mood: string): string {
   const messages: Record<string, string> = {
     overwhelmed: "You're carrying a lot right now, and that deserves acknowledgment. Here's something small you can do just for you.",
-    struggling: "It makes sense that things feel heavy right now. These suggestions are gentle — start with just one.",
+    struggling: "It makes sense that things feel heavy right now. These suggestions are gentle, start with just one.",
     okay: "You're holding it together, even when it's a stretch. Take a moment to give something back to yourself.",
-    good: "You're in a good place today — a great time to build on that. Here's what might feel nourishing right now.",
+    good: "You're in a good place today. A great time to build on that. Here's what might feel nourishing right now.",
     thriving: "You're showing up fully and it shows. Take a moment to anchor this feeling so you can return to it.",
   }
   return messages[mood] ?? "Here's your personalised care kit for this moment."

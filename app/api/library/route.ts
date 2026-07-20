@@ -8,6 +8,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
+import { requireUser } from '@/lib/auth-server'
 
 export interface LibraryItem {
   rec_id:     number
@@ -27,6 +28,13 @@ export async function GET(req: NextRequest) {
 
   if (!supabaseAdmin) {
     return NextResponse.json({ error: 'Supabase not configured' }, { status: 503 })
+  }
+
+  // A mom's saved library is hers alone — verify the caller is actually
+  // signed in as the user they're asking about.
+  const requester = await requireUser(req)
+  if (!requester || requester.id !== userId) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
   const { data: feedback, error } = await supabaseAdmin
