@@ -132,7 +132,7 @@ export function CheckInFlow() {
     if (!mood || !timeAvailable) return
     setIsLoading(true)
     try {
-      const res = await fetch('/api/care-kit', {
+      const res = await authedFetch('/api/care-kit', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
