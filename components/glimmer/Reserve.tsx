@@ -1,40 +1,19 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { authedFetch } from '@/lib/api-client'
+import { useWallet, type WalletState } from '@/lib/wallet-context'
 
-export interface WalletState {
-  balance: number
-  reservePct: number
-}
+export type { WalletState }
 
 /**
  * The Reserve — the emotional centerpiece. A gently breathing vessel that fills
  * with what she's done for herself lately. It rises when she shows up and never
  * drains as punishment; gems she's earned are hers to keep.
  *
- * `override` lets a parent hand in a fresh wallet (e.g. straight from a save
- * response) for an instant fill; otherwise it fetches its own. `refreshToken`
- * re-fetches when bumped.
+ * Reads from the shared wallet context, so every Reserve on every screen moves
+ * together the moment gems are earned or spent anywhere.
  */
-export function Reserve({
-  refreshToken = 0,
-  override = null,
-}: {
-  refreshToken?: number
-  override?: WalletState | null
-}) {
-  const [wallet, setWallet] = useState<WalletState | null>(override)
-
-  useEffect(() => {
-    if (override) { setWallet(override); return }
-    let active = true
-    authedFetch('/api/wallet')
-      .then(r => r.json())
-      .then(w => { if (active) setWallet(w) })
-      .catch(() => {})
-    return () => { active = false }
-  }, [refreshToken, override])
+export function Reserve() {
+  const { wallet } = useWallet()
 
   const pct = Math.max(0, Math.min(100, wallet?.reservePct ?? 0))
   const gems = wallet?.balance ?? 0

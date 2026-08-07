@@ -9,7 +9,9 @@ import { authedFetch } from '@/lib/api-client'
 import { detectCrisisLanguage } from '@/lib/safety'
 import { CrisisCard } from '@/components/shared/CrisisCard'
 import { getTodaysPrompt } from '@/lib/glimmers'
-import { Reserve, type WalletState } from '@/components/glimmer/Reserve'
+import { Reserve } from '@/components/glimmer/Reserve'
+import { RestCardEntry } from '@/components/glimmer/RestCardEntry'
+import { useWallet } from '@/lib/wallet-context'
 
 function timeGreeting(): string {
   const h = new Date().getHours()
@@ -30,6 +32,7 @@ function timeGreeting(): string {
  */
 export function GlimmerHome() {
   const { user } = useAuth()
+  const { applyWallet } = useWallet()
   const router = useRouter()
 
   const firstName = user?.user_metadata?.name?.split(' ')[0] ?? 'there'
@@ -41,9 +44,6 @@ export function GlimmerHome() {
   const [outcome, setOutcome] = useState<'answered' | 'quiet' | 'heavy'>('answered')
   const [showCrisis, setShowCrisis] = useState(false)
   const [loadedToday, setLoadedToday] = useState(false)
-  // Reserve state — override fills it instantly from a save response.
-  const [wallet, setWallet] = useState<WalletState | null>(null)
-  const [reserveToken, setReserveToken] = useState(0)
   const [gemsEarned, setGemsEarned] = useState<number | null>(null)
 
   // If she already responded today, open straight into the "done" state.
@@ -79,7 +79,7 @@ export function GlimmerHome() {
         body: JSON.stringify({ body: bodyValue, signal }),
       })
       const data = await res.json().catch(() => null)
-      if (data?.wallet) { setWallet(data.wallet); setReserveToken(t => t + 1) }
+      if (data?.wallet) applyWallet(data.wallet)
       if (typeof data?.gemsEarned === 'number') setGemsEarned(data.gemsEarned)
     } catch {
       /* best-effort; the moment still counts for her */
@@ -111,14 +111,13 @@ export function GlimmerHome() {
 
       {/* Reserve — the breathing centerpiece, always visible */}
       <div className="px-5 mt-6">
-        <Reserve refreshToken={reserveToken} override={wallet} />
+        <Reserve />
       </div>
-      <button
-        onClick={() => router.push('/rest-card')}
-        className="w-full text-center font-sans text-[13px] text-chocolate/50 hover:text-chocolate transition-colors px-5 pt-3"
-      >
-        Open your Rest Card →
-      </button>
+
+      {/* The reserve's second feeder — the Rest Card, right beneath it */}
+      <div className="px-5 mt-4">
+        <RestCardEntry />
+      </div>
 
       {/* Today's glimmer label */}
       <div className="flex items-center gap-1.5 px-5 mt-6">

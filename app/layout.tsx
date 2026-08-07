@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next'
 import './globals.css'
 import { AuthProvider } from '@/lib/auth-context'
+import { WalletProvider } from '@/lib/wallet-context'
 import { AppShell } from '@/components/layout/AppShell'
 
 export const metadata: Metadata = {
@@ -28,7 +29,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body>
         <AuthProvider>
-          <AppShell>{children}</AppShell>
+          <WalletProvider>
+            <AppShell>{children}</AppShell>
+          </WalletProvider>
         </AuthProvider>
       </body>
     </html>

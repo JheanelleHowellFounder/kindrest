@@ -10,6 +10,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireUser } from '@/lib/auth-server'
 import { getWalletState } from '@/lib/gems'
 
+export const dynamic = 'force-dynamic'
+
 export async function GET(req: NextRequest) {
   const requester = await requireUser(req)
   if (!requester) {
