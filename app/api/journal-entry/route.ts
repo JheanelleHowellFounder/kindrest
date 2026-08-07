@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
 import { supabaseAdmin } from '@/lib/supabase'
 import { requireUser } from '@/lib/auth-server'
+import { grantGems, GEM_VALUES } from '@/lib/gems'
 
 const anthropic = process.env.ANTHROPIC_API_KEY
   ? new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
@@ -52,6 +53,10 @@ export async function POST(req: NextRequest) {
       console.error('[journal-entry] Insert failed:', error.message)
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
+
+    // Reward the act of writing. ref_id is null (each entry is its own event),
+    // so multiple entries in a day each count.
+    await grantGems(userId, GEM_VALUES.journal_entry, 'journal_entry', 'journal', null)
 
     // Update the living journal profile in the background — never blocks the response
     updateJournalProfile(userId, trimmed).catch(err =>
