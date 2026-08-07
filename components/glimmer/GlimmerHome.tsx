@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { ArrowRight, Sparkles } from 'lucide-react'
+import { ArrowRight } from 'lucide-react'
 import { useAuth } from '@/lib/auth-context'
 import { authedFetch } from '@/lib/api-client'
 import { detectCrisisLanguage } from '@/lib/safety'
@@ -105,48 +105,46 @@ export function GlimmerHome() {
   return (
     <div className="flex flex-col min-h-screen pb-24 bg-cream">
       {/* Greeting */}
-      <div className="px-5 pt-12 pb-2">
-        <p className="font-sans text-[14px] text-chocolate/50">{timeGreeting()}, {firstName}.</p>
+      <div className="px-5 pt-12">
+        <p className="font-sans text-[13px] text-chocolate/50">{timeGreeting()}, {firstName}.</p>
       </div>
 
-      {/* Reserve — always visible, fills when she shows up */}
-      <div className="px-5 mt-2">
+      {/* Reserve — the breathing centerpiece, always visible */}
+      <div className="px-5 mt-6">
         <Reserve refreshToken={reserveToken} override={wallet} />
-        <button
-          onClick={() => router.push('/rest-card')}
-          className="w-full mt-2 text-center font-sans text-[13px] text-chocolate/50 hover:text-chocolate transition-colors py-1"
-        >
-          Open your Rest Card →
-        </button>
+      </div>
+      <button
+        onClick={() => router.push('/rest-card')}
+        className="w-full text-center font-sans text-[13px] text-chocolate/50 hover:text-chocolate transition-colors px-5 pt-3"
+      >
+        Open your Rest Card →
+      </button>
+
+      {/* Today's glimmer label */}
+      <div className="flex items-center gap-1.5 px-5 mt-6">
+        <svg width="13" height="13" viewBox="0 0 24 24" className="text-mustard" fill="currentColor">
+          <path d="M12 2l1.8 5.4L19 9l-5.2 1.6L12 16l-1.8-5.4L5 9l5.2-1.6L12 2z" />
+        </svg>
+        <p className="font-display font-semibold text-[11.5px] uppercase tracking-[0.15em] text-mustard">Today’s glimmer</p>
       </div>
 
-      {/* Section label */}
-      <div className="px-5 mt-5">
-        <div className="flex items-center gap-1.5">
-          <Sparkles className="w-4 h-4 text-mustard" />
-          <p className="font-display text-[12px] uppercase tracking-[0.15em] text-mustard">Today’s glimmer</p>
-        </div>
-      </div>
-
-      {/* The question */}
-      <div className="px-5 mt-3">
-        <div className="bg-white rounded-2xl border border-beige/40 px-6 py-7">
-          <h1 className="font-serif text-[26px] leading-snug text-chocolate">{prompt.text}</h1>
-          <p className="font-sans text-[13px] text-chocolate/45 mt-3">
-            A glimmer is a small moment you felt like yourself. Catch one — that’s the whole practice.
-          </p>
-        </div>
+      {/* The question — sits directly on the cream, no card */}
+      <div className="px-5 mt-2.5">
+        <h1 className="font-serif text-[26px] leading-[1.3] text-chocolate">{prompt.text}</h1>
+        <p className="font-sans text-[13px] text-chocolate/45 mt-2.5 leading-[1.6]">
+          A glimmer is a small moment you felt like yourself. Catch one — that’s the whole practice.
+        </p>
       </div>
 
       {/* Writing state */}
       {(phase === 'writing' || phase === 'saving') && (
-        <div className="px-5 mt-4 space-y-3">
+        <div className="px-5 mt-[18px] space-y-3">
           <textarea
             value={text}
             onChange={e => onChange(e.target.value)}
             placeholder="A sentence is plenty…"
             rows={4}
-            className="w-full bg-white rounded-2xl border border-beige/40 px-4 py-3.5 text-base text-chocolate placeholder:text-chocolate/30 outline-none focus:border-mustard/50 resize-none font-sans leading-relaxed"
+            className="w-full bg-white rounded-[20px] border border-beige/40 px-4 py-4 text-base text-chocolate placeholder:text-chocolate/30 outline-none focus:border-mustard/60 resize-none font-sans leading-relaxed"
           />
 
           {showCrisis && <CrisisCard />}
@@ -154,7 +152,7 @@ export function GlimmerHome() {
           <button
             onClick={saveAnswer}
             disabled={!canSave}
-            className="w-full flex items-center justify-center gap-2 bg-mustard text-white font-display font-semibold text-[15px] px-5 py-4 rounded-[15px] disabled:opacity-40 disabled:cursor-not-allowed transition-opacity"
+            className="w-full flex items-center justify-center gap-2 bg-mustard text-white font-display font-semibold text-[15px] py-4 rounded-[15px] disabled:opacity-40 disabled:cursor-not-allowed transition-opacity"
           >
             {phase === 'saving' ? 'Saving…' : 'Save my glimmer'}
           </button>
@@ -171,9 +169,9 @@ export function GlimmerHome() {
 
       {/* Fork — "quiet or heavy?" — the safety net for an empty day */}
       {phase === 'fork' && (
-        <div className="px-5 mt-4 space-y-3">
-          <div className="bg-white rounded-2xl border border-beige/40 px-6 py-6">
-            <p className="font-serif text-[20px] text-chocolate leading-snug">
+        <div className="px-5 mt-[18px] space-y-3">
+          <div className="bg-white rounded-[24px] border border-beige/40 px-5 py-[22px]">
+            <p className="font-serif text-[19px] text-chocolate leading-[1.3]">
               Is today just quiet, or is it heavy?
             </p>
             <p className="font-sans text-[13px] text-chocolate/50 mt-2">
@@ -183,7 +181,7 @@ export function GlimmerHome() {
 
           <button
             onClick={() => finishEmpty('quiet')}
-            className="w-full flex items-center justify-between bg-white border border-beige/50 text-chocolate px-5 py-4 rounded-2xl hover:border-mustard/40 transition-colors"
+            className="w-full flex items-center justify-between bg-white border border-beige/50 text-chocolate px-[18px] py-[15px] rounded-[20px] hover:border-mustard/40 transition-colors"
           >
             <span className="text-left">
               <span className="font-display font-semibold text-[15px] block">Just quiet</span>
@@ -193,7 +191,7 @@ export function GlimmerHome() {
 
           <button
             onClick={() => finishEmpty('heavy')}
-            className="w-full flex items-center justify-between bg-chocolate text-cream px-5 py-4 rounded-2xl"
+            className="w-full flex items-center justify-between bg-chocolate text-cream px-[18px] py-[15px] rounded-[20px]"
           >
             <span className="text-left">
               <span className="font-display font-semibold text-[15px] block">It’s heavy</span>
@@ -212,16 +210,16 @@ export function GlimmerHome() {
 
       {/* Done state — meets her differently depending on how she finished */}
       {phase === 'done' && (
-        <div className="px-5 mt-4 space-y-4">
+        <div className="px-5 mt-[18px] space-y-[14px]">
 
           {/* HEAVY — a hard day, gently routed toward real support */}
           {outcome === 'heavy' ? (
             <>
-              <div className="bg-white rounded-2xl border border-beige/40 px-6 py-6">
-                <p className="font-serif text-[20px] text-chocolate leading-snug">
+              <div className="bg-white rounded-[24px] border border-beige/40 px-5 py-[22px]">
+                <p className="font-serif text-[19px] text-chocolate leading-[1.3]">
                   Thank you for being honest.
                 </p>
-                <p className="font-sans text-[14px] text-chocolate/60 leading-relaxed mt-3">
+                <p className="font-sans text-[14px] text-chocolate/60 leading-[1.65] mt-2.5">
                   Some days ask more of you than a glimmer can answer. You don’t have to
                   find the bright side today. Let’s just meet you where you actually are.
                 </p>
@@ -235,18 +233,18 @@ export function GlimmerHome() {
 
               <button
                 onClick={() => router.push('/check-in')}
-                className="w-full flex items-center justify-between bg-chocolate text-cream px-5 py-4 rounded-2xl"
+                className="w-full flex items-center justify-between bg-chocolate text-cream px-[18px] py-[15px] rounded-[20px]"
               >
                 <span className="text-left">
                   <span className="font-display font-semibold text-[15px] block">Check in with me</span>
                   <span className="font-sans text-[12.5px] text-cream/60">Two minutes. No performing, no fixing.</span>
                 </span>
-                <ArrowRight className="w-5 h-5 text-mustard flex-shrink-0" />
+                <ArrowRight className="w-[18px] h-[18px] text-mustard flex-shrink-0" />
               </button>
 
               {/* Soft, non-alarming support — PSI warmline, no crisis required */}
-              <div className="bg-[#f0e9e2] rounded-2xl px-5 py-4">
-                <p className="font-sans text-[13px] text-chocolate/70 leading-relaxed">
+              <div className="bg-[#f0e9e2] rounded-[20px] px-4 py-[18px]">
+                <p className="font-sans text-[13px] text-chocolate/70 leading-[1.6]">
                   If today feels like more than you can hold, you can talk to someone who
                   gets it — no crisis required.
                 </p>
@@ -267,18 +265,18 @@ export function GlimmerHome() {
           ) : (
             <>
               {/* ANSWERED or JUST-QUIET — warm confirmation + optional depth */}
-              <div className="bg-white rounded-2xl border border-beige/40 px-6 py-6">
+              <div className="bg-white rounded-[24px] border border-beige/40 px-5 py-[22px]">
                 {outcome === 'answered' && text.trim() ? (
                   <>
-                    <p className="font-serif text-[19px] text-chocolate leading-snug">
+                    <p className="font-serif text-[18.5px] text-chocolate leading-[1.3]">
                       Saved. That’s one small thing, noticed.
                     </p>
-                    <p className="font-sans text-[14px] text-chocolate/55 leading-relaxed mt-3 italic">
+                    <p className="font-serif italic text-[14px] text-chocolate/55 leading-[1.65] mt-2.5">
                       “{text.trim()}”
                     </p>
                   </>
                 ) : (
-                  <p className="font-serif text-[19px] text-chocolate leading-snug">
+                  <p className="font-serif text-[18.5px] text-chocolate leading-[1.3]">
                     Some days there isn’t one, and that’s allowed. You still showed up.
                   </p>
                 )}
@@ -295,18 +293,18 @@ export function GlimmerHome() {
               {/* The soft branch — offered, never forced */}
               <button
                 onClick={() => router.push('/check-in')}
-                className="w-full flex items-center justify-between bg-chocolate text-cream px-5 py-4 rounded-2xl"
+                className="w-full flex items-center justify-between bg-chocolate text-cream px-[18px] py-[15px] rounded-[20px]"
               >
                 <span className="text-left">
                   <span className="font-display font-semibold text-[15px] block">Want to go a little deeper?</span>
                   <span className="font-sans text-[12.5px] text-cream/60">A two-minute check-in, if you have it in you.</span>
                 </span>
-                <ArrowRight className="w-5 h-5 text-mustard flex-shrink-0" />
+                <ArrowRight className="w-[18px] h-[18px] text-mustard flex-shrink-0" />
               </button>
             </>
           )}
 
-          <div className="flex items-center justify-center gap-4 pt-1">
+          <div className="flex items-center justify-center gap-[14px] pt-0.5">
             <Link href="/glimmers" className="font-sans text-[13.5px] text-chocolate/50 hover:text-chocolate transition-colors">
               Your glimmers
             </Link>

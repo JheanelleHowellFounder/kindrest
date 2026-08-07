@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { X } from 'lucide-react'
 import { useAuth } from '@/lib/auth-context'
 import { authedFetch } from '@/lib/api-client'
+import { supabase } from '@/lib/supabase'
 import type { LibraryItem } from '@/app/api/library/route'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -53,7 +54,22 @@ interface LiveStats {
 }
 
 type HistoryItem = LiveStats['recentHistory'][number]
-type Tab = 'insights' | 'log' | 'library'
+type Tab = 'insights' | 'log' | 'library' | 'journal'
+
+interface JournalRow {
+  id: string
+  content: string
+  source: string
+  entry_date: string
+  created_at: string
+}
+
+// How a journal entry got created — shown as a small label.
+const JOURNAL_SOURCE_LABEL: Record<string, string> = {
+  unknown_door:  'From a check-in',
+  reflective_rec:'From a reflection',
+  journal:       'Free write',
+}
 
 interface DaySheet {
   label: string
@@ -436,6 +452,21 @@ export function HistoryScreen() {
   }, [])
 
   void openSheet
+
+  // Journal state — entries are part of a mother's overall history
+  const [journalEntries, setJournalEntries] = useState<JournalRow[]>([])
+  const [journalLoaded, setJournalLoaded]   = useState(false)
+  const [expandedJournalId, setExpandedJournalId] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!user || !supabase) { setJournalLoaded(true); return }
+    supabase
+      .from('journal_entries')
+      .select('id, content, source, entry_date, created_at')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false })
+      .then(({ data }) => { setJournalEntries(data ?? []); setJournalLoaded(true) })
+  }, [user])
 
   // Library state
   const [libItems, setLibItems]   = useState<LibraryItem[]>([])
@@ -857,6 +888,49 @@ export function HistoryScreen() {
     </div>
   )
 
+  const JournalPanel = (
+    <div className="space-y-3">
+      <button
+        onClick={() => router.push('/journal')}
+        className="w-full flex items-center justify-center gap-2 bg-mustard text-white font-display font-semibold text-[14px] px-5 py-3.5 rounded-[14px] hover:opacity-90 transition-opacity"
+      >
+        + New journal entry
+      </button>
+
+      {!journalLoaded ? (
+        <p className="text-center text-chocolate/30 font-sans text-sm py-8">Loading your entries…</p>
+      ) : journalEntries.length === 0 ? (
+        <div className="bg-white rounded-2xl border border-beige/40 px-6 py-8 text-center">
+          <p className="font-serif text-[18px] text-chocolate">Nothing written yet.</p>
+          <p className="font-sans text-[13px] text-chocolate/50 mt-1.5">When you journal, your entries live here.</p>
+        </div>
+      ) : (
+        journalEntries.map(e => {
+          const open = expandedJournalId === e.id
+          return (
+            <button
+              key={e.id}
+              onClick={() => setExpandedJournalId(open ? null : e.id)}
+              className="w-full text-left bg-white rounded-2xl border border-beige/40 px-5 py-4"
+            >
+              <div className="flex items-center justify-between mb-1.5">
+                <span className="font-display text-[11px] uppercase tracking-[0.1em] text-mustard">
+                  {JOURNAL_SOURCE_LABEL[e.source] ?? 'Journal'}
+                </span>
+                <span className="font-sans text-[11px] text-chocolate/40">
+                  {new Date(e.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                </span>
+              </div>
+              <p className={`font-sans text-[14px] text-chocolate/80 leading-relaxed whitespace-pre-wrap ${open ? '' : 'line-clamp-3'}`}>
+                {e.content}
+              </p>
+            </button>
+          )
+        })
+      )}
+    </div>
+  )
+
   if (authLoading || !user) {
     return (
       <div className="min-h-screen bg-cream flex items-center justify-center">
@@ -881,15 +955,15 @@ export function HistoryScreen() {
       {/* Tab toggle — same slider on mobile and desktop */}
       <div className="px-5 mt-4 flex justify-center">
         <div className="inline-flex p-1 gap-1 bg-[#f0e9e2] border border-beige/50 rounded-full">
-          {(['insights', 'log', 'library'] as Tab[]).map(t => (
+          {(['insights', 'log', 'journal', 'library'] as Tab[]).map(t => (
             <button
               key={t}
               onClick={() => setTab(t)}
-              className={`font-display font-semibold text-[13px] px-4 py-2 rounded-full transition-colors ${
+              className={`font-display font-semibold text-[13px] px-3 py-2 rounded-full transition-colors ${
                 tab === t ? 'bg-chocolate text-cream' : 'text-chocolate/50'
               }`}
             >
-              {t === 'insights' ? 'Insights' : t === 'log' ? 'Log' : 'Library'}
+              {t === 'insights' ? 'Insights' : t === 'log' ? 'Log' : t === 'journal' ? 'Journal' : 'Library'}
             </button>
           ))}
         </div>
@@ -897,7 +971,7 @@ export function HistoryScreen() {
 
       {/* Content */}
       <div className="px-5 mt-4 pb-4 md:max-w-xl md:mx-auto">
-        {tab === 'insights' ? InsightsPanel : tab === 'log' ? LogPanel : LibraryPanel}
+        {tab === 'insights' ? InsightsPanel : tab === 'log' ? LogPanel : tab === 'journal' ? JournalPanel : LibraryPanel}
       </div>
 
       {/* Day-detail bottom sheet */}
