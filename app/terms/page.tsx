@@ -77,6 +77,29 @@ export default function TermsPage() {
           </section>
 
           <section>
+            <h2 className="font-serif text-[22px] text-chocolate mb-3">Safety features &amp; crisis support</h2>
+            <p className="mb-4">Kindrest includes features meant to be supportive — for example, it may surface crisis resources (such as the 988 Suicide &amp; Crisis Lifeline) when it notices certain language, and it may gently check in with you during a harder stretch. Please understand their limits:</p>
+            <ul className="space-y-3">
+              <li className="flex items-start gap-3">
+                <span className="text-mustard mt-1 flex-shrink-0">♡</span>
+                <span>These features are automated. They are not monitored by a person in real time.</span>
+              </li>
+              <li className="flex items-start gap-3">
+                <span className="text-mustard mt-1 flex-shrink-0">♡</span>
+                <span>They are not guaranteed to detect, catch, or correctly interpret every situation, and may miss or misread what you share.</span>
+              </li>
+              <li className="flex items-start gap-3">
+                <span className="text-mustard mt-1 flex-shrink-0">♡</span>
+                <span>They are not a crisis line, emergency service, or clinical monitoring service, and are not a substitute for professional care.</span>
+              </li>
+              <li className="flex items-start gap-3">
+                <span className="text-mustard mt-1 flex-shrink-0">♡</span>
+                <span>In an emergency, or if you are thinking about harming yourself or someone else, contact the 988 Suicide &amp; Crisis Lifeline, call 911, or reach your local emergency services directly. Please do not rely on Kindrest to reach help for you.</span>
+              </li>
+            </ul>
+          </section>
+
+          <section>
             <h2 className="font-serif text-[22px] text-chocolate mb-3">Limitation of Liability</h2>
             <p>Since Kindrest is still in development, we cannot guarantee uninterrupted or error-free service. To the extent allowed by law, we are not responsible for damages arising from the use of our site, forms, or communications.</p>
           </section>
@@ -89,7 +112,7 @@ export default function TermsPage() {
         </div>
 
         <div className="mt-16 pt-8 border-t border-beige/50 flex items-center justify-between">
-          <p className="font-sans text-xs text-chocolate/30">Last revised: September 2025</p>
+          <p className="font-sans text-xs text-chocolate/30">Last revised: August 2026</p>
           <p className="font-sans text-xs text-chocolate/30">© 2026 Kindrest. All rights reserved.</p>
         </div>
 

@@ -23,7 +23,7 @@ export default function PrivacyPage() {
         <p className="font-display text-xs text-mustard tracking-[0.2em] uppercase mb-4">Legal</p>
         <h1 className="font-serif text-[42px] text-chocolate leading-tight mb-4">Privacy Policy</h1>
         <div className="h-[2px] w-12 bg-mustard mb-4" />
-        <p className="font-sans text-sm text-chocolate/40 mb-10">Last updated: April 2026</p>
+        <p className="font-sans text-sm text-chocolate/40 mb-10">Last updated: August 2026</p>
 
         <p className="font-sans text-[15px] text-chocolate/70 leading-relaxed mb-10">
           Kindrest is a wellness app for mothers. We take your privacy seriously, especially because what you share here is personal. This policy explains what we collect, why we collect it, and how we protect it. We've written it in plain language on purpose.
@@ -38,8 +38,8 @@ export default function PrivacyPage() {
               {[
                 'Your name and email address, provided during sign-up.',
                 'Your check-in responses: how you\'re feeling mentally, physically, and emotionally, how much time you have, and which care recommendations resonated with you.',
-                'Your journal entries, if you choose to write them.',
-                'Your check-in history, mood patterns, and streak data.',
+                'Your journal entries and daily glimmers, if you choose to write them.',
+                'Your check-in history, mood patterns, streak data, and the gems and reserve progress you earn as you use the app.',
                 'Authentication tokens stored in your browser to keep you logged in.',
               ].map((item, i) => (
                 <li key={i} className="flex items-start gap-3">
@@ -59,6 +59,24 @@ export default function PrivacyPage() {
                 'Your check-in responses power the care recommendations you receive. They help Kindrest understand where you are and what you need.',
                 'Your history and patterns let you see your own trends over time and help the app learn what works for you.',
                 'We use your email to send you important account information and, if you\'ve opted in, our email sequences about Kindrest.',
+              ].map((item, i) => (
+                <li key={i} className="flex items-start gap-3">
+                  <span className="text-mustard mt-0.5 flex-shrink-0">♡</span>
+                  <span>{item}</span>
+                </li>
+              ))}
+            </ul>
+          </section>
+
+          <section>
+            <h2 className="font-serif text-[22px] text-chocolate mb-3">Sensitive health information</h2>
+            <p className="mb-4">A lot of what you share with Kindrest — your moods, your journal entries, your glimmers, how a day is feeling — is personal information about your mental and emotional health. We treat it that way:</p>
+            <ul className="space-y-3">
+              {[
+                'This information is yours. We use it only to power your Kindrest experience, and we never sell it or share it with advertisers.',
+                'What you write in your journals and glimmers is private to your account. We do not share the content of what you write with your employer or anyone else.',
+                'Some of what we collect may be considered "consumer health data" under laws in certain states. Where those laws apply, you have rights over that data, including the right to access or delete it.',
+                'You can ask us to delete this information, or your whole account, at any time — see "Your rights" below.',
               ].map((item, i) => (
                 <li key={i} className="flex items-start gap-3">
                   <span className="text-mustard mt-0.5 flex-shrink-0">♡</span>
