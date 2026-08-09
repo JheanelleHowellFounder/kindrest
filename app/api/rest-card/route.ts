@@ -11,7 +11,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { requireUser } from '@/lib/auth-server'
-import { buildCardSquares, CARD_CYCLE_DAYS, type AppLink } from '@/lib/restcard'
+import { buildCardSquares, CARD_CYCLE_DAYS, USER_POSITIONS, type AppLink } from '@/lib/restcard'
 
 const UNDEFINED_TABLE = '42P01'
 
@@ -40,6 +40,12 @@ export async function GET(req: NextRequest) {
 
   let card = existing
   if (!card) {
+    // Carry her written centre squares forward from the most recent card, so what
+    // she wrote sticks across cycles.
+    const userLabels = await carriedUserLabels(uid)
+    // Theme the self squares to her care preferences.
+    const { preferred, avoided } = await carePreferences(uid)
+
     await supabaseAdmin.from('rest_cards').update({ status: 'archived' }).eq('user_id', uid).eq('status', 'active')
 
     const cycleEnd = new Date()
@@ -58,7 +64,7 @@ export async function GET(req: NextRequest) {
     }
     card = made
 
-    const squares = buildCardSquares().map(s => ({ ...s, card_id: card!.id, user_id: uid }))
+    const squares = buildCardSquares({ preferred, avoided, userLabels }).map(s => ({ ...s, card_id: card!.id, user_id: uid }))
     await supabaseAdmin.from('rest_card_squares').insert(squares)
   }
 
@@ -73,6 +79,45 @@ export async function GET(req: NextRequest) {
     .order('position', { ascending: true })
 
   return NextResponse.json({ card: { ...card, squares: squares ?? [] } })
+}
+
+/** Her written centre squares from the most recent card, by position. */
+async function carriedUserLabels(uid: string): Promise<Record<number, string>> {
+  if (!supabaseAdmin) return {}
+  const { data: last } = await supabaseAdmin
+    .from('rest_cards')
+    .select('id')
+    .eq('user_id', uid)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+  if (!last) return {}
+
+  const { data: sqs } = await supabaseAdmin
+    .from('rest_card_squares')
+    .select('position, label')
+    .eq('card_id', last.id)
+    .eq('source', 'user')
+
+  const labels: Record<number, string> = {}
+  for (const s of sqs ?? []) {
+    if (USER_POSITIONS.includes(s.position) && s.label?.trim()) labels[s.position] = s.label
+  }
+  return labels
+}
+
+/** Her care preferences, so the self squares lean toward what she loves. */
+async function carePreferences(uid: string): Promise<{ preferred: string[]; avoided: string[] }> {
+  if (!supabaseAdmin) return { preferred: [], avoided: [] }
+  const { data } = await supabaseAdmin
+    .from('user_preference_profile')
+    .select('preferred_categories, avoided_categories')
+    .eq('user_id', uid)
+    .maybeSingle()
+  return {
+    preferred: data?.preferred_categories ?? [],
+    avoided: data?.avoided_categories ?? [],
+  }
 }
 
 async function reconcileAppSquares(uid: string, cardId: string, cycleStart: string) {

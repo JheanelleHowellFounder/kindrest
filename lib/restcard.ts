@@ -31,24 +31,56 @@ export const APP_SQUARES: { position: number; link: AppLink; label: string }[] =
 export const SELF_POSITIONS = [1, 2, 4, 7, 8, 11, 13, 14, 15]
 
 // Self-directed pool — past tense, small, no money / childcare / leaving the house.
-export const SELF_ACTIONS: { label: string; type: 'body' | 'self' }[] = [
-  { label: 'You drank water today',                         type: 'body' },
-  { label: 'You put your body horizontal',                  type: 'body' },
-  { label: 'You stepped outside, even for a minute',        type: 'body' },
-  { label: 'You ate something you didn’t have to share',    type: 'body' },
-  { label: 'You went to the bathroom alone',                type: 'body' },
-  { label: 'You took a breath that went all the way down',  type: 'body' },
-  { label: 'You let a mess stay a mess',                    type: 'body' },
-  { label: 'You said no to something',                      type: 'body' },
-  { label: 'You played a song you loved',                   type: 'self' },
-  { label: 'You noticed something beautiful',               type: 'self' },
-  { label: 'You chose something just because you wanted it',type: 'self' },
-  { label: 'You remembered something you used to be good at',type: 'self' },
-  { label: 'You laughed at something',                      type: 'self' },
-  { label: 'You wore something that felt like you',         type: 'self' },
-  { label: 'You had a thought that wasn’t about the baby',  type: 'self' },
-  { label: 'You did one thing slowly',                      type: 'self' },
+// Each is tagged with a care category so the board can lean toward what she loves
+// and away from what she skips.
+export interface SelfAction { label: string; category: string }
+export const SELF_ACTIONS: SelfAction[] = [
+  // Rest
+  { label: 'You put your body horizontal',                   category: 'Rest' },
+  { label: 'You let a mess stay a mess',                     category: 'Rest' },
+  { label: 'You closed your eyes for a moment',              category: 'Rest' },
+  { label: 'You did one thing slowly',                       category: 'Rest' },
+  // Micro Practice
+  { label: 'You drank water today',                          category: 'Micro Practice' },
+  { label: 'You took a breath that went all the way down',   category: 'Micro Practice' },
+  { label: 'You went to the bathroom alone',                 category: 'Micro Practice' },
+  { label: 'You said no to something',                       category: 'Micro Practice' },
+  // Joy
+  { label: 'You played a song you loved',                    category: 'Joy' },
+  { label: 'You ate something you didn’t have to share',     category: 'Joy' },
+  { label: 'You chose something just because you wanted it', category: 'Joy' },
+  { label: 'You wore something that felt like you',          category: 'Joy' },
+  // Movement
+  { label: 'You stepped outside, even for a minute',         category: 'Movement' },
+  { label: 'You stretched, even a little',                   category: 'Movement' },
+  { label: 'You moved your body on purpose',                 category: 'Movement' },
+  // Reflection
+  { label: 'You noticed something beautiful',                category: 'Reflection' },
+  { label: 'You remembered something you used to be good at',category: 'Reflection' },
+  { label: 'You had a thought that wasn’t about the baby',   category: 'Reflection' },
+  // Connection
+  { label: 'You texted someone back',                        category: 'Connection' },
+  { label: 'You let someone help you',                       category: 'Connection' },
+  { label: 'You said what you actually felt',                category: 'Connection' },
+  { label: 'You laughed with someone',                       category: 'Connection' },
 ]
+
+/**
+ * Pick 9 self actions, leaning toward her preferred categories and away from the
+ * ones she skips — while keeping enough variety that the board never feels narrow.
+ */
+export function selectSelfActions(preferred: string[] = [], avoided: string[] = []): SelfAction[] {
+  const avoid = new Set(avoided)
+  const pref = new Set(preferred)
+  let pool = SELF_ACTIONS.filter(a => !avoid.has(a.category))
+  if (pool.length < SELF_POSITIONS.length) pool = [...SELF_ACTIONS] // fallback if we filtered too hard
+
+  return pool
+    .map(a => ({ a, rank: pref.has(a.category) ? 0 : 1, r: Math.random() }))
+    .sort((x, y) => x.rank - y.rank || x.r - y.r)
+    .slice(0, SELF_POSITIONS.length)
+    .map(s => s.a)
+}
 
 // `source` on a square row encodes its kind: 'user' | 'app_<link>' | 'self'.
 export type SquareSource = 'user' | `app_${AppLink}` | 'self'
@@ -60,24 +92,31 @@ export interface NewSquare {
   status: 'open' | 'done'
 }
 
-/** Build the 16 squares for a fresh card. Centre cells start blank for her to write. */
-export function buildCardSquares(): NewSquare[] {
+export interface BuildOptions {
+  preferred?: string[]
+  avoided?: string[]
+  /** Carry her written centre squares forward from the last card, by position. */
+  userLabels?: Record<number, string>
+}
+
+/**
+ * Build the 16 squares for a fresh card. Centre cells carry her previous words
+ * forward (so what she wrote sticks across cycles); self cells are themed to her
+ * care preferences.
+ */
+export function buildCardSquares(opts: BuildOptions = {}): NewSquare[] {
   const squares: NewSquare[] = []
 
   for (const p of USER_POSITIONS) {
-    squares.push({ position: p, label: '', source: 'user', status: 'open' })
+    squares.push({ position: p, label: opts.userLabels?.[p] ?? '', source: 'user', status: 'open' })
   }
   for (const a of APP_SQUARES) {
     squares.push({ position: a.position, label: a.label, source: `app_${a.link}`, status: 'open' })
   }
 
-  const pool = [...SELF_ACTIONS]
-  for (let i = pool.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1))
-    ;[pool[i], pool[j]] = [pool[j], pool[i]]
-  }
+  const chosen = selectSelfActions(opts.preferred, opts.avoided)
   SELF_POSITIONS.forEach((p, i) => {
-    squares.push({ position: p, label: pool[i].label, source: 'self', status: 'open' })
+    squares.push({ position: p, label: chosen[i].label, source: 'self', status: 'open' })
   })
 
   return squares.sort((a, b) => a.position - b.position)

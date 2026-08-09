@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
-import { ArrowLeft, Check, Plus } from 'lucide-react'
+import { ArrowLeft, Check, Plus, Home } from 'lucide-react'
 import { useAuth } from '@/lib/auth-context'
 import { authedFetch } from '@/lib/api-client'
 import { useWallet } from '@/lib/wallet-context'
@@ -74,9 +74,9 @@ export function RestCard() {
   }
 
   function onTap(sq: Square) {
-    const kind = kindOf(sq.source)
-    if (kind === 'user' && !sq.label.trim()) { setEditingId(sq.id); setEditText(''); return }
-    if (kind === 'self' || kind === 'user') toggle(sq)
+    // Only a blank centre cell opens the composer; everything else toggles.
+    if (kindOf(sq.source) === 'user' && !sq.label.trim()) { setEditingId(sq.id); setEditText(''); return }
+    toggle(sq)
   }
 
   async function toggle(sq: Square) {
@@ -161,26 +161,16 @@ export function RestCard() {
           <>
             <div className="grid grid-cols-4 gap-2">
               {squares.map(sq => {
-                const kind = kindOf(sq.source)
                 const done = sq.status === 'done'
-                const blankUser = kind === 'user' && !sq.label.trim()
-                const tappable = kind === 'self' || kind === 'user'
+                const blankUser = kindOf(sq.source) === 'user' && !sq.label.trim()
 
-                let cls = 'bg-white border-beige/50'
-                if (blankUser) cls = 'bg-mustard/5 border-mustard/40 border-dashed'
-                else if (done && (kind === 'self' || kind === 'user')) cls = 'bg-gradient-to-br from-mustard to-mustard/80 border-transparent'
-                else if (done) cls = 'bg-mustard/25 border-mustard/30'
-                else if (kind === 'app') cls = 'bg-white border-beige/50 border-dashed'
-                else cls = 'bg-white border-beige/50 hover:border-mustard/40'
-
-                const textCls = (done && (kind === 'self' || kind === 'user')) ? 'text-white' : 'text-chocolate/70'
-
+                // Blank centre cell → the "write your own" invitation.
                 if (blankUser) {
                   return (
                     <button
                       key={sq.id}
                       onClick={() => onTap(sq)}
-                      className={`aspect-square rounded-xl border p-2 flex flex-col items-center justify-center gap-1 transition-colors ${cls}`}
+                      className="aspect-square rounded-xl border border-dashed border-mustard/40 bg-mustard/5 p-2 flex flex-col items-center justify-center gap-1 transition-colors"
                     >
                       <Plus className="w-4 h-4 text-mustard" />
                       <span className="font-sans text-[10px] text-mustard/90 leading-tight text-center">Write your own</span>
@@ -188,25 +178,26 @@ export function RestCard() {
                   )
                 }
 
+                // Every other cell reads and behaves the same: tap to mark, tap to undo.
+                const cls = done
+                  ? 'bg-gradient-to-br from-mustard to-mustard/80 border-transparent'
+                  : 'bg-white border-beige/50 hover:border-mustard/40'
+
                 return (
                   <button
                     key={sq.id}
                     onClick={() => onTap(sq)}
-                    disabled={!tappable || saving === sq.id}
+                    disabled={saving === sq.id}
                     aria-pressed={done}
-                    className={`aspect-square rounded-xl border p-2 flex flex-col justify-between text-left transition-colors ${cls} ${tappable ? '' : 'cursor-default'}`}
+                    className={`aspect-square rounded-xl border p-2 flex flex-col justify-between text-left transition-colors ${cls}`}
                   >
-                    <span className={`font-sans text-[10.5px] leading-tight ${textCls}`}>{sq.label}</span>
+                    <span className={`font-sans text-[10.5px] leading-tight ${done ? 'text-white' : 'text-chocolate/70'}`}>{sq.label}</span>
                     <span
                       className={`self-end w-4 h-4 rounded-full flex items-center justify-center flex-shrink-0 ${
-                        done
-                          ? ((kind === 'self' || kind === 'user') ? 'bg-white/25' : 'text-mustard')
-                          : (kind === 'app' ? 'border border-dashed border-chocolate/25' : 'border border-chocolate/20')
+                        done ? 'bg-white/25' : 'border border-chocolate/20'
                       }`}
                     >
-                      {done && ((kind === 'self' || kind === 'user')
-                        ? <Check className="w-3 h-3 text-white" />
-                        : <span className="text-mustard text-[11px] leading-none">♡</span>)}
+                      {done && <Check className="w-3 h-3 text-white" />}
                     </span>
                   </button>
                 )
@@ -215,6 +206,14 @@ export function RestCard() {
             <p className="text-center font-sans text-[12.5px] text-chocolate/40 mt-4">
               No rush. It’s just here — each thing that’s true fills your reserve a little.
             </p>
+
+            <button
+              onClick={() => router.push('/')}
+              className="w-full mt-5 flex items-center justify-center gap-2 bg-chocolate text-cream font-display font-semibold text-[15px] py-4 rounded-[15px]"
+            >
+              <Home className="w-4 h-4 text-mustard" />
+              That’s enough for now
+            </button>
           </>
         )}
       </div>

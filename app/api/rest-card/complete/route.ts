@@ -31,9 +31,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Not found' }, { status: 404 })
     }
 
-    // Self and user (centre) squares are tappable. App-linked squares mark
-    // themselves and must never be toggled by hand.
-    if (square.source !== 'self' && square.source !== 'user') {
+    // Every square is tappable — she can mark anything that's true. App-linked
+    // squares also mark themselves from activity, but she can still toggle them.
+    // (Only a truly unknown source would be ignored.)
+    const kind = square.source
+    if (kind !== 'self' && kind !== 'user' && !kind.startsWith('app_')) {
       const wallet = await getWalletState(requester.id)
       return NextResponse.json({ ok: true, ignored: true, wallet })
     }
