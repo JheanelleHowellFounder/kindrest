@@ -11,6 +11,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { requireUser } from '@/lib/auth-server'
 import { grantGems, getWalletState, GEM_VALUES } from '@/lib/gems'
 import { completedLines, LINES } from '@/lib/restcard'
+import { detectCrisisLanguage } from '@/lib/safety'
 
 export async function POST(req: NextRequest) {
   try {
@@ -54,8 +55,11 @@ export async function POST(req: NextRequest) {
       await grantGems(requester.id, GEM_VALUES.rest_line, 'rest_line', 'rest_line', `${square.card_id}-${idx}`)
     }
 
+    // Her own words go here too — screen them, and surface support if needed.
+    const crisis = detectCrisisLanguage(text)
+
     const wallet = await getWalletState(requester.id)
-    return NextResponse.json({ ok: true, wallet, completedLineCount: lines.length })
+    return NextResponse.json({ ok: true, wallet, completedLineCount: lines.length, crisis })
   } catch (err) {
     console.error('[rest-card/square-label] error:', err instanceof Error ? err.message : err)
     return NextResponse.json({ error: 'Unexpected error' }, { status: 500 })

@@ -7,6 +7,8 @@ import { useAuth } from '@/lib/auth-context'
 import { authedFetch } from '@/lib/api-client'
 import { useWallet } from '@/lib/wallet-context'
 import { Reserve } from '@/components/glimmer/Reserve'
+import { CrisisCard } from '@/components/shared/CrisisCard'
+import { detectCrisisLanguage } from '@/lib/safety'
 import { completedLines } from '@/lib/restcard'
 
 interface Square {
@@ -47,6 +49,7 @@ export function RestCard() {
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editText, setEditText] = useState('')
   const [savingLabel, setSavingLabel] = useState(false)
+  const [showCrisis, setShowCrisis] = useState(false)
   const prevLines = useRef(0)
 
   useEffect(() => {
@@ -103,6 +106,7 @@ export function RestCard() {
     const id = editingId
     const text = editText.trim()
     if (!id || !text) return
+    if (detectCrisisLanguage(text)) setShowCrisis(true)   // her words are screened too — never silenced
     setSavingLabel(true)
     setSquares(prev => prev.map(s => s.id === id ? { ...s, label: text, status: 'done' } : s))
     try {
@@ -140,6 +144,12 @@ export function RestCard() {
       <div className="px-5 mt-2">
         <Reserve />
       </div>
+
+      {showCrisis && (
+        <div className="px-5 mt-3">
+          <CrisisCard />
+        </div>
+      )}
 
       {celebrate && (
         <div className="px-5 mt-3">

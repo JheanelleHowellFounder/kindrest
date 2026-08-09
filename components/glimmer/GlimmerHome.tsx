@@ -11,6 +11,7 @@ import { CrisisCard } from '@/components/shared/CrisisCard'
 import { getTodaysPrompt } from '@/lib/glimmers'
 import { Reserve } from '@/components/glimmer/Reserve'
 import { RestCardEntry } from '@/components/glimmer/RestCardEntry'
+import { CareNudge } from '@/components/glimmer/CareNudge'
 import { useWallet } from '@/lib/wallet-context'
 
 function timeGreeting(): string {
@@ -108,6 +109,9 @@ export function GlimmerHome() {
       <div className="px-5 pt-12">
         <p className="font-sans text-[13px] text-chocolate/50">{timeGreeting()}, {firstName}.</p>
       </div>
+
+      {/* Gentle care nudge — appears only after a stretch of hard days */}
+      <CareNudge />
 
       {/* Reserve — the breathing centerpiece, always visible */}
       <div className="px-5 mt-6">
