@@ -13,13 +13,17 @@
 
 import { supabaseAdmin } from '@/lib/supabase'
 
+// Every act of care is worth the same — we don't rank a mother's acts against
+// each other. The one exception: showing up on a heavy day is worth more,
+// because it's the hardest thing. The line bonus is a wink, not a jackpot.
 export const GEM_VALUES = {
-  glimmer_answered:  5,   // she noticed a glimmer
-  glimmer_showed_up: 2,   // no glimmer, but she showed up (quiet/heavy) — still counts
+  glimmer_answered:  3,   // she noticed a glimmer
+  glimmer_quiet:     3,   // no glimmer, a quiet day — still showed up
+  glimmer_heavy:     5,   // showed up on a heavy day — the hardest act, worth most
   journal_entry:     3,
   practice_done:     3,   // marked a care-kit practice "did it"
-  rest_square:       2,   // completed a Rest Card square
-  rest_line:        10,   // completed a full line (row/column/diagonal)
+  rest_square:       3,   // marked a Rest Card square
+  rest_line:         3,   // completed a full line — a wink, not a jackpot
 } as const
 
 export const RESERVE_WINDOW_DAYS = 7

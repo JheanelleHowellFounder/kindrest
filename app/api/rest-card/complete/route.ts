@@ -23,12 +23,19 @@ export async function POST(req: NextRequest) {
 
     const { data: square } = await supabaseAdmin
       .from('rest_card_squares')
-      .select('id, card_id, user_id, status')
+      .select('id, card_id, user_id, status, source')
       .eq('id', squareId)
       .maybeSingle()
 
     if (!square || square.user_id !== requester.id) {
       return NextResponse.json({ error: 'Not found' }, { status: 404 })
+    }
+
+    // Self and user (centre) squares are tappable. App-linked squares mark
+    // themselves and must never be toggled by hand.
+    if (square.source !== 'self' && square.source !== 'user') {
+      const wallet = await getWalletState(requester.id)
+      return NextResponse.json({ ok: true, ignored: true, wallet })
     }
 
     const cardId = square.card_id

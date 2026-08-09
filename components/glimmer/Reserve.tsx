@@ -16,16 +16,15 @@ export function Reserve() {
   const { wallet } = useWallet()
 
   const pct = Math.max(0, Math.min(100, wallet?.reservePct ?? 0))
-  const gems = wallet?.balance ?? 0
 
-  // Empty state must never read as "you've done nothing for yourself" — that
-  // lands hardest on the most depleted moms. Keep it warm and inviting.
+  // A felt state, never a number to hit. No count, no fraction, nothing to fall
+  // short of — just how full it feels right now.
   const subtitle =
-    pct > 0
-      ? 'Filled by what you do for yourself.'
-      : gems > 0
-        ? 'It dips as you pour out. Refill whenever you can.'
-        : 'Here whenever you’re ready to fill it.'
+    pct >= 100 ? 'Your reserve is full.'
+    : pct >= 70 ? 'Your reserve is nearly full.'
+    : pct >= 35 ? 'Your reserve is holding.'
+    : pct > 0   ? 'Your reserve is filling.'
+    :             'Your reserve is here whenever you are.'
 
   return (
     <div className="relative flex items-center gap-4">
@@ -53,15 +52,9 @@ export function Reserve() {
         </div>
       </div>
 
-      {/* Label + gems + subtitles */}
+      {/* Label + felt state — no number, nothing to hit */}
       <div className="flex-1 min-w-0 relative z-[1]">
-        <div className="flex items-baseline justify-between gap-2">
-          <p className="font-serif text-[18px] text-chocolate">Your reserve</p>
-          <div className="inline-flex items-center gap-1.5 flex-shrink-0">
-            <span className="w-2 h-2 bg-mustard rotate-45 rounded-[2px] inline-block" />
-            <span className="font-display font-semibold text-[13px] text-chocolate tabular-nums">{gems}</span>
-          </div>
-        </div>
+        <p className="font-serif text-[18px] text-chocolate">Your reserve</p>
         <p className="font-sans text-[11.5px] text-chocolate/40 mt-[3px] leading-[1.5]">
           It rises when you show up — never drains as punishment.
         </p>

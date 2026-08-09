@@ -107,15 +107,12 @@ export async function POST(req: NextRequest) {
     }
 
     // Reward showing up. Idempotent per day, so editing today's glimmer never
-    // double-grants. A hard day (no glimmer) still fills a little — never nothing.
-    const gemsEarned = answered ? GEM_VALUES.glimmer_answered : GEM_VALUES.glimmer_showed_up
-    await grantGems(
-      requester.id,
-      gemsEarned,
-      answered ? 'glimmer_answered' : 'glimmer_showed_up',
-      'glimmer',
-      today,
-    )
+    // double-grants. Showing up on a heavy day is worth the most.
+    const gemsEarned = answered
+      ? GEM_VALUES.glimmer_answered
+      : moodSignal === 'heavy' ? GEM_VALUES.glimmer_heavy : GEM_VALUES.glimmer_quiet
+    const gemReason = answered ? 'glimmer_answered' : moodSignal === 'heavy' ? 'glimmer_heavy' : 'glimmer_quiet'
+    await grantGems(requester.id, gemsEarned, gemReason, 'glimmer', today)
     const wallet = await getWalletState(requester.id)
 
     return NextResponse.json({ ok: true, persisted: true, crisis, wallet, gemsEarned })
