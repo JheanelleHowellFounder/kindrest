@@ -11,20 +11,25 @@ export type { WalletState }
  *
  * Reads from the shared wallet context, so every Reserve on every screen moves
  * together the moment gems are earned or spent anywhere.
+ *
+ * `voice` — 'your' is Kindrest speaking to her (home); 'my' is her own voice
+ * (the Rest Card, where the reserve is hers to claim).
  */
-export function Reserve() {
+export function Reserve({ voice = 'your' }: { voice?: 'your' | 'my' }) {
   const { wallet } = useWallet()
 
   const pct = Math.max(0, Math.min(100, wallet?.reservePct ?? 0))
+  const mine = voice === 'my'
 
   // A felt state, never a number to hit. No count, no fraction, nothing to fall
   // short of — just how full it feels right now.
+  const noun = mine ? 'My reserve' : 'Your reserve'
   const subtitle =
-    pct >= 100 ? 'Your reserve is full.'
-    : pct >= 70 ? 'Your reserve is nearly full.'
-    : pct >= 35 ? 'Your reserve is holding.'
-    : pct > 0   ? 'Your reserve is filling.'
-    :             'Your reserve is here whenever you are.'
+    pct >= 100 ? `${noun} is full.`
+    : pct >= 70 ? `${noun} is nearly full.`
+    : pct >= 35 ? `${noun} is holding.`
+    : pct > 0   ? `${noun} is filling.`
+    :             mine ? 'My reserve is here whenever I am.' : 'Your reserve is here whenever you are.'
 
   return (
     <div className="relative flex items-center gap-4">
@@ -54,9 +59,11 @@ export function Reserve() {
 
       {/* Label + felt state — no number, nothing to hit */}
       <div className="flex-1 min-w-0 relative z-[1]">
-        <p className="font-serif text-[18px] text-chocolate">Your reserve</p>
+        <p className="font-serif text-[18px] text-chocolate">{noun}</p>
         <p className="font-sans text-[11.5px] text-chocolate/40 mt-[3px] leading-[1.5]">
-          It rises when you show up — never drains as punishment.
+          {mine
+            ? 'It rises when I show up — never drains as punishment.'
+            : 'It rises when you show up — never drains as punishment.'}
         </p>
         <p className="font-sans text-[12.5px] text-chocolate/55 mt-1">{subtitle}</p>
       </div>

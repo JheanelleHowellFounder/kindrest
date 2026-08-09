@@ -142,7 +142,7 @@ export function RestCard() {
       </div>
 
       <div className="px-5 mt-2">
-        <Reserve />
+        <Reserve voice="my" />
       </div>
 
       {showCrisis && (
@@ -214,7 +214,7 @@ export function RestCard() {
               })}
             </div>
             <p className="text-center font-sans text-[12.5px] text-chocolate/40 mt-4">
-              No rush. It’s just here — each thing that’s true fills your reserve a little.
+              No rush. It’s just here — each thing that’s true fills my reserve a little.
             </p>
 
             <button
