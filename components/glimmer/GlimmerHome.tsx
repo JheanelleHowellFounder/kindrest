@@ -9,7 +9,7 @@ import { authedFetch } from '@/lib/api-client'
 import { detectCrisisLanguage } from '@/lib/safety'
 import { CrisisCard } from '@/components/shared/CrisisCard'
 import { getTodaysPrompt } from '@/lib/glimmers'
-import { RestCardEntry } from '@/components/glimmer/RestCardEntry'
+import { getTodaysQuote } from '@/lib/quotes'
 import { CareNudge } from '@/components/glimmer/CareNudge'
 
 function timeGreeting(): string {
@@ -19,15 +19,63 @@ function timeGreeting(): string {
   return 'Good evening'
 }
 
+/** A note left by someone in her circle. Wires up with the community feature (V3). */
+interface PeopleNote {
+  from: string
+  body: string
+}
+
+interface PastGlimmer {
+  id: string
+  body: string
+  entry_date: string
+}
+
+/** "Tuesday" for this week, "Mar 4" beyond it. */
+function shortDate(d: string): string {
+  const date = new Date(d + 'T00:00:00')
+  const days = Math.floor((Date.now() - date.getTime()) / 86_400_000)
+  if (days <= 6) return date.toLocaleDateString('en-US', { weekday: 'long' })
+  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+}
+
+const CIRCLES = [
+  {
+    label: 'Play',
+    href: '/rest-card',
+    icon: (
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+        <rect x="3" y="3" width="18" height="18" rx="2" /><line x1="9" y1="3" x2="9" y2="21" />
+        <line x1="15" y1="3" x2="15" y2="21" /><line x1="3" y1="9" x2="21" y2="9" /><line x1="3" y1="15" x2="21" y2="15" />
+      </svg>
+    ),
+  },
+  {
+    label: 'Reflect',
+    href: '/journal',
+    icon: (
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" /><path d="M14 6l3 3" />
+      </svg>
+    ),
+  },
+  {
+    label: 'Check-in',
+    href: '/check-in',
+    icon: (
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M12 20.2s-7-4.4-9.3-8.6C1.1 8.6 2.6 5 5.9 5c1.9 0 3.3 1.4 6.1 4 2.8-2.6 4.2-4 6.1-4 3.3 0 4.8 3.6 3.2 6.6-2.3 4.2-9.3 8.6-9.3 8.6Z" />
+      </svg>
+    ),
+  },
+]
+
 /**
- * The daily glimmer — the front door (V0).
+ * The home — where she's met.
  *
- * One 15-second question is the only thing she's ever asked to do. Answering it
- * saves to her glimmer timeline and then *gently* offers depth (a check-in).
- * Leaving right after is a complete, valid session — never a broken streak.
- *
- * Nothing is earned here — the reward is the warm confirmation and her growing
- * collection of glimmers.
+ * A greeting, one warm line to land on, today's glimmer as the hero, and three
+ * quiet ways in. She can answer in fifteen seconds and leave, or pick a circle.
+ * Nothing here scores her, and nothing has to be finished.
  */
 export function GlimmerHome() {
   const { user } = useAuth()
@@ -35,15 +83,17 @@ export function GlimmerHome() {
 
   const firstName = user?.user_metadata?.name?.split(' ')[0] ?? 'there'
   const prompt = getTodaysPrompt()
+  const quote = getTodaysQuote()
 
   const [text, setText] = useState('')
   const [phase, setPhase] = useState<'writing' | 'fork' | 'saving' | 'done'>('writing')
-  // How she finished today, so the "done" state can meet her where she is.
   const [outcome, setOutcome] = useState<'answered' | 'quiet' | 'heavy'>('answered')
   const [showCrisis, setShowCrisis] = useState(false)
-  const [loadedToday, setLoadedToday] = useState(false)
+  const [isFirstTime, setIsFirstTime] = useState(false)
+  const [past, setPast] = useState<PastGlimmer[]>([])
+  // Populated by the community feature (V3); until then the quote holds this slot.
+  const [note] = useState<PeopleNote | null>(null)
 
-  // If she already responded today, open straight into the "done" state.
   useEffect(() => {
     let active = true
     authedFetch('/api/glimmer')
@@ -58,9 +108,21 @@ export function GlimmerHome() {
         }
       })
       .catch(() => {})
-      .finally(() => { if (active) setLoadedToday(true) })
     return () => { active = false }
   }, [])
+
+  // Her collection: drives the first-time helper and the "lately" strip below.
+  useEffect(() => {
+    const today = new Date().toISOString().split('T')[0]
+    authedFetch('/api/glimmer/timeline')
+      .then(r => r.json())
+      .then(d => {
+        const all: PastGlimmer[] = d?.glimmers ?? []
+        setIsFirstTime(all.length === 0)
+        setPast(all.filter(g => g.entry_date !== today && g.body).slice(0, 3))
+      })
+      .catch(() => {})
+  }, [phase])
 
   function onChange(v: string) {
     setText(v)
@@ -82,13 +144,11 @@ export function GlimmerHome() {
   }
 
   function saveAnswer() {
-    if (detectCrisisLanguage(text)) setShowCrisis(true) // still saves — never silence her
+    if (detectCrisisLanguage(text)) setShowCrisis(true)   // still saves — never silence her
     setOutcome('answered')
     persist(text, 'answered')
   }
 
-  // She had no glimmer. The fork tells us whether to simply validate her, or to
-  // gently route a hard day toward real support — and we remember which.
   function finishEmpty(kind: 'quiet' | 'heavy') {
     setOutcome(kind)
     persist(null, kind)
@@ -97,213 +157,222 @@ export function GlimmerHome() {
   const canSave = text.trim().length > 0 && phase !== 'saving'
 
   return (
-    <div className="flex flex-col min-h-screen pb-24 bg-cream">
-      {/* Greeting */}
-      <div className="px-5 pt-12">
-        <p className="font-sans text-[13px] text-chocolate/50">{timeGreeting()}, {firstName}.</p>
-      </div>
+    <div className="flex flex-col min-h-screen pb-28 bg-cream">
+      <div className="px-[22px] pt-12 flex flex-col gap-8">
 
-      {/* Gentle care nudge — appears only after a stretch of hard days */}
-      <CareNudge />
+        {/* ── 1. Greeting + the warm line ────────────────────────────────── */}
+        <div className="flex flex-col gap-2.5">
+          <p className="font-display font-semibold text-[21px] leading-tight text-mustard">
+            {timeGreeting()}, {firstName}.
+          </p>
 
-      {/* The Rest Card — the other way in */}
-      <div className="px-5 mt-4">
-        <RestCardEntry />
-      </div>
-
-      {/* Today's glimmer label */}
-      <div className="flex items-center gap-1.5 px-5 mt-6">
-        <svg width="13" height="13" viewBox="0 0 24 24" className="text-mustard" fill="currentColor">
-          <path d="M12 2l1.8 5.4L19 9l-5.2 1.6L12 16l-1.8-5.4L5 9l5.2-1.6L12 2z" />
-        </svg>
-        <p className="font-display font-semibold text-[11.5px] uppercase tracking-[0.15em] text-mustard">Today’s glimmer</p>
-      </div>
-
-      {/* The question — sits directly on the cream, no card */}
-      <div className="px-5 mt-2.5">
-        <h1 className="font-serif text-[26px] leading-[1.3] text-chocolate">{prompt.text}</h1>
-        <p className="font-sans text-[13px] text-chocolate/45 mt-2.5 leading-[1.6]">
-          A glimmer is a small moment you felt like yourself. Catch one — that’s the whole practice.
-        </p>
-      </div>
-
-      {/* Writing state */}
-      {(phase === 'writing' || phase === 'saving') && (
-        <div className="px-5 mt-[18px] space-y-3">
-          <textarea
-            value={text}
-            onChange={e => onChange(e.target.value)}
-            placeholder="A sentence is plenty…"
-            rows={4}
-            className="w-full bg-white rounded-[20px] border border-beige/40 px-4 py-4 text-base text-chocolate placeholder:text-chocolate/30 outline-none focus:border-mustard/60 resize-none font-sans leading-relaxed"
-          />
-
-          {showCrisis && <CrisisCard />}
-
-          <button
-            onClick={saveAnswer}
-            disabled={!canSave}
-            className="w-full flex items-center justify-center gap-2 bg-mustard text-white font-display font-semibold text-[15px] py-4 rounded-[15px] disabled:opacity-40 disabled:cursor-not-allowed transition-opacity"
-          >
-            {phase === 'saving' ? 'Saving…' : 'Save my glimmer'}
-          </button>
-
-          <button
-            onClick={() => setPhase('fork')}
-            disabled={phase === 'saving'}
-            className="w-full text-center font-sans text-[13.5px] text-chocolate/45 py-1.5 hover:text-chocolate/70 transition-colors"
-          >
-            Nothing came to mind today
-          </button>
-        </div>
-      )}
-
-      {/* Fork — "quiet or heavy?" — the safety net for an empty day */}
-      {phase === 'fork' && (
-        <div className="px-5 mt-[18px] space-y-3">
-          <div className="bg-white rounded-[24px] border border-beige/40 px-5 py-[22px]">
-            <p className="font-serif text-[19px] text-chocolate leading-[1.3]">
-              Is today just quiet, or is it heavy?
-            </p>
-            <p className="font-sans text-[13px] text-chocolate/50 mt-2">
-              No wrong answer — this just helps me meet you where you actually are.
-            </p>
-          </div>
-
-          <button
-            onClick={() => finishEmpty('quiet')}
-            className="w-full flex items-center justify-between bg-white border border-beige/50 text-chocolate px-[18px] py-[15px] rounded-[20px] hover:border-mustard/40 transition-colors"
-          >
-            <span className="text-left">
-              <span className="font-display font-semibold text-[15px] block">Just quiet</span>
-              <span className="font-sans text-[12.5px] text-chocolate/50">A calm or plain day. Nothing’s wrong.</span>
-            </span>
-          </button>
-
-          <button
-            onClick={() => finishEmpty('heavy')}
-            className="w-full flex items-center justify-between bg-chocolate text-cream px-[18px] py-[15px] rounded-[20px]"
-          >
-            <span className="text-left">
-              <span className="font-display font-semibold text-[15px] block">It’s heavy</span>
-              <span className="font-sans text-[12.5px] text-cream/60">Today’s asking a lot of me.</span>
-            </span>
-          </button>
-
-          <button
-            onClick={() => setPhase('writing')}
-            className="w-full text-center font-sans text-[13px] text-chocolate/40 py-1.5 hover:text-chocolate/70 transition-colors"
-          >
-            Back
-          </button>
-        </div>
-      )}
-
-      {/* Done state — meets her differently depending on how she finished */}
-      {phase === 'done' && (
-        <div className="px-5 mt-[18px] space-y-[14px]">
-
-          {/* HEAVY — a hard day, gently routed toward real support */}
-          {outcome === 'heavy' ? (
-            <>
-              <div className="bg-white rounded-[24px] border border-beige/40 px-5 py-[22px]">
-                <p className="font-serif text-[19px] text-chocolate leading-[1.3]">
-                  Thank you for being honest.
-                </p>
-                <p className="font-sans text-[14px] text-chocolate/60 leading-[1.65] mt-2.5">
-                  Some days ask more of you than a glimmer can answer. You don’t have to
-                  find the bright side today. Let’s just meet you where you actually are.
-                </p>
-              </div>
-
-              <button
-                onClick={() => router.push('/check-in')}
-                className="w-full flex items-center justify-between bg-chocolate text-cream px-[18px] py-[15px] rounded-[20px]"
-              >
-                <span className="text-left">
-                  <span className="font-display font-semibold text-[15px] block">Check in with me</span>
-                  <span className="font-sans text-[12.5px] text-cream/60">Two minutes. No performing, no fixing.</span>
-                </span>
-                <ArrowRight className="w-[18px] h-[18px] text-mustard flex-shrink-0" />
-              </button>
-
-              {/* Soft, non-alarming support — PSI warmline, no crisis required */}
-              <div className="bg-[#f0e9e2] rounded-[20px] px-4 py-[18px]">
-                <p className="font-sans text-[13px] text-chocolate/70 leading-[1.6]">
-                  If today feels like more than you can hold, you can talk to someone who
-                  gets it — no crisis required.
-                </p>
-                <a
-                  href="tel:18009444773"
-                  className="flex items-center gap-2 font-display font-semibold text-[13.5px] text-chocolate mt-2.5"
-                >
-                  <span className="text-mustard">♡</span>
-                  Postpartum Support International: 1-800-944-4773
-                </a>
-                <p className="font-sans text-[11.5px] text-chocolate/40 mt-2">
-                  In crisis right now? Call or text <a href="tel:988" className="underline">988</a>.
-                </p>
-              </div>
-
-              {showCrisis && <CrisisCard />}
-            </>
+          {note ? (
+            <div className="bg-mustard/[0.07] rounded-2xl px-4 py-3.5 flex flex-col gap-1">
+              <p className="font-display font-semibold text-[12px] tracking-[0.03em] text-mustard">
+                {note.from} left this for you
+              </p>
+              <p className="font-serif italic text-[19px] leading-[1.4] text-chocolate">{note.body}</p>
+            </div>
           ) : (
-            <>
-              {/* ANSWERED or JUST-QUIET — warm confirmation + optional depth */}
-              <div className="bg-white rounded-[24px] border border-beige/40 px-5 py-[22px]">
-                {outcome === 'answered' && text.trim() ? (
-                  <>
-                    <p className="font-serif text-[18.5px] text-chocolate leading-[1.3]">
-                      Saved. That’s one small thing, noticed.
-                    </p>
-                    <p className="font-serif italic text-[14px] text-chocolate/55 leading-[1.65] mt-2.5">
-                      “{text.trim()}”
-                    </p>
-                  </>
-                ) : (
-                  <p className="font-serif text-[18.5px] text-chocolate leading-[1.3]">
-                    Some days there isn’t one, and that’s allowed. You still showed up.
-                  </p>
+            <p className="font-serif italic text-[19px] leading-[1.4] text-chocolate pr-3">{quote}</p>
+          )}
+        </div>
+
+        {/* Gentle care nudge — only after a stretch of hard days */}
+        <CareNudge />
+
+        {/* ── 2. Today's glimmer — the hero ──────────────────────────────── */}
+        <div className="bg-white rounded-[26px] px-[22px] pt-[26px] pb-[22px] shadow-[0_6px_20px_-10px_rgba(48,33,26,0.18)] flex flex-col gap-3.5">
+          <p className="font-display font-semibold text-[12px] tracking-[0.16em] uppercase text-mustard">
+            Today’s glimmer
+          </p>
+
+          {/* Writing */}
+          {(phase === 'writing' || phase === 'saving') && (
+            <div className="flex flex-col gap-3">
+              <h1 className="font-serif text-[23px] leading-[1.3] text-chocolate">{prompt.text}</h1>
+
+              {isFirstTime && (
+                <p className="font-sans text-[13px] leading-[1.5] text-chocolate/55">
+                  One honest sentence, whenever you’re ready. No need to finish it.
+                </p>
+              )}
+
+              <textarea
+                value={text}
+                onChange={e => onChange(e.target.value)}
+                placeholder="One sentence is plenty."
+                rows={2}
+                className="w-full border-0 border-b border-beige bg-transparent font-sans text-base text-chocolate placeholder:text-chocolate/35 px-0.5 py-1.5 outline-none focus:border-mustard resize-none transition-colors"
+              />
+
+              <div className="flex items-center justify-between">
+                <button
+                  onClick={() => setPhase('fork')}
+                  disabled={phase === 'saving'}
+                  className="font-sans text-[13px] text-chocolate/45 hover:text-chocolate/70 transition-colors py-1"
+                >
+                  Nothing came to mind
+                </button>
+
+                {text.trim().length > 0 && (
+                  <button
+                    onClick={saveAnswer}
+                    disabled={!canSave}
+                    className="font-display font-semibold text-[13px] text-mustard py-1 px-0.5 disabled:opacity-50"
+                  >
+                    {phase === 'saving' ? 'Saving…' : 'Leave it here'}
+                  </button>
                 )}
               </div>
-
-              {showCrisis && <CrisisCard />}
-
-              {/* The soft branch — offered, never forced */}
-              <button
-                onClick={() => router.push('/check-in')}
-                className="w-full flex items-center justify-between bg-chocolate text-cream px-[18px] py-[15px] rounded-[20px]"
-              >
-                <span className="text-left">
-                  <span className="font-display font-semibold text-[15px] block">Want to go a little deeper?</span>
-                  <span className="font-sans text-[12.5px] text-cream/60">A two-minute check-in, if you have it in you.</span>
-                </span>
-                <ArrowRight className="w-[18px] h-[18px] text-mustard flex-shrink-0" />
-              </button>
-            </>
+            </div>
           )}
 
-          <div className="flex items-center justify-center gap-[14px] pt-0.5">
-            <Link href="/glimmers" className="font-sans text-[13.5px] text-chocolate/50 hover:text-chocolate transition-colors">
-              Your glimmers
-            </Link>
-            <span className="text-chocolate/20">·</span>
-            <button
-              onClick={() => { setPhase('writing') }}
-              className="font-sans text-[13.5px] text-chocolate/50 hover:text-chocolate transition-colors"
-            >
-              Edit today’s
-            </button>
+          {/* Fork — quiet or heavy */}
+          {phase === 'fork' && (
+            <div className="flex flex-col gap-3">
+              <h1 className="font-serif text-[21px] leading-[1.3] text-chocolate">
+                Is today just quiet, or is it heavy?
+              </h1>
+              <p className="font-sans text-[13px] leading-[1.5] text-chocolate/55">
+                No wrong answer — it just helps me meet you where you actually are.
+              </p>
+
+              <button
+                onClick={() => finishEmpty('quiet')}
+                className="w-full text-left border border-beige rounded-[18px] px-4 py-3.5 hover:border-mustard/60 transition-colors"
+              >
+                <span className="font-display font-semibold text-[14px] text-chocolate block">Just quiet</span>
+                <span className="font-sans text-[12.5px] text-chocolate/50">A calm or plain day. Nothing’s wrong.</span>
+              </button>
+
+              <button
+                onClick={() => finishEmpty('heavy')}
+                className="w-full text-left bg-chocolate rounded-[18px] px-4 py-3.5"
+              >
+                <span className="font-display font-semibold text-[14px] text-cream block">It’s heavy</span>
+                <span className="font-sans text-[12.5px] text-cream/60">Today’s asking a lot of me.</span>
+              </button>
+
+              <button
+                onClick={() => setPhase('writing')}
+                className="font-sans text-[13px] text-chocolate/40 hover:text-chocolate/70 transition-colors self-start py-1"
+              >
+                Back
+              </button>
+            </div>
+          )}
+
+          {/* Done */}
+          {phase === 'done' && (
+            <div className="flex flex-col gap-3">
+              {outcome === 'heavy' ? (
+                <>
+                  <h1 className="font-serif text-[21px] leading-[1.3] text-chocolate">Thank you for being honest.</h1>
+                  <p className="font-sans text-[13.5px] leading-[1.6] text-chocolate/60">
+                    Some days ask more of you than a glimmer can answer. You don’t have to find the
+                    bright side today.
+                  </p>
+
+                  <button
+                    onClick={() => router.push('/check-in')}
+                    className="w-full flex items-center justify-between bg-chocolate rounded-[18px] px-4 py-3.5"
+                  >
+                    <span className="text-left">
+                      <span className="font-display font-semibold text-[14px] text-cream block">Check in with me</span>
+                      <span className="font-sans text-[12.5px] text-cream/60">Two minutes. No performing, no fixing.</span>
+                    </span>
+                    <ArrowRight className="w-[18px] h-[18px] text-mustard flex-shrink-0" />
+                  </button>
+
+                  <div className="bg-[#f0e9e2] rounded-[18px] px-4 py-3.5">
+                    <p className="font-sans text-[12.5px] leading-[1.6] text-chocolate/70">
+                      If today feels like more than you can hold, you can talk to someone who gets
+                      it — no crisis required.
+                    </p>
+                    <a href="tel:18009444773" className="flex items-center gap-2 font-display font-semibold text-[13px] text-chocolate mt-2">
+                      <span className="text-mustard">♡</span>
+                      Postpartum Support International: 1-800-944-4773
+                    </a>
+                    <p className="font-sans text-[11px] text-chocolate/40 mt-1.5">
+                      In crisis right now? Call or text <a href="tel:988" className="underline">988</a>.
+                    </p>
+                  </div>
+                </>
+              ) : outcome === 'answered' && text.trim() ? (
+                <>
+                  <h1 className="font-serif text-[21px] leading-[1.3] text-chocolate">
+                    Left here. That’s one small thing, noticed.
+                  </h1>
+                  <p className="font-serif italic text-[15px] leading-[1.6] text-chocolate/55">“{text.trim()}”</p>
+                </>
+              ) : (
+                <h1 className="font-serif text-[21px] leading-[1.3] text-chocolate">
+                  Some days there isn’t one, and that’s allowed. You still showed up.
+                </h1>
+              )}
+
+              <div className="flex items-center gap-3.5 pt-0.5">
+                <Link href="/glimmers" className="font-sans text-[13px] text-chocolate/50 hover:text-chocolate transition-colors">
+                  Your glimmers
+                </Link>
+                <span className="text-chocolate/20">·</span>
+                <button
+                  onClick={() => setPhase('writing')}
+                  className="font-sans text-[13px] text-chocolate/50 hover:text-chocolate transition-colors"
+                >
+                  Edit today’s
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {showCrisis && <CrisisCard />}
+
+        {/* ── 3. Three ways in ───────────────────────────────────────────── */}
+        <div className="flex flex-col gap-3.5 items-center">
+          <p className="font-sans text-[13px] text-chocolate/45">or, if you’d rather</p>
+          <div className="flex gap-[22px] justify-center">
+            {CIRCLES.map(({ label, href, icon }) => (
+              <button
+                key={label}
+                onClick={() => router.push(href)}
+                className="flex flex-col items-center gap-2 group"
+              >
+                <span className="w-[74px] h-[74px] rounded-full bg-white border border-beige flex items-center justify-center text-mustard transition-colors group-hover:border-mustard/60 group-active:opacity-80">
+                  {icon}
+                </span>
+                <span className="font-display font-semibold text-[13px] text-chocolate">{label}</span>
+              </button>
+            ))}
           </div>
         </div>
-      )}
 
-      {/* subtle hint while today's state loads, so the CTA doesn't flash */}
-      {!loadedToday && phase === 'writing' && (
-        <div className="px-5 mt-2">
-          <p className="font-sans text-[12px] text-chocolate/30 text-center">…</p>
-        </div>
-      )}
+        {/* ── 4. Her collection — a record, never a task ──────────────────── */}
+        {past.length > 0 && (
+          <div className="flex flex-col gap-3 pt-1">
+            <p className="font-display font-semibold text-[11.5px] tracking-[0.14em] uppercase text-chocolate/35">
+              Lately, you noticed
+            </p>
+            <div className="flex flex-col">
+              {past.map((g, i) => (
+                <div key={g.id} className={i > 0 ? 'border-t border-beige/50 pt-3 mt-3' : ''}>
+                  <p className="font-serif text-[15px] leading-[1.5] text-chocolate/75">“{g.body}”</p>
+                  <p className="font-sans text-[11.5px] text-chocolate/35 mt-1">{shortDate(g.entry_date)}</p>
+                </div>
+              ))}
+            </div>
+            <Link
+              href="/glimmers"
+              className="font-sans text-[13px] text-chocolate/45 hover:text-chocolate transition-colors"
+            >
+              All your glimmers →
+            </Link>
+          </div>
+        )}
+
+      </div>
     </div>
   )
 }
