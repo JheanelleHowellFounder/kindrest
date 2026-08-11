@@ -116,10 +116,3 @@ html, body {
 
 /* Smooth transitions */
 * { -webkit-tap-highlight-color: transparent; }
-
-/* Reserve vessel animations (glimmer home) */
-@keyframes breathe { 0%,100% { opacity:.5; transform:scale(1); } 50% { opacity:.85; transform:scale(1.06); } }
-@keyframes wave { 0%,100% { transform:translateX(-6%) scaleX(1); } 50% { transform:translateX(6%) scaleX(1.06); } }
-.reserve-breathe { animation: breathe 4200ms ease-in-out infinite; }
-.reserve-wave { animation: wave 5200ms ease-in-out infinite; }
-@media (prefers-reduced-motion: reduce) { .reserve-breathe, .reserve-wave { animation: none; } }

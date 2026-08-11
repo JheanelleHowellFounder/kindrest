@@ -9,10 +9,8 @@ import { authedFetch } from '@/lib/api-client'
 import { detectCrisisLanguage } from '@/lib/safety'
 import { CrisisCard } from '@/components/shared/CrisisCard'
 import { getTodaysPrompt } from '@/lib/glimmers'
-import { Reserve } from '@/components/glimmer/Reserve'
 import { RestCardEntry } from '@/components/glimmer/RestCardEntry'
 import { CareNudge } from '@/components/glimmer/CareNudge'
-import { useWallet } from '@/lib/wallet-context'
 
 function timeGreeting(): string {
   const h = new Date().getHours()
@@ -28,12 +26,11 @@ function timeGreeting(): string {
  * saves to her glimmer timeline and then *gently* offers depth (a check-in).
  * Leaving right after is a complete, valid session — never a broken streak.
  *
- * V0 has no gems/reserve yet; the reward is the warm confirmation + her growing
- * collection. The reserve wires in at V1.
+ * Nothing is earned here — the reward is the warm confirmation and her growing
+ * collection of glimmers.
  */
 export function GlimmerHome() {
   const { user } = useAuth()
-  const { applyWallet } = useWallet()
   const router = useRouter()
 
   const firstName = user?.user_metadata?.name?.split(' ')[0] ?? 'there'
@@ -45,7 +42,6 @@ export function GlimmerHome() {
   const [outcome, setOutcome] = useState<'answered' | 'quiet' | 'heavy'>('answered')
   const [showCrisis, setShowCrisis] = useState(false)
   const [loadedToday, setLoadedToday] = useState(false)
-  const [gemsEarned, setGemsEarned] = useState<number | null>(null)
 
   // If she already responded today, open straight into the "done" state.
   useEffect(() => {
@@ -74,14 +70,11 @@ export function GlimmerHome() {
   async function persist(bodyValue: string | null, signal: 'answered' | 'quiet' | 'heavy') {
     setPhase('saving')
     try {
-      const res = await authedFetch('/api/glimmer', {
+      await authedFetch('/api/glimmer', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ body: bodyValue, signal }),
       })
-      const data = await res.json().catch(() => null)
-      if (data?.wallet) applyWallet(data.wallet)
-      if (typeof data?.gemsEarned === 'number') setGemsEarned(data.gemsEarned)
     } catch {
       /* best-effort; the moment still counts for her */
     }
@@ -113,12 +106,7 @@ export function GlimmerHome() {
       {/* Gentle care nudge — appears only after a stretch of hard days */}
       <CareNudge />
 
-      {/* Reserve — the breathing centerpiece, always visible */}
-      <div className="px-5 mt-6">
-        <Reserve />
-      </div>
-
-      {/* The reserve's second feeder — the Rest Card, right beneath it */}
+      {/* The Rest Card — the other way in */}
       <div className="px-5 mt-4">
         <RestCardEntry />
       </div>
@@ -228,12 +216,6 @@ export function GlimmerHome() {
                 </p>
               </div>
 
-              {gemsEarned ? (
-                <p className="text-center font-sans text-[12.5px] text-chocolate/45">
-                  <span className="text-mustard">✦</span> +{gemsEarned} — showing up counts, even today.
-                </p>
-              ) : null}
-
               <button
                 onClick={() => router.push('/check-in')}
                 className="w-full flex items-center justify-between bg-chocolate text-cream px-[18px] py-[15px] rounded-[20px]"
@@ -284,12 +266,6 @@ export function GlimmerHome() {
                   </p>
                 )}
               </div>
-
-              {gemsEarned ? (
-                <p className="text-center font-sans text-[12.5px] text-chocolate/45">
-                  <span className="text-mustard">✦</span> +{gemsEarned} gems — your reserve is filling.
-                </p>
-              ) : null}
 
               {showCrisis && <CrisisCard />}
 

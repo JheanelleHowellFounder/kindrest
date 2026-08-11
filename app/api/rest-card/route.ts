@@ -2,16 +2,17 @@
  * GET /api/rest-card
  *
  * Returns the user's active Rest Card, generating a fresh one if she has none or
- * the cycle has ended. On every load it reconciles the app-linked squares from
- * what she already did this cycle (a glimmer, a journal entry, a practice), so
- * she never re-does work — these mark themselves and never award extra gems.
- * Degrades to { card: null } if unauthenticated or the tables aren't migrated.
+ * the cycle has ended. The eight suggested squares are drawn from the real
+ * recommendations database — filtered to low-effort (doable on a hard day),
+ * spread across regulation types, weighted to her — and rewritten into the
+ * card's record voice. Degrades gracefully if Airtable or the tables are absent.
  */
 
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { requireUser } from '@/lib/auth-server'
-import { buildCardSquares, CARD_CYCLE_DAYS, USER_POSITIONS, type AppLink } from '@/lib/restcard'
+import { buildCardSquares, CARD_CYCLE_DAYS, toRecordVoice, type SelfAction } from '@/lib/restcard'
+import { getRecommendations } from '@/lib/airtable'
 
 const UNDEFINED_TABLE = '42P01'
 
@@ -40,11 +41,10 @@ export async function GET(req: NextRequest) {
 
   let card = existing
   if (!card) {
-    // Carry her written centre squares forward from the most recent card, so what
-    // she wrote sticks across cycles.
-    const userLabels = await carriedUserLabels(uid)
-    // Theme the self squares to her care preferences.
-    const { preferred, avoided } = await carePreferences(uid)
+    // Theme the suggested squares to her care preferences.
+    const { preferred, avoided, strongRegulationTypes } = await carePreferences(uid)
+    const pool = await recommendationPool()
+    const recentLabels = await recentCardLabels(uid)
 
     await supabaseAdmin.from('rest_cards').update({ status: 'archived' }).eq('user_id', uid).eq('status', 'active')
 
@@ -64,13 +64,10 @@ export async function GET(req: NextRequest) {
     }
     card = made
 
-    const squares = buildCardSquares({ preferred, avoided, userLabels }).map(s => ({ ...s, card_id: card!.id, user_id: uid }))
+    const squares = buildCardSquares({ preferred, avoided, strongRegulationTypes, pool, recentLabels })
+      .map(s => ({ ...s, card_id: card!.id, user_id: uid }))
     await supabaseAdmin.from('rest_card_squares').insert(squares)
   }
-
-  // Reconcile app-linked squares from this cycle's activity (no gems — the
-  // activity already earned them; we just reflect it on the board).
-  await reconcileAppSquares(uid, card.id, card.cycle_start)
 
   const { data: squares } = await supabaseAdmin
     .from('rest_card_squares')
@@ -81,80 +78,67 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({ card: { ...card, squares: squares ?? [] } })
 }
 
-/** Her written centre squares from the most recent card, by position. */
-async function carriedUserLabels(uid: string): Promise<Record<number, string>> {
-  if (!supabaseAdmin) return {}
-  const { data: last } = await supabaseAdmin
-    .from('rest_cards')
-    .select('id')
-    .eq('user_id', uid)
-    .order('created_at', { ascending: false })
-    .limit(1)
-    .maybeSingle()
-  if (!last) return {}
-
-  const { data: sqs } = await supabaseAdmin
-    .from('rest_card_squares')
-    .select('position, label')
-    .eq('card_id', last.id)
-    .eq('source', 'user')
-
-  const labels: Record<number, string> = {}
-  for (const s of sqs ?? []) {
-    if (USER_POSITIONS.includes(s.position) && s.label?.trim()) labels[s.position] = s.label
-  }
-  return labels
-}
-
-/** Her care preferences, so the self squares lean toward what she loves. */
-async function carePreferences(uid: string): Promise<{ preferred: string[]; avoided: string[] }> {
-  if (!supabaseAdmin) return { preferred: [], avoided: [] }
+/**
+ * Her care profile, so the suggested squares spread across regulation types and
+ * lean toward the ones she actually responds to.
+ */
+async function carePreferences(uid: string): Promise<{
+  preferred: string[]; avoided: string[]; strongRegulationTypes: string[]
+}> {
+  const empty = { preferred: [], avoided: [], strongRegulationTypes: [] }
+  if (!supabaseAdmin) return empty
   const { data } = await supabaseAdmin
     .from('user_preference_profile')
-    .select('preferred_categories, avoided_categories')
+    .select('preferred_categories, avoided_categories, strong_regulation_types')
     .eq('user_id', uid)
     .maybeSingle()
   return {
     preferred: data?.preferred_categories ?? [],
     avoided: data?.avoided_categories ?? [],
+    strongRegulationTypes: data?.strong_regulation_types ?? [],
   }
 }
 
-async function reconcileAppSquares(uid: string, cardId: string, cycleStart: string) {
-  if (!supabaseAdmin) return
+/**
+ * The card's content source: real recommendations, low-effort only (nothing that
+ * needs money, childcare, or leaving the house), rewritten from instruction voice
+ * into record voice. Returns [] on any failure so the curated fallback is used.
+ */
+async function recommendationPool(): Promise<SelfAction[]> {
+  try {
+    const recs = await getRecommendations()
+    return recs
+      .filter(r => r.effort_level === 'Low' && r.title)
+      .map(r => ({
+        label: toRecordVoice(r.title),
+        category: r.category,
+        regulation: r.regulation_type,
+      }))
+  } catch (err) {
+    console.error('[rest-card] rec pool failed, using fallback:', err instanceof Error ? err.message : err)
+    return []
+  }
+}
 
-  const { data: appSquares } = await supabaseAdmin
+/**
+ * Labels from her last few cards, so a new card doesn't repeat what she just saw.
+ * The selector loosens this automatically if the pool gets too small to fill a card.
+ */
+async function recentCardLabels(uid: string, cards = 3): Promise<string[]> {
+  if (!supabaseAdmin) return []
+  const { data: recent } = await supabaseAdmin
+    .from('rest_cards')
+    .select('id')
+    .eq('user_id', uid)
+    .order('created_at', { ascending: false })
+    .limit(cards)
+  if (!recent?.length) return []
+
+  const { data: squares } = await supabaseAdmin
     .from('rest_card_squares')
-    .select('id, source, status')
-    .eq('card_id', cardId)
-    .like('source', 'app_%')
+    .select('label')
+    .in('card_id', recent.map(c => c.id))
+    .eq('source', 'self')
 
-  const open = (appSquares ?? []).filter(s => s.status !== 'done')
-  if (open.length === 0) return
-
-  const has = async (link: AppLink): Promise<boolean> => {
-    if (link === 'glimmer') {
-      const { data } = await supabaseAdmin!.from('glimmers')
-        .select('id').eq('user_id', uid).gte('entry_date', cycleStart).not('body', 'is', null).limit(1)
-      return (data?.length ?? 0) > 0
-    }
-    if (link === 'journal') {
-      const { data } = await supabaseAdmin!.from('journal_entries')
-        .select('id').eq('user_id', uid).gte('entry_date', cycleStart).limit(1)
-      return (data?.length ?? 0) > 0
-    }
-    // practice: a "did it" feedback (rating 3) this cycle
-    const { data } = await supabaseAdmin!.from('recommendation_feedback')
-      .select('id').eq('user_id', uid).eq('rating', 3).gte('created_at', cycleStart).limit(1)
-    return (data?.length ?? 0) > 0
-  }
-
-  for (const sq of open) {
-    const link = sq.source.slice(4) as AppLink // 'app_glimmer' -> 'glimmer'
-    if (await has(link)) {
-      await supabaseAdmin.from('rest_card_squares')
-        .update({ status: 'done', completed_at: new Date().toISOString() })
-        .eq('id', sq.id)
-    }
-  }
+  return (squares ?? []).map(s => s.label).filter(Boolean)
 }

@@ -39,7 +39,7 @@ export default function PrivacyPage() {
                 'Your name and email address, provided during sign-up.',
                 'Your check-in responses: how you\'re feeling mentally, physically, and emotionally, how much time you have, and which care recommendations resonated with you.',
                 'Your journal entries and daily glimmers, if you choose to write them.',
-                'Your check-in history, mood patterns, streak data, and the gems and reserve progress you earn as you use the app.',
+                'Your check-in history, mood patterns, and your Rest Card entries.',
                 'Authentication tokens stored in your browser to keep you logged in.',
               ].map((item, i) => (
                 <li key={i} className="flex items-start gap-3">

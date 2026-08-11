@@ -12,8 +12,7 @@ interface Progress {
 }
 
 /**
- * The Rest Card entry point on the home — the reserve's second feeder, sitting
- * right under it. Adaptive: it teaches what the card is the first time (no
+ * The Rest Card entry point on the home. Adaptive: it teaches what the card is the first time (no
  * progress yet), then collapses to a slim progress strip once she's engaged, so
  * the glimmer below stays the hero.
  */
@@ -69,7 +68,7 @@ export function RestCardEntry() {
       <LayoutGrid className="w-5 h-5 text-mustard flex-shrink-0" />
       <span className="flex-1 min-w-0">
         <span className="font-display font-semibold text-[14px] text-chocolate block">Your Rest Card</span>
-        <span className="font-sans text-[12px] text-chocolate/50 block leading-snug">Small restorative things. Do one, fill your reserve.</span>
+        <span className="font-sans text-[12px] text-chocolate/50 block leading-snug">Small things that might already be true today.</span>
       </span>
       <ChevronRight className="w-4 h-4 text-chocolate/30 flex-shrink-0" />
     </button>

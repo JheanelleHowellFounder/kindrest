@@ -2,20 +2,16 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
-import { ArrowLeft, Check, Plus, Home } from 'lucide-react'
+import { ArrowLeft, Check, Home } from 'lucide-react'
 import { useAuth } from '@/lib/auth-context'
 import { authedFetch } from '@/lib/api-client'
-import { useWallet } from '@/lib/wallet-context'
-import { Reserve } from '@/components/glimmer/Reserve'
-import { CrisisCard } from '@/components/shared/CrisisCard'
-import { detectCrisisLanguage } from '@/lib/safety'
 import { completedLines } from '@/lib/restcard'
 
 interface Square {
   id: string
   position: number
   label: string
-  source: string          // 'user' | 'app_<link>' | 'self'
+  source: string          // 'free' | 'self'
   status: 'open' | 'done'
 }
 
@@ -25,31 +21,24 @@ const LINE_MESSAGES = [
   'A full line. You showed up for all of it.',
 ]
 
-function kindOf(source: string): 'user' | 'app' | 'self' {
-  if (source === 'user') return 'user'
-  if (source.startsWith('app_')) return 'app'
-  return 'self'
+function kindOf(source: string): 'free' | 'self' {
+  return source === 'free' ? 'free' : 'self'
 }
 
 /**
- * The Rest Card — a record of what already happened. The four centre cells are
- * hers to write. Three cells mark themselves from what she did elsewhere in the
- * app. The rest she marks herself; tap to mark, tap again to undo (with gem
- * refund, so the reserve stays true). Nothing here is a task or a countdown.
+ * The Rest Card — a 3×3 record of what already happened. The centre is free; the
+ * other eight are drawn from the recommendations database, spread across
+ * regulation types and written in past tense. Tap to mark, tap again to undo.
+ * Nothing is earned and nothing is a task — she never has to work for her rest.
  */
 export function RestCard() {
   const { user, loading } = useAuth()
-  const { applyWallet } = useWallet()
   const router = useRouter()
 
   const [squares, setSquares] = useState<Square[]>([])
   const [fetching, setFetching] = useState(true)
   const [saving, setSaving] = useState<string | null>(null)
   const [celebrate, setCelebrate] = useState<string | null>(null)
-  const [editingId, setEditingId] = useState<string | null>(null)
-  const [editText, setEditText] = useState('')
-  const [savingLabel, setSavingLabel] = useState(false)
-  const [showCrisis, setShowCrisis] = useState(false)
   const prevLines = useRef(0)
 
   useEffect(() => {
@@ -77,8 +66,7 @@ export function RestCard() {
   }
 
   function onTap(sq: Square) {
-    // Only a blank centre cell opens the composer; everything else toggles.
-    if (kindOf(sq.source) === 'user' && !sq.label.trim()) { setEditingId(sq.id); setEditText(''); return }
+    if (kindOf(sq.source) === 'free') return   // already true, not hers to undo
     toggle(sq)
   }
 
@@ -93,36 +81,11 @@ export function RestCard() {
         body: JSON.stringify({ squareId: sq.id }),
       })
       const data = await res.json().catch(() => null)
-      if (data?.wallet) applyWallet(data.wallet)
       maybeCelebrate(data?.completedLineCount)
     } catch {
       setSquares(prev => prev.map(s => s.id === sq.id ? { ...s, status: sq.status } : s))
     } finally {
       setSaving(null)
-    }
-  }
-
-  async function saveLabel() {
-    const id = editingId
-    const text = editText.trim()
-    if (!id || !text) return
-    if (detectCrisisLanguage(text)) setShowCrisis(true)   // her words are screened too — never silenced
-    setSavingLabel(true)
-    setSquares(prev => prev.map(s => s.id === id ? { ...s, label: text, status: 'done' } : s))
-    try {
-      const res = await authedFetch('/api/rest-card/square-label', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ squareId: id, label: text }),
-      })
-      const data = await res.json().catch(() => null)
-      if (data?.wallet) applyWallet(data.wallet)
-      maybeCelebrate(data?.completedLineCount)
-    } catch {
-      setSquares(prev => prev.map(s => s.id === id ? { ...s, label: '', status: 'open' } : s))
-    } finally {
-      setSavingLabel(false)
-      setEditingId(null)
-      setEditText('')
     }
   }
 
@@ -140,16 +103,6 @@ export function RestCard() {
           Some of these might already be true. Tap anything that’s true — leave the rest.
         </p>
       </div>
-
-      <div className="px-5 mt-2">
-        <Reserve voice="my" />
-      </div>
-
-      {showCrisis && (
-        <div className="px-5 mt-3">
-          <CrisisCard />
-        </div>
-      )}
 
       {celebrate && (
         <div className="px-5 mt-3">
@@ -169,22 +122,21 @@ export function RestCard() {
           </div>
         ) : (
           <>
-            <div className="grid grid-cols-4 gap-2">
+            <div className="grid grid-cols-3 gap-2.5">
               {squares.map(sq => {
+                const kind = kindOf(sq.source)
                 const done = sq.status === 'done'
-                const blankUser = kindOf(sq.source) === 'user' && !sq.label.trim()
 
-                // Blank centre cell → the "write your own" invitation.
-                if (blankUser) {
+                // The free centre — already true, softly marked, not tappable.
+                if (kind === 'free') {
                   return (
-                    <button
+                    <div
                       key={sq.id}
-                      onClick={() => onTap(sq)}
-                      className="aspect-square rounded-xl border border-dashed border-mustard/40 bg-mustard/5 p-2 flex flex-col items-center justify-center gap-1 transition-colors"
+                      className="aspect-square rounded-2xl border border-mustard/30 bg-mustard/20 p-2.5 flex flex-col items-center justify-center gap-1"
                     >
-                      <Plus className="w-4 h-4 text-mustard" />
-                      <span className="font-sans text-[10px] text-mustard/90 leading-tight text-center">Write your own</span>
-                    </button>
+                      <span className="text-mustard text-[15px] leading-none">♡</span>
+                      <span className="font-serif text-[13px] text-chocolate/80 leading-tight text-center">{sq.label}</span>
+                    </div>
                   )
                 }
 
@@ -199,11 +151,11 @@ export function RestCard() {
                     onClick={() => onTap(sq)}
                     disabled={saving === sq.id}
                     aria-pressed={done}
-                    className={`aspect-square rounded-xl border p-2 flex flex-col justify-between text-left transition-colors ${cls}`}
+                    className={`aspect-square rounded-2xl border p-2.5 flex flex-col justify-between text-left transition-colors ${cls}`}
                   >
-                    <span className={`font-sans text-[10.5px] leading-tight ${done ? 'text-white' : 'text-chocolate/70'}`}>{sq.label}</span>
+                    <span className={`font-sans text-[11.5px] leading-tight ${done ? 'text-white' : 'text-chocolate/70'}`}>{sq.label}</span>
                     <span
-                      className={`self-end w-4 h-4 rounded-full flex items-center justify-center flex-shrink-0 ${
+                      className={`self-end w-[18px] h-[18px] rounded-full flex items-center justify-center flex-shrink-0 ${
                         done ? 'bg-white/25' : 'border border-chocolate/20'
                       }`}
                     >
@@ -214,7 +166,7 @@ export function RestCard() {
               })}
             </div>
             <p className="text-center font-sans text-[12.5px] text-chocolate/40 mt-4">
-              No rush. It’s just here — each thing that’s true fills my reserve a little.
+              No rush. It’s just here — nothing to finish, nothing to earn.
             </p>
 
             <button
@@ -228,45 +180,6 @@ export function RestCard() {
         )}
       </div>
 
-      {/* Inline composer for a centre square */}
-      {editingId && (
-        <div
-          className="fixed inset-0 z-50 bg-chocolate/40 flex items-end sm:items-center justify-center p-4"
-          onClick={() => { if (!savingLabel) { setEditingId(null); setEditText('') } }}
-        >
-          <div className="bg-white rounded-2xl p-5 w-full max-w-sm" onClick={e => e.stopPropagation()}>
-            <p className="font-serif text-[19px] text-chocolate">Write your own</p>
-            <p className="font-sans text-[12.5px] text-chocolate/50 mt-1 mb-3">
-              Something small that was true for you today. In your words.
-            </p>
-            <input
-              value={editText}
-              onChange={e => setEditText(e.target.value)}
-              autoFocus
-              maxLength={120}
-              placeholder="You…"
-              className="w-full bg-cream rounded-[12px] border border-beige/50 px-4 py-3 text-base text-chocolate placeholder:text-chocolate/30 outline-none focus:border-mustard/60 font-sans"
-              onKeyDown={e => { if (e.key === 'Enter' && editText.trim()) saveLabel() }}
-            />
-            <div className="flex gap-2 mt-3">
-              <button
-                onClick={() => { setEditingId(null); setEditText('') }}
-                disabled={savingLabel}
-                className="flex-1 py-3 rounded-[12px] font-display font-semibold text-[14px] text-chocolate/60 bg-cream border border-beige/50"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={saveLabel}
-                disabled={!editText.trim() || savingLabel}
-                className="flex-1 py-3 rounded-[12px] font-display font-semibold text-[14px] text-white bg-mustard disabled:opacity-40"
-              >
-                {savingLabel ? 'Saving…' : 'Add it'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   )
 }

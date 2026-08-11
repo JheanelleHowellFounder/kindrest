@@ -15,7 +15,6 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { requireUser } from '@/lib/auth-server'
 import { detectCrisisLanguage } from '@/lib/safety'
 import { getTodaysPrompt, localDateKey } from '@/lib/glimmers'
-import { grantGems, getWalletState, GEM_VALUES } from '@/lib/gems'
 
 // Postgres error for "relation does not exist" — table not created yet.
 const UNDEFINED_TABLE = '42P01'
@@ -106,16 +105,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
-    // Reward showing up. Idempotent per day, so editing today's glimmer never
-    // double-grants. Showing up on a heavy day is worth the most.
-    const gemsEarned = answered
-      ? GEM_VALUES.glimmer_answered
-      : moodSignal === 'heavy' ? GEM_VALUES.glimmer_heavy : GEM_VALUES.glimmer_quiet
-    const gemReason = answered ? 'glimmer_answered' : moodSignal === 'heavy' ? 'glimmer_heavy' : 'glimmer_quiet'
-    await grantGems(requester.id, gemsEarned, gemReason, 'glimmer', today)
-    const wallet = await getWalletState(requester.id)
-
-    return NextResponse.json({ ok: true, persisted: true, crisis, wallet, gemsEarned })
+    return NextResponse.json({ ok: true, persisted: true, crisis })
   } catch (err) {
     console.error('[glimmer] error:', err instanceof Error ? err.message : err)
     return NextResponse.json({ error: 'Unexpected error' }, { status: 500 })

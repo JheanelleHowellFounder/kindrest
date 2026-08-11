@@ -24,7 +24,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { requireUser } from '@/lib/auth-server'
-import { grantGems, GEM_VALUES } from '@/lib/gems'
 
 export async function POST(req: NextRequest) {
   try {
@@ -91,12 +90,6 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Failed to save feedback' }, { status: 500 })
     }
 
-    // Reward a practice she actually did ("did it" = 3). Idempotent per rec per
-    // day, so re-tapping the same practice today doesn't farm gems.
-    if (rating === 3) {
-      const day = new Date().toISOString().split('T')[0]
-      await grantGems(userId, GEM_VALUES.practice_done, 'practice_done', 'practice', `${rec_id}-${day}`)
-    }
 
     // ── Step 2: Recompute user preference profile ────────────────────────────
     // Pull the last 100 feedback events for this user to rebuild preferences
