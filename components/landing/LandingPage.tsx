@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
+import { Home, HeartPulse, Clock, User } from 'lucide-react'
 
 // ── Waitlist Form ─────────────────────────────────────────────────────────────
 const SELF_CARE_OPTIONS = [
@@ -234,8 +235,8 @@ function PhoneMockup() {
       <div className="absolute -inset-6 bg-mustard/10 blur-3xl rounded-full pointer-events-none" />
       <div className="relative bg-[#181818] rounded-[44px] p-[9px] shadow-[0_24px_80px_rgba(0,0,0,0.35)] border border-white/10">
         <div className="absolute top-[15px] left-1/2 -translate-x-1/2 w-[88px] h-[22px] bg-[#181818] rounded-full z-10" />
-        <div className="bg-cream rounded-[36px] overflow-hidden" style={{ minHeight: '500px' }}>
-          <div className="pt-10 px-4 pb-3">
+        <div className="bg-cream rounded-[36px] overflow-hidden flex flex-col" style={{ minHeight: '500px' }}>
+          <div className="pt-10 px-4 pb-3 flex-1">
             <p className="font-display font-semibold text-[13px] text-mustard leading-tight mt-2">Good morning, Maya.</p>
             <p className="font-serif italic text-[11px] text-chocolate leading-snug mt-1.5">
               You don&rsquo;t have to have it all together today.
@@ -267,16 +268,11 @@ function PhoneMockup() {
                 <div key={c.l} className="flex flex-col items-center gap-1">
                   <div className="w-9 h-9 rounded-full bg-chocolate flex items-center justify-center">
                     {c.d === 'grid' && (
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-                        <rect x="2" y="2" width="6" height="6" rx="1.6" fill="#c9981f" />
-                        <rect x="9" y="2" width="6" height="6" rx="1.6" stroke="#c9981f" strokeWidth="1.8" />
-                        <rect x="16" y="2" width="6" height="6" rx="1.6" stroke="#c9981f" strokeWidth="1.8" />
-                        <rect x="2" y="9" width="6" height="6" rx="1.6" stroke="#c9981f" strokeWidth="1.8" />
-                        <rect x="9" y="9" width="6" height="6" rx="1.6" fill="#c9981f" />
-                        <rect x="16" y="9" width="6" height="6" rx="1.6" stroke="#c9981f" strokeWidth="1.8" />
-                        <rect x="2" y="16" width="6" height="6" rx="1.6" stroke="#c9981f" strokeWidth="1.8" />
-                        <rect x="9" y="16" width="6" height="6" rx="1.6" stroke="#c9981f" strokeWidth="1.8" />
-                        <rect x="16" y="16" width="6" height="6" rx="1.6" fill="#c9981f" />
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
+                        <rect x="3" y="3" width="18" height="18" rx="5" stroke="#c9981f" strokeWidth="2" />
+                        <circle cx="8" cy="8" r="1.9" fill="#c9981f" />
+                        <circle cx="12" cy="12" r="1.9" fill="#c9981f" />
+                        <circle cx="16" cy="16" r="1.9" fill="#c9981f" />
                       </svg>
                     )}
                     {c.d === 'pen' && (
@@ -295,11 +291,16 @@ function PhoneMockup() {
               ))}
             </div>
           </div>
-          <div className="bg-cream border-t border-beige/30 px-5 py-2.5 flex justify-around mt-3">
-            {['Home', 'Check-in', 'History', 'Profile'].map((item, i) => (
-              <div key={item} className="flex flex-col items-center gap-0.5">
-                <div className={`w-4 h-4 rounded-sm ${i === 0 ? 'bg-mustard' : 'bg-chocolate/15'}`} />
-                <span className={`font-display text-[7px] ${i === 0 ? 'text-mustard font-semibold' : 'text-chocolate/30'}`}>{item}</span>
+          <div className="bg-white border-t border-beige/40 px-4 py-2.5 flex justify-around mt-auto">
+            {[
+              { label: 'Home',     Icon: Home },
+              { label: 'Check-in', Icon: HeartPulse },
+              { label: 'History',  Icon: Clock },
+              { label: 'Profile',  Icon: User },
+            ].map(({ label, Icon }, i) => (
+              <div key={label} className="flex flex-col items-center gap-[3px]">
+                <Icon size={13} strokeWidth={i === 0 ? 2.4 : 1.8} className={i === 0 ? 'text-mustard' : 'text-chocolate/35'} />
+                <span className={`font-display text-[7px] leading-none ${i === 0 ? 'text-mustard font-semibold' : 'text-chocolate/35'}`}>{label}</span>
               </div>
             ))}
           </div>

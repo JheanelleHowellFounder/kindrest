@@ -45,16 +45,10 @@ const CIRCLES = [
     href: '/rest-card',
     icon: (
       <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden>
-        {/* a bingo card mid-game: the diagonal is marked */}
-        <rect x="2"  y="2"  width="6" height="6" rx="1.6" fill="currentColor" />
-        <rect x="9"  y="2"  width="6" height="6" rx="1.6" stroke="currentColor" strokeWidth="1.4" />
-        <rect x="16" y="2"  width="6" height="6" rx="1.6" stroke="currentColor" strokeWidth="1.4" />
-        <rect x="2"  y="9"  width="6" height="6" rx="1.6" stroke="currentColor" strokeWidth="1.4" />
-        <rect x="9"  y="9"  width="6" height="6" rx="1.6" fill="currentColor" />
-        <rect x="16" y="9"  width="6" height="6" rx="1.6" stroke="currentColor" strokeWidth="1.4" />
-        <rect x="2"  y="16" width="6" height="6" rx="1.6" stroke="currentColor" strokeWidth="1.4" />
-        <rect x="9"  y="16" width="6" height="6" rx="1.6" stroke="currentColor" strokeWidth="1.4" />
-        <rect x="16" y="16" width="6" height="6" rx="1.6" fill="currentColor" />
+        <rect x="3" y="3" width="18" height="18" rx="5" stroke="currentColor" strokeWidth="1.7" />
+        <circle cx="8"  cy="8"  r="1.6" fill="currentColor" />
+        <circle cx="12" cy="12" r="1.6" fill="currentColor" />
+        <circle cx="16" cy="16" r="1.6" fill="currentColor" />
       </svg>
     ),
   },
