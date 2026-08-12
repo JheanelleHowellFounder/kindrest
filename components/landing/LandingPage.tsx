@@ -160,7 +160,7 @@ function WaitlistForm({ dark = false }: { dark?: boolean }) {
           disabled={isLoading}
           className="w-full px-7 py-4 bg-mustard text-white font-display font-semibold text-sm rounded-[15px] transition-opacity disabled:opacity-60 hover:opacity-90"
         >
-          {isLoading ? 'Joining...' : 'Join the waitlist'}
+          {isLoading ? 'Joining…' : 'Join the email list'}
         </button>
       </form>
     )
@@ -185,7 +185,7 @@ function WaitlistForm({ dark = false }: { dark?: boolean }) {
         type="submit"
         className="px-7 py-4 bg-mustard text-white font-display font-semibold text-sm rounded-[15px] whitespace-nowrap transition-opacity hover:opacity-90"
       >
-        Get Early Access
+        Join the email list
       </button>
     </form>
   )
@@ -376,9 +376,9 @@ export function LandingPage() {
             >
               Sign in
             </a>
-            <a href="#waitlist" className="px-5 py-2.5 bg-mustard text-white font-display font-semibold text-sm rounded-[15px] hover:opacity-90 transition-opacity">
-              Get Early Access
-            </a>
+            <Link href="/onboarding" className="px-5 py-2.5 bg-mustard text-white font-display font-semibold text-sm rounded-[15px] hover:opacity-90 transition-opacity">
+              Start free
+            </Link>
           </div>
         </div>
       </nav>
@@ -409,19 +409,19 @@ export function LandingPage() {
               You've been taking care of everyone.
             </h1>
             <h2 className="font-serif text-[46px] sm:text-[56px] lg:text-[68px] text-mustard leading-[1.0] mb-10">
-              Kindrest takes care of you.
+              This part is for you.
             </h2>
             <p className="font-sans text-[16px] lg:text-[17px] text-cream/55 mb-12 max-w-[480px] leading-[1.75]">
               A daily companion for mothers. One small question a day, care built around the time you actually have, and room for the days when there&rsquo;s nothing good to say.
             </p>
             {/* Two CTAs */}
             <div className="flex flex-col sm:flex-row items-start gap-4">
-              <a
-                href="#waitlist"
+              <Link
+                href="/onboarding"
                 className="px-8 py-4 bg-mustard text-white font-display font-semibold text-sm rounded-[15px] hover:opacity-90 transition-opacity"
               >
-                Join the Waitlist
-              </a>
+                Start with one question
+              </Link>
               <a
                 href="#how-it-works"
                 className="px-8 py-4 bg-transparent border-2 border-white/20 text-cream font-display font-semibold text-sm rounded-[15px] hover:border-white/40 transition-colors"
@@ -438,9 +438,9 @@ export function LandingPage() {
         <div className="max-w-7xl mx-auto px-6 lg:px-10 py-7">
           <div className="flex flex-col sm:flex-row items-center justify-center gap-5 sm:gap-0 sm:divide-x sm:divide-white/10">
             {[
-              { value: '5', label: 'Regulation phases tracked' },
-              { value: '60+', label: 'Personalized care recommendations' },
-              { value: '6', label: 'Stages of motherhood supported' },
+              { value: '15 sec', label: 'The whole daily ask' },
+              { value: '60+', label: 'Ways to care for yourself' },
+              { value: '6', label: 'Stages of motherhood, from expecting on' },
             ].map(item => (
               <div key={item.label} className="flex items-center gap-4 sm:px-12">
                 <span className="font-serif text-[32px] text-mustard leading-none">{item.value}</span>
@@ -466,7 +466,7 @@ export function LandingPage() {
             Kindrest was.
           </p>
           <p className="font-sans text-[16px] text-chocolate/45 mt-10 max-w-2xl mx-auto leading-relaxed">
-            Like Spotify curates music to your mood, Kindrest curates care recommendations that evolve with yours. Technology that adapts to your emotional rhythm, not just your data.
+            Built for it means the daily ask is fifteen seconds. It means you can open it on your worst day and not be asked to perform. It means nothing in here is one more thing to keep up with.
           </p>
         </div>
       </section>
@@ -518,7 +518,7 @@ export function LandingPage() {
             <div className="lg:sticky lg:top-24">
               <p className="font-display text-xs text-mustard tracking-[0.2em] uppercase mb-5">What It Does</p>
               <h2 className="font-serif text-[36px] sm:text-[46px] text-chocolate leading-tight mb-6">
-                Gentle systems for real life.
+                Built for the days you have nothing left.
               </h2>
               <p className="font-sans text-[16px] text-chocolate/50 leading-relaxed mb-10">
                 Designed for overwhelmed moms who want relief without the pressure to be "balanced." Kindrest doesn't add to your to-do list. It helps you understand yourself so you can navigate whatever's in front of you.
@@ -569,12 +569,12 @@ export function LandingPage() {
 
               {/* Mid-page CTA */}
               <div className="pt-4">
-                <a
-                  href="#waitlist"
+                <Link
+                  href="/onboarding"
                   className="inline-block px-8 py-4 bg-mustard text-white font-display font-semibold text-sm rounded-[15px] hover:opacity-90 transition-opacity"
                 >
                   Sign up to meet yourself again
-                </a>
+                </Link>
               </div>
             </div>
           </div>
@@ -662,10 +662,24 @@ export function LandingPage() {
       <section id="waitlist" className="bg-cream py-32 px-6 lg:px-10">
         <div className="max-w-3xl mx-auto text-center">
           <h2 className="font-serif text-[40px] sm:text-[54px] text-chocolate leading-[1.1] mb-5">
-            You don't have to figure it all out alone.
+            You don't have to earn your rest.
           </h2>
-          <p className="font-sans text-[16px] text-chocolate/45 mb-12 leading-relaxed">
-            Join the waitlist. Your personalized invite is coming.
+          <p className="font-sans text-[16px] text-chocolate/45 mb-4 leading-relaxed">
+            Kindrest is live, and it takes fifteen seconds to start.
+          </p>
+          <div className="flex justify-center mb-14">
+            <Link
+              href="/onboarding"
+              className="px-8 py-4 bg-mustard text-white font-display font-semibold text-sm rounded-[15px] hover:opacity-90 transition-opacity"
+            >
+              Start with one question
+            </Link>
+          </div>
+          <p className="font-serif text-[22px] text-chocolate leading-snug mb-2">
+            Not ready yet?
+          </p>
+          <p className="font-sans text-[15px] text-chocolate/45 mb-8 leading-relaxed">
+            Join the email list and I'll send you one honest note a month.
           </p>
           <div className="flex justify-center">
             <WaitlistForm />
