@@ -235,48 +235,68 @@ function PhoneMockup() {
       <div className="relative bg-[#181818] rounded-[44px] p-[9px] shadow-[0_24px_80px_rgba(0,0,0,0.35)] border border-white/10">
         <div className="absolute top-[15px] left-1/2 -translate-x-1/2 w-[88px] h-[22px] bg-[#181818] rounded-full z-10" />
         <div className="bg-cream rounded-[36px] overflow-hidden" style={{ minHeight: '500px' }}>
-          <div className="pt-10 px-5 pb-3">
-            <div className="flex items-start justify-between mt-2">
-              <div>
-                <h3 className="font-serif text-[20px] text-chocolate leading-tight">Good morning, mama</h3>
-                <div className="h-[2px] w-7 bg-mustard mt-1.5 mb-2" />
-                <p className="font-sans text-[10px] text-chocolate/45 italic leading-snug">
-                  "You haven't lost yourself.<br />You are still here."
-                </p>
+          <div className="pt-10 px-4 pb-3">
+            <p className="font-display font-semibold text-[13px] text-mustard leading-tight mt-2">Good morning, Maya.</p>
+            <p className="font-serif italic text-[11px] text-chocolate leading-snug mt-1.5">
+              You don&rsquo;t have to have it all together today.
+            </p>
+
+            {/* today's glimmer — the hero */}
+            <div className="mt-4 bg-white rounded-2xl px-3.5 py-3.5 shadow-sm">
+              <p className="font-display font-semibold text-[7px] tracking-[0.16em] uppercase text-mustard">Today&rsquo;s glimmer</p>
+              <p className="font-serif text-[13px] text-chocolate leading-snug mt-1.5">
+                When did you last feel most like yourself?
+              </p>
+              <div className="border-b border-beige mt-3 pb-1">
+                <p className="font-sans text-[9px] text-chocolate/30">One sentence is plenty.</p>
               </div>
-              <div className="w-9 h-9 rounded-full bg-beige flex items-center justify-center mt-0.5">
-                <span className="font-display font-bold text-[13px] text-chocolate">J</span>
-              </div>
-            </div>
-            <div className="mt-4 bg-chocolate rounded-2xl p-4 flex items-center justify-between">
-              <div>
-                <p className="font-display font-bold text-[13px] text-white">Start Check-In</p>
-                <p className="font-sans text-[10px] text-white/50 mt-0.5">Get your care kit</p>
-              </div>
-              <div className="w-8 h-8 bg-white/10 rounded-xl flex items-center justify-center">
-                <span className="text-mustard text-sm">✦</span>
+              <div className="flex items-center justify-between mt-2">
+                <span className="font-sans text-[8px] text-chocolate/40">Nothing came to mind</span>
+                <span className="font-display font-semibold text-[8px] text-mustard">Leave it here</span>
               </div>
             </div>
-            <div className="mt-3 flex gap-2">
-              <div className="flex-1 bg-chocolate rounded-xl p-3">
-                <p className="font-sans text-[8px] text-white/40 uppercase tracking-wide">Check-ins</p>
-                <p className="font-serif text-[22px] text-mustard leading-none mt-1">5</p>
-              </div>
-              <div className="flex-1 bg-beige/40 rounded-xl p-3">
-                <p className="font-sans text-[8px] text-chocolate/40 uppercase tracking-wide">Streak</p>
-                <p className="font-serif text-[22px] text-chocolate leading-none mt-1">3</p>
-              </div>
+
+            {/* three ways in */}
+            <p className="font-sans text-[8px] text-chocolate/40 text-center mt-4">or, if you&rsquo;d rather</p>
+            <div className="flex justify-center gap-3 mt-2">
+              {[
+                { l: 'Play', d: 'grid' },
+                { l: 'Reflect', d: 'pen' },
+                { l: 'Check-in', d: 'heart' },
+              ].map(c => (
+                <div key={c.l} className="flex flex-col items-center gap-1">
+                  <div className="w-9 h-9 rounded-full bg-chocolate flex items-center justify-center">
+                    {c.d === 'grid' && (
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                        <rect x="2" y="2" width="6" height="6" rx="1.6" fill="#c9981f" />
+                        <rect x="9" y="2" width="6" height="6" rx="1.6" stroke="#c9981f" strokeWidth="1.8" />
+                        <rect x="16" y="2" width="6" height="6" rx="1.6" stroke="#c9981f" strokeWidth="1.8" />
+                        <rect x="2" y="9" width="6" height="6" rx="1.6" stroke="#c9981f" strokeWidth="1.8" />
+                        <rect x="9" y="9" width="6" height="6" rx="1.6" fill="#c9981f" />
+                        <rect x="16" y="9" width="6" height="6" rx="1.6" stroke="#c9981f" strokeWidth="1.8" />
+                        <rect x="2" y="16" width="6" height="6" rx="1.6" stroke="#c9981f" strokeWidth="1.8" />
+                        <rect x="9" y="16" width="6" height="6" rx="1.6" stroke="#c9981f" strokeWidth="1.8" />
+                        <rect x="16" y="16" width="6" height="6" rx="1.6" fill="#c9981f" />
+                      </svg>
+                    )}
+                    {c.d === 'pen' && (
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#c9981f" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" /><path d="M14 6l3 3" />
+                      </svg>
+                    )}
+                    {c.d === 'heart' && (
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#c9981f" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M12 20.2s-7-4.4-9.3-8.6C1.1 8.6 2.6 5 5.9 5c1.9 0 3.3 1.4 6.1 4 2.8-2.6 4.2-4 6.1-4 3.3 0 4.8 3.6 3.2 6.6-2.3 4.2-9.3 8.6-9.3 8.6Z" />
+                      </svg>
+                    )}
+                  </div>
+                  <span className="font-display font-semibold text-[7px] text-chocolate">{c.l}</span>
+                </div>
+              ))}
             </div>
-            <p className="font-display font-semibold text-[8px] text-chocolate/40 tracking-[0.15em] uppercase mt-4 mb-2">Top Techniques</p>
-            {['Stand in sunlight briefly', 'Prep one small thing', 'Write what worked today'].map((t, i) => (
-              <div key={i} className="flex items-center gap-2 bg-white rounded-xl px-3 py-2.5 mb-1.5 shadow-sm">
-                <span className="w-5 h-5 rounded-full bg-beige flex items-center justify-center text-[9px] font-bold text-mustard flex-shrink-0">{i + 1}</span>
-                <p className="font-sans text-[10px] text-chocolate">{t}</p>
-              </div>
-            ))}
           </div>
-          <div className="bg-cream border-t border-beige/30 px-5 py-2.5 flex justify-around mt-2">
-            {['Home', 'Check-In', 'History', 'Profile'].map((item, i) => (
+          <div className="bg-cream border-t border-beige/30 px-5 py-2.5 flex justify-around mt-3">
+            {['Home', 'Check-in', 'History', 'Profile'].map((item, i) => (
               <div key={item} className="flex flex-col items-center gap-0.5">
                 <div className={`w-4 h-4 rounded-sm ${i === 0 ? 'bg-mustard' : 'bg-chocolate/15'}`} />
                 <span className={`font-display text-[7px] ${i === 0 ? 'text-mustard font-semibold' : 'text-chocolate/30'}`}>{item}</span>
@@ -391,7 +411,7 @@ export function LandingPage() {
               Kindrest takes care of you.
             </h2>
             <p className="font-sans text-[16px] lg:text-[17px] text-cream/55 mb-12 max-w-[480px] leading-[1.75]">
-              A personalized wellness app that helps mothers reconnect with themselves through check-ins, emotional insights, and care recommendations that evolve with you.
+              A daily companion for mothers. One small question a day, care built around the time you actually have, and room for the days when there&rsquo;s nothing good to say.
             </p>
             {/* Two CTAs */}
             <div className="flex flex-col sm:flex-row items-start gap-4">
@@ -464,18 +484,18 @@ export function LandingPage() {
             {[
               {
                 step: '01',
-                title: 'Check In',
-                body: 'Answer a few honest questions about how you\'re feeling mentally, physically, and emotionally. Tell us how much time you have. That\'s it.',
+                title: 'Notice one thing',
+                body: 'Kindrest opens with a single question — when did you last feel like yourself? One sentence, about fifteen seconds. And if nothing comes to mind, you\'re allowed to say that.',
               },
               {
                 step: '02',
-                title: 'Get Your Care Kit',
-                body: 'Kindrest identifies your regulation state and gives you 3 recommendations built around your mood, your capacity, and your time right now. Not generic. Yours.',
+                title: 'Take what you need',
+                body: 'Go deeper with a two-minute check-in and get a care kit built for your mood, your capacity, and your time. Or open your Rest Card — a small board of things that might already be true today.',
               },
               {
                 step: '03',
-                title: 'Come Back',
-                body: 'Every check-in teaches Kindrest something about you. Over time you start to recognize your patterns and understand what you need before you\'re already overwhelmed.',
+                title: 'It learns you',
+                body: 'Every glimmer and every check-in teaches Kindrest what actually helps you. Over time you start to see your own patterns — and what you need before you\'re already in the deep end.',
               },
             ].map(item => (
               <div key={item.step} className="bg-white rounded-3xl p-10">
@@ -512,18 +532,24 @@ export function LandingPage() {
               {[
                 {
                   number: '01',
-                  title: 'Know where you are',
-                  teaser: 'Most moms are running on autopilot. Kindrest helps you pause long enough to notice.',
-                  detail: 'Your nervous system is always communicating. Through a quick check-in, Kindrest identifies your current regulation state (survival mode, stabilizing, or thriving) and responds accordingly. Naming it is the first step to shifting it.',
+                  title: 'Notice one small thing',
+                  teaser: 'Most moms are running on autopilot. Kindrest asks for fifteen seconds, not fifteen minutes.',
+                  detail: 'One question a day — a glimmer — asking when you last felt like yourself. One sentence back, and you\'re done. It\'s the smallest possible ask, on purpose, because the days you need it most are the days you have the least to give.',
                 },
                 {
                   number: '02',
                   title: 'Get support that actually fits',
                   teaser: 'Generic wellness advice doesn\'t account for the reality of your day. This does.',
-                  detail: 'Your care kit is built around your actual mood, your available time, and your capacity right now. Not a rigid routine. A responsive system. What you get when you\'re overwhelmed is completely different from what you get when you\'re thriving.',
+                  detail: 'Your care kit is built around your actual mood, your available time, and your capacity right now — what you get when you\'re overwhelmed is completely different from what you get when you\'re thriving. And your Rest Card is never a to-do list: it\'s a small board of things that might already be true, and you just tap the ones that are.',
                 },
                 {
                   number: '03',
+                  title: 'Room for the hard days',
+                  teaser: 'You don\'t have to have something good to say. Kindrest doesn\'t ask you to perform being okay.',
+                  detail: 'If nothing comes to mind, you can say so — and Kindrest asks one thing: is today just quiet, or is it heavy? Quiet means nothing\'s wrong, see you tomorrow. Heavy means it stops asking you to find the bright side and puts real support in front of you instead. No streaks. A hard day is not a missed day.',
+                },
+                {
+                  number: '04',
                   title: 'Understand yourself over time',
                   teaser: 'The patterns in your data tell a story. Kindrest helps you read it.',
                   detail: 'Every check-in adds to your history. Over time you start to see which categories help you most, what your common moods are, and what you need before you\'re already in the deep end. That clarity is the whole point.',
