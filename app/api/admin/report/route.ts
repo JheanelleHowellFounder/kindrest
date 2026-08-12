@@ -1,9 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { ADMIN_EMAILS } from '@/lib/admin'
+import { LINES } from '@/lib/restcard'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
+
+interface ProfileRow {
+  user_id: string
+  name: string | null
+  motherhood_stage: string | null
+  onboarding_completed: boolean | null
+  created_at: string
+  signup_source?: string | null
+}
 
 export async function GET(req: NextRequest) {
   if (!supabaseAdmin) {
@@ -43,18 +53,30 @@ export async function GET(req: NextRequest) {
   }
 
   // ── Profiles + feedback in parallel ───────────────────────────────────────
+  // signup_source only exists where the Founding Moms migration has been run.
+  // Ask for it, and fall back cleanly where the column isn't there — otherwise the
+  // whole report silently returns zero users.
+  const profilesWithSource = await supabaseAdmin
+    .from('user_profiles')
+    .select('user_id, name, motherhood_stage, onboarding_completed, created_at, signup_source')
+    .order('created_at', { ascending: false })
+
+  const profilesFallback = profilesWithSource.error
+    ? await supabaseAdmin
+        .from('user_profiles')
+        .select('user_id, name, motherhood_stage, onboarding_completed, created_at')
+        .order('created_at', { ascending: false })
+    : null
+
   const [profilesResult, feedbackResult] = await Promise.all([
-    supabaseAdmin
-      .from('user_profiles')
-      .select('user_id, name, motherhood_stage, onboarding_completed, created_at, signup_source')
-      .order('created_at', { ascending: false }),
+    Promise.resolve(profilesFallback ?? profilesWithSource),
     supabaseAdmin
       .from('recommendation_feedback')
       .select('user_id, rec_title, rating, check_in_mood, category, created_at')
       .order('created_at', { ascending: false }),
   ])
 
-  const allProfiles = profilesResult.data ?? []
+  const allProfiles = (profilesResult.data ?? []) as ProfileRow[]
   const feedback    = feedbackResult.data ?? []
   const profileIds  = new Set(allProfiles.map(p => p.user_id))
 
@@ -262,8 +284,59 @@ export async function GET(req: NextRequest) {
     return { source, totalSignups, everCheckedIn, retained, avgCheckins, users }
   })
 
+  // ── Bingo: users who completed a Rest Card line ───────────────────────────
+  // A line "lands" at the moment its last square is marked, so we take the latest
+  // completed_at across the line. The free centre has no timestamp and is skipped.
+  const bingo = { last7: 0, last14: 0, last30: 0, total: 0 }
+
+  const { data: bingoCards } = await supabaseAdmin
+    .from('rest_cards')
+    .select('id, user_id')
+
+  if (bingoCards?.length) {
+    const { data: bingoSquares } = await supabaseAdmin
+      .from('rest_card_squares')
+      .select('card_id, position, status, completed_at')
+      .eq('status', 'done')
+
+    // card → { position → completed_at }
+    const byCard = new Map<string, Map<number, string | null>>()
+    for (const sq of bingoSquares ?? []) {
+      if (!byCard.has(sq.card_id)) byCard.set(sq.card_id, new Map())
+      byCard.get(sq.card_id)!.set(sq.position, sq.completed_at)
+    }
+
+    // user → earliest moment they ever hit a line
+    const firstBingoAt = new Map<string, number>()
+    for (const card of bingoCards) {
+      const done = byCard.get(card.id)
+      if (!done) continue
+      for (const line of LINES) {
+        if (!line.every(pos => done.has(pos))) continue
+        const stamps = line
+          .map(pos => done.get(pos))
+          .filter((t): t is string => Boolean(t))
+          .map(t => new Date(t).getTime())
+        if (!stamps.length) continue
+        const landedAt = Math.max(...stamps)
+        const prev = firstBingoAt.get(card.user_id)
+        if (prev === undefined || landedAt < prev) firstBingoAt.set(card.user_id, landedAt)
+      }
+    }
+
+    const nowMs = now.getTime()
+    const within = (days: number) =>
+      Array.from(firstBingoAt.values()).filter(t => nowMs - t <= days * 86_400_000).length
+
+    bingo.total  = firstBingoAt.size
+    bingo.last7  = within(7)
+    bingo.last14 = within(14)
+    bingo.last30 = within(30)
+  }
+
   return NextResponse.json({
     generatedAt: now.toISOString(),
+    bingo,
     users: {
       totalSignups,
       totalInApp,

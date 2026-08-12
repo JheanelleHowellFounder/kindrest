@@ -61,6 +61,7 @@ interface ReportData {
     retained: number; retentionRate: number; avgCheckins: number
   }
   checkins: { total: number; thisWeek: number; activeUsersThisWeek: number }
+  bingo: { last7: number; last14: number; last30: number; total: number }
   mood: {
     avgMoodLabel: string | null; avgMoodScore: number | null
     breakdown: { mood: string; count: number }[]
@@ -268,7 +269,7 @@ export default function AdminReport() {
     )
   }
 
-  const { users, funnel, checkins, mood, stageBreakdown, topRecs, categoryBreakdown, atRiskUsers, cohorts, allUsers, dropOffUsers, generatedAt } = report
+  const { users, funnel, checkins, bingo, mood, stageBreakdown, topRecs, categoryBreakdown, atRiskUsers, cohorts, allUsers, dropOffUsers, generatedAt } = report
 
   const q = search.trim().toLowerCase()
   const filteredInApp = allUsers.filter(u => !u.authOnly && (!q || u.name.toLowerCase().includes(q) || u.email.toLowerCase().includes(q)))
@@ -450,6 +451,19 @@ export default function AdminReport() {
             </section>
           )
         })}
+
+        {/* ── Rest Card ─────────────────────────────────────────────────── */}
+        <section>
+          <SectionHeader emoji="🎲" label="Rest Card" sub={`${bingo?.total ?? 0} ever completed a line`} />
+          <div className="grid grid-cols-3 gap-2">
+            <Metric label="Bingo · 7d"  value={bingo?.last7 ?? 0}  sub="moms" accent />
+            <Metric label="Bingo · 14d" value={bingo?.last14 ?? 0} sub="moms" />
+            <Metric label="Bingo · 30d" value={bingo?.last30 ?? 0} sub="moms" />
+          </div>
+          <p className="text-[11px] text-chocolate/30 font-sans mt-2">
+            Unique moms who have completed a full line (row, column, or diagonal).
+          </p>
+        </section>
 
         {/* ── User Roster ───────────────────────────────────────────────── */}
         <section>
