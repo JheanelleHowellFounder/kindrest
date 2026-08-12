@@ -44,9 +44,17 @@ const CIRCLES = [
     label: 'Play',
     href: '/rest-card',
     icon: (
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-        <rect x="3" y="3" width="18" height="18" rx="2" /><line x1="9" y1="3" x2="9" y2="21" />
-        <line x1="15" y1="3" x2="15" y2="21" /><line x1="3" y1="9" x2="21" y2="9" /><line x1="3" y1="15" x2="21" y2="15" />
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden>
+        {/* a bingo card mid-game: the diagonal is marked */}
+        <rect x="2"  y="2"  width="6" height="6" rx="1.6" fill="currentColor" />
+        <rect x="9"  y="2"  width="6" height="6" rx="1.6" stroke="currentColor" strokeWidth="1.4" />
+        <rect x="16" y="2"  width="6" height="6" rx="1.6" stroke="currentColor" strokeWidth="1.4" />
+        <rect x="2"  y="9"  width="6" height="6" rx="1.6" stroke="currentColor" strokeWidth="1.4" />
+        <rect x="9"  y="9"  width="6" height="6" rx="1.6" fill="currentColor" />
+        <rect x="16" y="9"  width="6" height="6" rx="1.6" stroke="currentColor" strokeWidth="1.4" />
+        <rect x="2"  y="16" width="6" height="6" rx="1.6" stroke="currentColor" strokeWidth="1.4" />
+        <rect x="9"  y="16" width="6" height="6" rx="1.6" stroke="currentColor" strokeWidth="1.4" />
+        <rect x="16" y="16" width="6" height="6" rx="1.6" fill="currentColor" />
       </svg>
     ),
   },
@@ -340,7 +348,7 @@ export function GlimmerHome() {
                 onClick={() => router.push(href)}
                 className="flex flex-col items-center gap-2 group"
               >
-                <span className="w-[74px] h-[74px] rounded-full bg-white border border-beige flex items-center justify-center text-mustard transition-colors group-hover:border-mustard/60 group-active:opacity-80">
+                <span className="w-[74px] h-[74px] rounded-full bg-chocolate flex items-center justify-center text-mustard transition-all group-hover:bg-chocolate/90 group-active:scale-95">
                   {icon}
                 </span>
                 <span className="font-display font-semibold text-[13px] text-chocolate">{label}</span>
