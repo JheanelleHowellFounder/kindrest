@@ -15,6 +15,15 @@ interface Square {
   status: 'open' | 'done'
 }
 
+// Hearts drift up behind the message — staggered so it feels breathed, not fired.
+const HEARTS = [
+  { left: '12%', delay: 0,   tilt: '-12deg', size: 15 },
+  { left: '28%', delay: 260, tilt: '8deg',   size: 11 },
+  { left: '47%', delay: 90,  tilt: '-4deg',  size: 18 },
+  { left: '66%', delay: 380, tilt: '14deg',  size: 12 },
+  { left: '84%', delay: 170, tilt: '-9deg',  size: 15 },
+]
+
 const LINE_MESSAGES = [
   'A whole line — that’s care, all the way across.',
   'That’s a whole line of you, still in there.',
@@ -106,8 +115,34 @@ export function RestCard() {
 
       {celebrate && (
         <div className="px-5 mt-3">
-          <div className="bg-chocolate text-cream rounded-2xl px-5 py-3 text-center">
-            <span className="font-serif text-[17px]">{celebrate}</span>
+          <div className="relative">
+            {/* a warm bloom behind the message */}
+            <div
+              aria-hidden
+              className="line-bloom pointer-events-none absolute -inset-6 rounded-full"
+              style={{ background: 'radial-gradient(circle, rgba(201,152,31,.45), transparent 68%)' }}
+            />
+            {/* hearts drifting up */}
+            <div aria-hidden className="pointer-events-none absolute inset-x-0 bottom-1 h-0 z-20">
+              {HEARTS.map((h, i) => (
+                <span
+                  key={i}
+                  className="line-heart absolute text-mustard leading-none"
+                  style={{
+                    left: h.left,
+                    fontSize: h.size,
+                    animationDelay: `${h.delay}ms`,
+                    ['--tilt' as string]: h.tilt,
+                  }}
+                >
+                  ♡
+                </span>
+              ))}
+            </div>
+
+            <div className="relative bg-chocolate text-cream rounded-2xl px-5 py-3.5 text-center">
+              <span className="font-serif text-[17px]">{celebrate}</span>
+            </div>
           </div>
         </div>
       )}

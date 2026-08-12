@@ -116,3 +116,21 @@ html, body {
 
 /* Smooth transitions */
 * { -webkit-tap-highlight-color: transparent; }
+
+/* Rest Card — a line lands. Warmth, not fanfare. */
+@keyframes bloom {
+  0%   { opacity: 0; transform: scale(.75); }
+  35%  { opacity: .55; }
+  100% { opacity: 0; transform: scale(1.35); }
+}
+@keyframes drift {
+  0%   { opacity: 0; transform: translateY(6px) scale(.8) rotate(var(--tilt, 0deg)); }
+  20%  { opacity: .95; }
+  70%  { opacity: .8; }
+  100% { opacity: 0; transform: translateY(-78px) scale(1.05) rotate(var(--tilt, 0deg)); }
+}
+.line-bloom { animation: bloom 2200ms cubic-bezier(0.22,0.61,0.36,1) forwards; }
+.line-heart { animation: drift 2400ms cubic-bezier(0.25,0.5,0.3,1) forwards; }
+@media (prefers-reduced-motion: reduce) {
+  .line-bloom, .line-heart { animation: none; opacity: 0; }
+}
