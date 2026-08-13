@@ -76,7 +76,7 @@ export function OnboardingProfileFlow() {
     const cleanPeople = supportPeople.filter(p => p.name.trim().length > 0)
     const signupSource = localStorage.getItem('kindrest_signup_source')
 
-    const { error: profileError } = await supabase.from('user_profiles').upsert({
+    const profile: Record<string, unknown> = {
       user_id: user.id,
       name: user.user_metadata?.name ?? name,
       motherhood_stage: selectedStage,
@@ -84,9 +84,19 @@ export function OnboardingProfileFlow() {
       preferred_categories: selectedCategories,
       support_people: cleanPeople,
       onboarding_completed: true,
-      signup_source: signupSource,
       updated_at: new Date().toISOString(),
-    })
+    }
+
+    // signup_source only exists where the Founding Moms migration has been run.
+    // Try it, and retry without it if the column isn't there — a missing column
+    // must never stop a mother from finishing onboarding.
+    let { error: profileError } = await supabase
+      .from('user_profiles')
+      .upsert({ ...profile, signup_source: signupSource })
+
+    if (profileError) {
+      ;({ error: profileError } = await supabase.from('user_profiles').upsert(profile))
+    }
 
     if (profileError) {
       console.error('user_profiles upsert error:', profileError)
@@ -111,6 +121,22 @@ export function OnboardingProfileFlow() {
     if (prefError) {
       console.error('user_preference_profile upsert error:', prefError)
       // Non-fatal — profile still saved, continue
+    }
+
+    // If she arrived through a pilot link (/join/<slug>), attach her to that org.
+    // Fire-and-forget: never block finishing onboarding on this.
+    const orgSlug = localStorage.getItem('kindrest_org')
+    if (orgSlug) {
+      const token = (await supabase.auth.getSession()).data.session?.access_token
+      if (token) {
+        fetch('/api/org/join', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ slug: orgSlug }),
+        })
+          .then(() => { try { localStorage.removeItem('kindrest_org') } catch {} })
+          .catch(() => {/* non-critical */})
+      }
     }
 
     setSaving(false)

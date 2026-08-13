@@ -62,6 +62,7 @@ interface ReportData {
   }
   checkins: { total: number; thisWeek: number; activeUsersThisWeek: number }
   bingo: { last7: number; last14: number; last30: number; total: number }
+  orgs: { name: string; slug: string; cohortSize: number | null; joined: number; everCheckedIn: number; activeThisWeek: number }[]
   mood: {
     avgMoodLabel: string | null; avgMoodScore: number | null
     breakdown: { mood: string; count: number }[]
@@ -269,7 +270,7 @@ export default function AdminReport() {
     )
   }
 
-  const { users, funnel, checkins, bingo, mood, stageBreakdown, topRecs, categoryBreakdown, atRiskUsers, cohorts, allUsers, dropOffUsers, generatedAt } = report
+  const { users, funnel, checkins, bingo, orgs, mood, stageBreakdown, topRecs, categoryBreakdown, atRiskUsers, cohorts, allUsers, dropOffUsers, generatedAt } = report
 
   const q = search.trim().toLowerCase()
   const filteredInApp = allUsers.filter(u => !u.authOnly && (!q || u.name.toLowerCase().includes(q) || u.email.toLowerCase().includes(q)))
@@ -451,6 +452,19 @@ export default function AdminReport() {
             </section>
           )
         })}
+
+        {/* ── Kindrest @ Work ───────────────────────────────────────────── */}
+        {orgs?.length > 0 && orgs.map(o => (
+          <section key={o.slug}>
+            <SectionHeader emoji="🏢" label={o.name} sub={o.cohortSize ? `${o.joined} of ${o.cohortSize} seats` : `${o.joined} joined`} />
+            <div className="grid grid-cols-3 gap-2">
+              <Metric label="Joined" value={o.joined} sub={o.cohortSize ? `${Math.round((o.joined / o.cohortSize) * 100)}% enrolled` : undefined} accent />
+              <Metric label="Checked in" value={o.everCheckedIn} sub="ever" />
+              <Metric label="Active" value={o.activeThisWeek} sub="this week" />
+            </div>
+            <p className="text-[11px] text-chocolate/30 font-sans mt-2">kindrest.co/join/{o.slug}</p>
+          </section>
+        ))}
 
         {/* ── Rest Card ─────────────────────────────────────────────────── */}
         <section>

@@ -334,9 +334,39 @@ export async function GET(req: NextRequest) {
     bingo.last30 = within(30)
   }
 
+  // ── Kindrest @ Work cohorts ───────────────────────────────────────────────
+  // Per-pilot enrollment and engagement. Empty until the organizations tables
+  // are migrated and a pilot exists.
+  const orgs: { name: string; slug: string; cohortSize: number | null; joined: number; everCheckedIn: number; activeThisWeek: number }[] = []
+
+  const { data: orgRows } = await supabaseAdmin
+    .from('organizations')
+    .select('id, slug, name, cohort_size')
+    .eq('status', 'active')
+
+  if (orgRows?.length) {
+    const { data: members } = await supabaseAdmin.from('org_members').select('org_id, user_id')
+    const checkedIn = new Set(profileUsers.filter(u => u.totalCheckins > 0).map(u => u.email))
+    void checkedIn
+    const byUserCheckins = new Map(allProfiles.map(p => [p.user_id, userCheckinDates[p.user_id]?.size ?? 0]))
+
+    for (const o of orgRows) {
+      const ids = (members ?? []).filter(m => m.org_id === o.id).map(m => m.user_id)
+      orgs.push({
+        name: o.name,
+        slug: o.slug,
+        cohortSize: o.cohort_size ?? null,
+        joined: ids.length,
+        everCheckedIn: ids.filter(id => (byUserCheckins.get(id) ?? 0) > 0).length,
+        activeThisWeek: ids.filter(id => activeThisWeekUsers.has(id)).length,
+      })
+    }
+  }
+
   return NextResponse.json({
     generatedAt: now.toISOString(),
     bingo,
+    orgs,
     users: {
       totalSignups,
       totalInApp,
