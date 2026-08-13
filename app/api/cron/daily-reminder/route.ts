@@ -4,10 +4,13 @@
  * Kindrest shipped without any way to bring a mother back, and every early user
  * drifted off. This sends one email a day carrying today's glimmer question.
  *
- * It's a single MailerLite campaign to the active users group, not 100 separate
- * sends, because the glimmer is the same question for everyone by design. That
- * keeps it free, and it means MailerLite handles unsubscribes for us — which is
- * both the decent thing and the legal one.
+ * It's a single MailerLite campaign, not 100 separate sends, because the glimmer
+ * is the same question for everyone by design. That keeps it free, and it means
+ * MailerLite owns unsubscribes — both the decent thing and the legal one.
+ *
+ * The audience is rebuilt from Kindrest accounts before every send (see
+ * lib/reminder-audience.ts), so new users are picked up automatically and nobody
+ * without an account is ever emailed.
  *
  * SAFETY: sending is off unless DAILY_REMINDER_ENABLED === 'true'. Without it
  * this route reports exactly what it *would* send and stops. Turning it on is a
@@ -19,12 +22,15 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { getTodaysPrompt } from '@/lib/glimmers'
+import { syncReminderAudience } from '@/lib/reminder-audience'
 
 export const dynamic = 'force-dynamic'
+// Syncing the audience makes one call per new user, so the first run is the
+// slow one. Well inside this even at a few hundred users.
+export const maxDuration = 60
 
 const ML_API = 'https://connect.mailerlite.com/api'
 const ML_TOKEN = process.env.MAILERLITE_API_KEY
-const ACTIVE_USERS_GROUP = '184916616032552716'
 const SITE = 'https://www.kindrest.co'
 
 const ENABLED = process.env.DAILY_REMINDER_ENABLED === 'true'
@@ -32,6 +38,7 @@ const ENABLED = process.env.DAILY_REMINDER_ENABLED === 'true'
 function mlFetch(path: string, options: RequestInit = {}) {
   return fetch(`${ML_API}${path}`, {
     ...options,
+    cache: 'no-store',            // never serve a cached MailerLite response
     headers: {
       Authorization: `Bearer ${ML_TOKEN}`,
       'Content-Type': 'application/json',
@@ -102,13 +109,27 @@ export async function GET(req: NextRequest) {
     })
   }
 
-  // Dry run by default. Says exactly what would go out, sends nothing.
+  // Rebuild the audience from Kindrest accounts before anything is sent, so a
+  // user who signed up yesterday is included and nobody else ever is.
+  const audience = await syncReminderAudience()
+
+  if (!audience.groupId) {
+    return NextResponse.json({ sent: false, audience }, { status: 502 })
+  }
+
+  // Dry run by default. Says exactly who would get it, sends nothing.
   if (!ENABLED) {
     return NextResponse.json({
       sent: false,
       reason: 'DAILY_REMINDER_ENABLED is not "true" — set it to start sending.',
-      wouldSend: { date: today, subject, question: prompt.text, group: ACTIVE_USERS_GROUP },
+      wouldSend: { date: today, subject, question: prompt.text, recipients: audience.subscribed },
+      audience,
     })
+  }
+
+  // Nobody to send to. Not a failure — just don't create an empty campaign.
+  if (audience.subscribed === 0) {
+    return NextResponse.json({ sent: false, reason: 'No subscribers', audience })
   }
 
   const create = await mlFetch('/campaigns', {
@@ -116,7 +137,7 @@ export async function GET(req: NextRequest) {
     body: JSON.stringify({
       name: `Daily glimmer — ${today}`,
       type: 'regular',
-      groups: [ACTIVE_USERS_GROUP],
+      groups: [audience.groupId],
       emails: [{
         subject,
         from_name: 'Kindrest',
@@ -148,5 +169,5 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ sent: false, campaignId, error: detail }, { status: 502 })
   }
 
-  return NextResponse.json({ sent: true, campaignId, date: today, subject })
+  return NextResponse.json({ sent: true, campaignId, date: today, subject, audience })
 }
