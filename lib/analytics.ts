@@ -30,6 +30,11 @@ export type FunnelEvent =
   /** Returning engagement — the weekly-active numerator. Never the content. */
   | 'glimmer_saved'
   | 'checkin_completed'
+  /** The referral loop. Together these give the invite rate and accept rate
+   *  that G3 is measured on: sent → opened → converted. */
+  | 'invite_sent'
+  | 'invite_opened'
+  | 'invite_converted'
 
 type Props = Record<string, string | number | boolean>
 

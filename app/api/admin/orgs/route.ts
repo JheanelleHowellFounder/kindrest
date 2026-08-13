@@ -11,9 +11,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { ADMIN_EMAILS } from '@/lib/admin'
+import { isMissingTable } from '@/lib/pg-errors'
 
 export const dynamic = 'force-dynamic'
-const UNDEFINED_TABLE = '42P01'
 
 async function requireAdmin(req: NextRequest) {
   if (!supabaseAdmin) return null
@@ -44,7 +44,7 @@ export async function GET(req: NextRequest) {
 
   if (error) {
     // Tables not migrated yet — tell the UI so it can say so plainly.
-    if (error.code === UNDEFINED_TABLE) return NextResponse.json({ orgs: [], needsMigration: true })
+    if (isMissingTable(error)) return NextResponse.json({ orgs: [], needsMigration: true })
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 
@@ -77,7 +77,7 @@ export async function POST(req: NextRequest) {
 
   if (error) {
     if (error.code === '23505') return NextResponse.json({ error: `“${clean}” already exists.` }, { status: 409 })
-    if (error.code === UNDEFINED_TABLE) return NextResponse.json({ error: 'Run the organizations migration first.' }, { status: 400 })
+    if (isMissingTable(error)) return NextResponse.json({ error: 'Run the organizations migration first.' }, { status: 400 })
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 

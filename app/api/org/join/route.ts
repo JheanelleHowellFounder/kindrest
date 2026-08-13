@@ -13,9 +13,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { requireUser } from '@/lib/auth-server'
+import { isMissingTable } from '@/lib/pg-errors'
 
 export const dynamic = 'force-dynamic'
-const UNDEFINED_TABLE = '42P01'
 
 export async function GET(req: NextRequest) {
   const slug = req.nextUrl.searchParams.get('slug')?.trim().toLowerCase()
@@ -54,7 +54,7 @@ export async function POST(req: NextRequest) {
       .from('org_members')
       .upsert({ org_id: org.id, user_id: requester.id }, { onConflict: 'org_id,user_id' })
 
-    if (error && error.code !== UNDEFINED_TABLE) {
+    if (error && !isMissingTable(error)) {
       console.error('[org/join] link failed:', error.message)
       return NextResponse.json({ ok: true, linked: false })
     }

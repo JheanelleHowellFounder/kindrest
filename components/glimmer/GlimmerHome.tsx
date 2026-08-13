@@ -12,6 +12,7 @@ import { getTodaysPrompt } from '@/lib/glimmers'
 import { getTodaysQuote } from '@/lib/quotes'
 import { CareNudge } from '@/components/glimmer/CareNudge'
 import { trackEvent } from '@/lib/analytics'
+import { InviteCard } from '@/components/glimmer/InviteCard'
 
 function timeGreeting(): string {
   const h = new Date().getHours()
@@ -377,6 +378,9 @@ export function GlimmerHome() {
             </Link>
           </div>
         )}
+
+        {/* ── 5. Pass it on — only once today's already behind her ─────────── */}
+        {phase === 'done' && <InviteCard />}
 
       </div>
     </div>

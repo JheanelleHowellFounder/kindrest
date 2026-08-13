@@ -8,8 +8,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { requireUser } from '@/lib/auth-server'
+import { isMissingTable } from '@/lib/pg-errors'
 
-const UNDEFINED_TABLE = '42P01'
 
 export async function GET(req: NextRequest) {
   const requester = await requireUser(req)
@@ -30,7 +30,7 @@ export async function GET(req: NextRequest) {
     .limit(120)
 
   if (error) {
-    if (error.code === UNDEFINED_TABLE) {
+    if (isMissingTable(error)) {
       return NextResponse.json({ glimmers: [] })
     }
     console.error('[glimmer] timeline failed:', error.message)

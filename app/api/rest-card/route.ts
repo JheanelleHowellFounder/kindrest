@@ -13,8 +13,8 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { requireUser } from '@/lib/auth-server'
 import { buildCardSquares, CARD_CYCLE_DAYS, toRecordVoice, type SelfAction } from '@/lib/restcard'
 import { getRecommendations } from '@/lib/airtable'
+import { isMissingTable } from '@/lib/pg-errors'
 
-const UNDEFINED_TABLE = '42P01'
 
 function localDateKey(d = new Date()): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
@@ -37,7 +37,7 @@ export async function GET(req: NextRequest) {
     .limit(1)
     .maybeSingle()
 
-  if (findErr?.code === UNDEFINED_TABLE) return NextResponse.json({ card: null })
+  if (isMissingTable(findErr)) return NextResponse.json({ card: null })
 
   let card = existing
   if (!card) {
@@ -58,7 +58,7 @@ export async function GET(req: NextRequest) {
       .single()
 
     if (makeErr || !made) {
-      if (makeErr?.code === UNDEFINED_TABLE) return NextResponse.json({ card: null })
+      if (isMissingTable(makeErr)) return NextResponse.json({ card: null })
       console.error('[rest-card] create failed:', makeErr?.message)
       return NextResponse.json({ card: null })
     }

@@ -144,6 +144,26 @@ export function OnboardingProfileFlow() {
       }
     }
 
+    // Same for an invite from a friend — attribute her, but never at the cost
+    // of her getting in. Fire-and-forget, failures stay silent.
+    const refCode = localStorage.getItem('kindrest_ref')
+    if (refCode) {
+      const token = (await supabase.auth.getSession()).data.session?.access_token
+      if (token) {
+        fetch('/api/invite', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ code: refCode }),
+        })
+          .then(r => r.json())
+          .then(d => {
+            if (d?.attributed) trackEvent('invite_converted')
+            try { localStorage.removeItem('kindrest_ref') } catch {}
+          })
+          .catch(() => {/* non-critical */})
+      }
+    }
+
     setSaving(false)
   }
 

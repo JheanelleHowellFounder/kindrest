@@ -15,11 +15,10 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { requireUser } from '@/lib/auth-server'
 import { detectCrisisLanguage } from '@/lib/safety'
 import { getTodaysPrompt, localDateKey } from '@/lib/glimmers'
+import { isMissingTable, isMissingColumn } from '@/lib/pg-errors'
 
 // Postgres error for "relation does not exist" — table not created yet.
-const UNDEFINED_TABLE = '42P01'
 // "column does not exist" — the mood_signal ALTER hasn't been run yet.
-const UNDEFINED_COLUMN = '42703'
 
 export async function GET(req: NextRequest) {
   const prompt = getTodaysPrompt()
@@ -36,7 +35,7 @@ export async function GET(req: NextRequest) {
     .eq('entry_date', localDateKey())
     .maybeSingle()
 
-  if (error && error.code !== UNDEFINED_TABLE) {
+  if (error && !isMissingTable(error)) {
     console.error('[glimmer] today lookup failed:', error.message)
   }
 
@@ -88,7 +87,7 @@ export async function POST(req: NextRequest) {
       .upsert(record, { onConflict: 'user_id,entry_date' })
 
     // If the mood_signal column isn't there yet, save without it so nothing breaks.
-    if (error?.code === UNDEFINED_COLUMN) {
+    if (isMissingColumn(error)) {
       const { mood_signal, ...withoutSignal } = record
       void mood_signal
       ;({ error } = await supabaseAdmin
@@ -97,7 +96,7 @@ export async function POST(req: NextRequest) {
     }
 
     if (error) {
-      if (error.code === UNDEFINED_TABLE) {
+      if (isMissingTable(error)) {
         // Table not migrated yet — don't block the experience in preview.
         return NextResponse.json({ ok: true, persisted: false, crisis })
       }
