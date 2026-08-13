@@ -267,7 +267,7 @@ Do not list the recommendations. Do not use quotes.`,
       // Stamp her first check-in, once. Activation in the growth table is
       // "first check-in within 48h of signup", and this is the only record of
       // when that happened — recommendation_feedback only exists if she rates
-      // something, which roughly a quarter of users never do.
+      // something, which about a third of users never do.
       // Non-fatal, and a no-op where the growth migration hasn't been run.
       try {
         await supabaseAdmin
