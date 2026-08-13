@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { ArrowLeft, Check, Home } from 'lucide-react'
 import { useAuth } from '@/lib/auth-context'
@@ -48,22 +48,37 @@ export function RestCard() {
   const [fetching, setFetching] = useState(true)
   const [saving, setSaving] = useState<string | null>(null)
   const [celebrate, setCelebrate] = useState<string | null>(null)
+  const [bingo, setBingo] = useState<{ marked: number } | null>(null)
+  const [dealing, setDealing] = useState(false)
   const prevLines = useRef(0)
+
+  const loadCard = useCallback(async () => {
+    const res = await authedFetch('/api/rest-card')
+    const data = await res.json()
+    const sqs: Square[] = data?.card?.squares ?? []
+    setSquares(sqs)
+    const done = new Set(sqs.filter(s => s.status === 'done').map(s => s.position))
+    prevLines.current = completedLines(done).length
+  }, [])
 
   useEffect(() => {
     if (loading) return
     if (!user) { router.replace('/signin?redirect=/rest-card'); return }
-    authedFetch('/api/rest-card')
-      .then(r => r.json())
-      .then(data => {
-        const sqs: Square[] = data?.card?.squares ?? []
-        setSquares(sqs)
-        const done = new Set(sqs.filter(s => s.status === 'done').map(s => s.position))
-        prevLines.current = completedLines(done).length
-      })
-      .catch(() => {})
-      .finally(() => setFetching(false))
-  }, [user, loading, router])
+    loadCard().catch(() => {}).finally(() => setFetching(false))
+  }, [user, loading, router, loadCard])
+
+  /** She asked for the next card. Deal it in place — no reload, no lost scroll. */
+  async function dealFreshCard() {
+    setDealing(true)
+    try {
+      await loadCard()
+      setBingo(null)
+    } catch {
+      /* leave the celebration up rather than dumping her on an empty screen */
+    } finally {
+      setDealing(false)
+    }
+  }
 
   function maybeCelebrate(count: number | undefined) {
     if (typeof count !== 'number') return
@@ -90,7 +105,13 @@ export function RestCard() {
         body: JSON.stringify({ squareId: sq.id }),
       })
       const data = await res.json().catch(() => null)
-      maybeCelebrate(data?.completedLineCount)
+      if (data?.bingo) {
+        setCelebrate(null)
+        setBingo({ marked: typeof data.marked === 'number' ? data.marked : 0 })
+        prevLines.current = data.completedLineCount ?? 1
+      } else {
+        maybeCelebrate(data?.completedLineCount)
+      }
     } catch {
       setSquares(prev => prev.map(s => s.id === sq.id ? { ...s, status: sq.status } : s))
     } finally {
@@ -112,6 +133,74 @@ export function RestCard() {
           Some of these might already be true. Tap anything that’s true — leave the rest.
         </p>
       </div>
+
+      {/* ── Bingo ──────────────────────────────────────────────────────────
+          A full moment, not a toast. She completed a line, so this card is
+          finished and a new one is waiting. The praise is for showing up —
+          never for a score, and never a nudge about tomorrow. */}
+      {bingo && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-6 bg-chocolate/45 backdrop-blur-[2px]">
+          <div className="relative w-full max-w-[380px]">
+            <div
+              aria-hidden
+              className="line-bloom pointer-events-none absolute -inset-10 rounded-full"
+              style={{ background: 'radial-gradient(circle, rgba(201,152,31,.5), transparent 68%)' }}
+            />
+            <div aria-hidden className="pointer-events-none absolute inset-x-0 bottom-8 h-0 z-20">
+              {HEARTS.map((h, i) => (
+                <span
+                  key={i}
+                  className="line-heart absolute text-mustard leading-none"
+                  style={{
+                    left: h.left,
+                    fontSize: h.size * 1.5,
+                    animationDelay: `${h.delay}ms`,
+                    ['--tilt' as string]: h.tilt,
+                  }}
+                >
+                  ♡
+                </span>
+              ))}
+            </div>
+
+            <div
+              role="dialog"
+              aria-modal="true"
+              aria-label="You completed a line"
+              className="relative bg-cream rounded-[26px] px-7 py-8 text-center shadow-[0_20px_60px_-20px_rgba(48,33,26,.55)]"
+            >
+              <p className="font-display font-semibold text-[12px] tracking-[0.18em] uppercase text-mustard mb-3">
+                Bingo
+              </p>
+              <h2 className="font-serif text-[27px] leading-[1.22] text-chocolate mb-3.5">
+                You showed up for yourself.
+              </h2>
+              <p className="font-sans text-[14.5px] leading-[1.65] text-chocolate/65 mb-1.5">
+                {bingo.marked > 0
+                  ? <>That’s {bingo.marked} {bingo.marked === 1 ? 'thing' : 'things'} you gave yourself, in a season where that’s genuinely hard. A whole line of it.</>
+                  : <>A whole line — care, all the way across.</>}
+              </p>
+              <p className="font-sans text-[14.5px] leading-[1.65] text-chocolate/65 mb-7">
+                There’s a fresh card ready when you want it. No rush, and nothing lost if you don’t.
+              </p>
+
+              <button
+                onClick={dealFreshCard}
+                disabled={dealing}
+                className="w-full bg-mustard text-white font-display font-semibold text-[15px] py-4 rounded-[15px] disabled:opacity-50 transition-opacity"
+              >
+                {dealing ? 'Laying it out…' : 'Start a fresh card'}
+              </button>
+              <button
+                onClick={() => router.push('/')}
+                className="font-sans text-[13.5px] text-chocolate/45 hover:text-chocolate transition-colors mt-4"
+              >
+                That’s enough for now
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {celebrate && (
         <div className="px-5 mt-3">

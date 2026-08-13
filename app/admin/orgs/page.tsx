@@ -8,6 +8,7 @@ import { ADMIN_EMAILS } from '@/lib/admin'
 import { Check, Copy, Plus } from 'lucide-react'
 
 interface Org {
+  kind: 'employer' | 'partner'
   slug: string
   name: string
   cohort_size: number | null
@@ -29,6 +30,7 @@ export default function AdminOrgsPage() {
   const [fetching, setFetching] = useState(true)
 
   const [name, setName] = useState('')
+  const [kind, setKind] = useState<'employer' | 'partner'>('employer')
   const [size, setSize] = useState('50')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
@@ -58,10 +60,10 @@ export default function AdminOrgsPage() {
     if (!name.trim() || saving) return
     setSaving(true); setError('')
     try {
-      const res = await authed('/api/admin/orgs', { method: 'POST', body: JSON.stringify({ name, cohortSize: size }) })
+      const res = await authed('/api/admin/orgs', { method: 'POST', body: JSON.stringify({ name, cohortSize: size, kind }) })
       const d = await res.json()
       if (!res.ok) { setError(d?.error ?? 'Could not add that pilot.'); return }
-      setName(''); setSize('50'); load()
+      setName(''); setSize('50'); setKind('employer'); load()
     } finally { setSaving(false) }
   }
 
@@ -85,7 +87,7 @@ export default function AdminOrgsPage() {
 
         <h1 className="font-serif text-[28px] text-chocolate">Kindrest @ Work</h1>
         <p className="font-sans text-[14px] text-chocolate/50 mt-1 mb-8">
-          Add a pilot, then share its link with the cohort.
+          Add an employer pilot or a local partner, then share its link.
         </p>
 
         {needsMigration && (
@@ -100,24 +102,50 @@ export default function AdminOrgsPage() {
 
         {/* Add a pilot */}
         <form onSubmit={addOrg} className="bg-white rounded-2xl border border-beige/40 p-5 mb-8">
-          <p className="font-display font-semibold text-[14px] text-chocolate mb-3">Add a pilot</p>
+          <p className="font-display font-semibold text-[14px] text-chocolate mb-3">Add a pilot or partner</p>
 
-          <label className="font-sans text-[12px] text-chocolate/50 block mb-1">Organization</label>
+          {/* Employer or local business — they get different copy on the join page. */}
+          <div className="grid grid-cols-2 gap-2 mb-4">
+            {([
+              { v: 'employer', label: 'Employer pilot', hint: 'Paid, seat-based' },
+              { v: 'partner',  label: 'Local partner',  hint: 'Cafés, salons, clinics' },
+            ] as const).map(o => (
+              <button
+                key={o.v}
+                type="button"
+                onClick={() => setKind(o.v)}
+                className={`rounded-[12px] border px-3 py-2.5 text-left transition-colors ${
+                  kind === o.v ? 'border-mustard bg-mustard/10' : 'border-beige/50 bg-cream hover:border-mustard/40'
+                }`}
+              >
+                <span className={`block font-display font-semibold text-[13px] ${kind === o.v ? 'text-mustard' : 'text-chocolate'}`}>{o.label}</span>
+                <span className="block font-sans text-[11.5px] text-chocolate/45 mt-0.5">{o.hint}</span>
+              </button>
+            ))}
+          </div>
+
+          <label className="font-sans text-[12px] text-chocolate/50 block mb-1">
+            {kind === 'partner' ? 'Business name' : 'Organization'}
+          </label>
           <input
             value={name}
             onChange={e => setName(e.target.value)}
-            placeholder="PagerDuty"
+            placeholder={kind === 'partner' ? 'Marietta Breakfast Co.' : 'PagerDuty'}
             className="w-full bg-cream border border-beige/50 rounded-[12px] px-4 py-3 text-base text-chocolate placeholder:text-chocolate/30 outline-none focus:border-mustard font-sans mb-3"
           />
 
-          <label className="font-sans text-[12px] text-chocolate/50 block mb-1">Cohort size</label>
-          <input
-            value={size}
-            onChange={e => setSize(e.target.value.replace(/[^0-9]/g, ''))}
-            inputMode="numeric"
-            placeholder="50"
-            className="w-full bg-cream border border-beige/50 rounded-[12px] px-4 py-3 text-base text-chocolate placeholder:text-chocolate/30 outline-none focus:border-mustard font-sans mb-4"
-          />
+          {kind === 'employer' && (
+            <>
+              <label className="font-sans text-[12px] text-chocolate/50 block mb-1">Cohort size</label>
+              <input
+                value={size}
+                onChange={e => setSize(e.target.value.replace(/[^0-9]/g, ''))}
+                inputMode="numeric"
+                placeholder="50"
+                className="w-full bg-cream border border-beige/50 rounded-[12px] px-4 py-3 text-base text-chocolate placeholder:text-chocolate/30 outline-none focus:border-mustard font-sans mb-4"
+              />
+            </>
+          )}
 
           {error && <p className="font-sans text-[13px] text-chocolate/70 mb-3">{error}</p>}
 
@@ -127,7 +155,7 @@ export default function AdminOrgsPage() {
             className="w-full flex items-center justify-center gap-2 bg-mustard text-white font-display font-semibold text-[14px] py-3.5 rounded-[12px] disabled:opacity-40"
           >
             <Plus className="w-4 h-4" />
-            {saving ? 'Adding…' : 'Add pilot'}
+            {saving ? 'Adding…' : kind === 'partner' ? 'Add partner' : 'Add pilot'}
           </button>
         </form>
 
@@ -141,7 +169,12 @@ export default function AdminOrgsPage() {
             {orgs.map(o => (
               <div key={o.slug} className={`bg-white rounded-2xl border border-beige/40 p-5 ${o.status !== 'active' ? 'opacity-55' : ''}`}>
                 <div className="flex items-baseline justify-between gap-3">
-                  <p className="font-display font-semibold text-[15px] text-chocolate">{o.name}</p>
+                  <div>
+                    <p className="font-display font-semibold text-[15px] text-chocolate">{o.name}</p>
+                    <p className="font-sans text-[11.5px] text-chocolate/40 mt-0.5">
+                      {o.kind === 'partner' ? 'Local partner' : 'Employer pilot'}
+                    </p>
+                  </div>
                   <p className="font-sans text-[12.5px] text-chocolate/45 tabular-nums">
                     {o.cohort_size ? `${o.joined} of ${o.cohort_size} joined` : `${o.joined} joined`}
                   </p>
@@ -167,7 +200,7 @@ export default function AdminOrgsPage() {
                   onClick={() => setStatus(o.slug, o.status === 'active' ? 'ended' : 'active')}
                   className="font-sans text-[12.5px] text-chocolate/40 hover:text-chocolate/70 transition-colors mt-3"
                 >
-                  {o.status === 'active' ? 'End this pilot' : 'Reactivate'}
+                  {o.status === 'active' ? (o.kind === 'partner' ? 'End this partnership' : 'End this pilot') : 'Reactivate'}
                 </button>
               </div>
             ))}

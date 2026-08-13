@@ -13,7 +13,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { requireUser } from '@/lib/auth-server'
-import { isMissingTable } from '@/lib/pg-errors'
+import { isMissingTable, isMissingColumn } from '@/lib/pg-errors'
 
 export const dynamic = 'force-dynamic'
 
@@ -21,15 +21,30 @@ export async function GET(req: NextRequest) {
   const slug = req.nextUrl.searchParams.get('slug')?.trim().toLowerCase()
   if (!slug || !supabaseAdmin) return NextResponse.json({ org: null })
 
-  const { data, error } = await supabaseAdmin
+  let { data, error } = await supabaseAdmin
     .from('organizations')
-    .select('slug, name')
+    .select('slug, name, kind')
     .eq('slug', slug)
     .eq('status', 'active')
     .maybeSingle()
 
+  // `kind` arrived with the local-partner migration. Where it hasn't been run,
+  // fall back and treat everyone as an employer — the original behaviour.
+  if (isMissingColumn(error)) {
+    ;({ data, error } = await supabaseAdmin
+      .from('organizations')
+      .select('slug, name')
+      .eq('slug', slug)
+      .eq('status', 'active')
+      .maybeSingle())
+  }
+
   if (error || !data) return NextResponse.json({ org: null })
-  return NextResponse.json({ org: data })
+
+  const row = data as { slug: string; name: string; kind?: string }
+  return NextResponse.json({
+    org: { slug: row.slug, name: row.name, kind: row.kind ?? 'employer' },
+  })
 }
 
 export async function POST(req: NextRequest) {

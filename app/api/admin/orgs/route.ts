@@ -11,7 +11,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { ADMIN_EMAILS } from '@/lib/admin'
-import { isMissingTable } from '@/lib/pg-errors'
+import { isMissingTable, isMissingColumn } from '@/lib/pg-errors'
 
 export const dynamic = 'force-dynamic'
 
@@ -37,10 +37,25 @@ function toSlug(name: string): string {
 export async function GET(req: NextRequest) {
   if (!await requireAdmin(req)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const { data: orgs, error } = await supabaseAdmin!
+  type OrgRow = {
+    id: string; slug: string; name: string
+    cohort_size: number | null; status: string; started_on: string | null
+    kind?: string
+  }
+
+  let { data: orgs, error } = await supabaseAdmin!
     .from('organizations')
-    .select('id, slug, name, cohort_size, status, started_on')
+    .select('id, slug, name, cohort_size, status, started_on, kind')
     .order('created_at', { ascending: false })
+    .overrideTypes<OrgRow[]>()
+
+  if (isMissingColumn(error)) {
+    ;({ data: orgs, error } = await supabaseAdmin!
+      .from('organizations')
+      .select('id, slug, name, cohort_size, status, started_on')
+      .order('created_at', { ascending: false })
+      .overrideTypes<OrgRow[]>())
+  }
 
   if (error) {
     // Tables not migrated yet — tell the UI so it can say so plainly.
@@ -53,7 +68,11 @@ export async function GET(req: NextRequest) {
   for (const m of members ?? []) counts.set(m.org_id, (counts.get(m.org_id) ?? 0) + 1)
 
   return NextResponse.json({
-    orgs: (orgs ?? []).map(o => ({ ...o, joined: counts.get(o.id) ?? 0 })),
+    orgs: (orgs ?? []).map(o => ({
+      ...o,
+      kind: o.kind ?? 'employer',
+      joined: counts.get(o.id) ?? 0,
+    })),
     needsMigration: false,
   })
 }
@@ -61,7 +80,9 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   if (!await requireAdmin(req)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const { name, cohortSize } = await req.json() as { name?: string; cohortSize?: number | string }
+  const { name, cohortSize, kind } = await req.json() as
+    { name?: string; cohortSize?: number | string; kind?: string }
+  const orgKind = kind === 'partner' ? 'partner' : 'employer'
   const clean = (name ?? '').trim()
   if (!clean) return NextResponse.json({ error: 'Name is required' }, { status: 400 })
 
@@ -69,11 +90,26 @@ export async function POST(req: NextRequest) {
   if (!slug) return NextResponse.json({ error: 'That name can’t be turned into a link' }, { status: 400 })
 
   const size = Number(cohortSize)
-  const { data, error } = await supabaseAdmin!
+  // A local partner has no seat count — only an employer pilot does.
+  const row = {
+    slug,
+    name: clean,
+    cohort_size: orgKind === 'partner' || !(Number.isFinite(size) && size > 0) ? null : size,
+  }
+
+  let { data, error } = await supabaseAdmin!
     .from('organizations')
-    .insert({ slug, name: clean, cohort_size: Number.isFinite(size) && size > 0 ? size : null })
+    .insert({ ...row, kind: orgKind })
     .select('slug, name, cohort_size')
     .single()
+
+  if (isMissingColumn(error)) {
+    ;({ data, error } = await supabaseAdmin!
+      .from('organizations')
+      .insert(row)
+      .select('slug, name, cohort_size')
+      .single())
+  }
 
   if (error) {
     if (error.code === '23505') return NextResponse.json({ error: `“${clean}” already exists.` }, { status: 409 })

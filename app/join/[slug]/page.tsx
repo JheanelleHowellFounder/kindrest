@@ -20,6 +20,7 @@ export default function JoinPage() {
   const slug = String(params?.slug ?? '')
 
   const [orgName, setOrgName] = useState<string | null>(null)
+  const [kind, setKind] = useState<'employer' | 'partner'>('employer')
   const [checked, setChecked] = useState(false)
 
   useEffect(() => {
@@ -30,7 +31,10 @@ export default function JoinPage() {
 
     fetch(`/api/org/join?slug=${encodeURIComponent(slug)}`)
       .then(r => r.json())
-      .then(d => setOrgName(d?.org?.name ?? null))
+      .then(d => {
+        setOrgName(d?.org?.name ?? null)
+        setKind(d?.org?.kind === 'partner' ? 'partner' : 'employer')
+      })
       .catch(() => {})
       .finally(() => setChecked(true))
   }, [slug])
@@ -53,14 +57,19 @@ export default function JoinPage() {
         </div>
 
         <h1 className="font-serif text-[34px] leading-[1.15] text-chocolate mb-5">
-          {orgName
-            ? <>Your team set this aside for you.</>
-            : <>Something set aside for you.</>}
+          {!orgName
+            ? <>Something set aside for you.</>
+            : kind === 'partner'
+              ? <>{orgName} thought of you.</>
+              : <>Your team set this aside for you.</>}
         </h1>
 
         <p className="font-sans text-[15.5px] text-chocolate/60 leading-[1.7] mb-4">
-          Kindrest is a daily companion for mothers — for the years after the leave
-          policy stops applying, when the weight is heaviest and the least visible.
+          {kind === 'partner'
+            ? <>Kindrest is a daily companion for mothers. One small question a day,
+                then something you can actually do with the time you have.</>
+            : <>Kindrest is a daily companion for mothers — for the years after the leave
+                policy stops applying, when the weight is heaviest and the least visible.</>}
         </p>
 
         <p className="font-sans text-[15.5px] text-chocolate/60 leading-[1.7] mb-10">
@@ -76,7 +85,11 @@ export default function JoinPage() {
         </button>
 
         <p className="font-sans text-[13px] text-chocolate/45 text-center mt-5 leading-relaxed">
-          {orgName ? `${orgName} never sees your check-ins, your journal, or anything you write.` : 'What you write stays yours.'}
+          {!orgName
+            ? 'What you write stays yours.'
+            : kind === 'partner'
+              ? 'What you write stays yours. Nobody else sees it.'
+              : `${orgName} never sees your check-ins, your journal, or anything you write.`}
         </p>
 
         <p className="font-sans text-[13px] text-chocolate/40 text-center mt-8">
