@@ -10,6 +10,7 @@ import { supabase } from '@/lib/supabase'
 import { authedFetch } from '@/lib/api-client'
 import { detectCrisisLanguage } from '@/lib/safety'
 import { CrisisCard } from '@/components/shared/CrisisCard'
+import { trackEvent } from '@/lib/analytics'
 
 type Step = 'mood' | 'mental' | 'physical' | 'emotional' | 'time' | 'carekit' | 'journal'
 type FeedbackRating = 1 | 2 | 3  // 1=skip  2=save  3=did_it
@@ -149,6 +150,8 @@ export function CheckInFlow() {
       const data = await res.json()
       if (data.recommendations) {
         setCareKit(data.recommendations)
+        // She completed a check-in and got her kit. No mood, no indicators — just that.
+        trackEvent('checkin_completed')
         // Accumulate all IDs ever shown so future retries avoid them too
         setShownIds(prev => {
           const next = [...prev]

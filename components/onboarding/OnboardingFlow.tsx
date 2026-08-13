@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { ChevronLeft, Mail } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
+import { trackEvent } from '@/lib/analytics'
 
 type OnboardingStep = 1 | '1b' | 2 | 3 | 4
 type MoodOption = 'overwhelmed' | 'struggling' | 'okay' | 'good' | 'thriving'
@@ -35,6 +36,7 @@ export function OnboardingFlow() {
 
   // Persist name + email across email verification break
   useEffect(() => {
+    trackEvent('signup_started')
     const savedName = localStorage.getItem('kindrest_onboarding_name')
     const savedEmail = localStorage.getItem('kindrest_onboarding_email')
     if (savedName) setName(savedName)
@@ -85,7 +87,12 @@ export function OnboardingFlow() {
           data: { name: name.trim() },
         },
       })
-      if (error) { setAuthError(error.message); return }
+      if (error) {
+        trackEvent('onboarding_failed', { step: 'auth' })
+        setAuthError(error.message)
+        return
+      }
+      trackEvent('account_created')
 
       // If email confirmation is disabled in Supabase, a session is returned
       // immediately — add to MailerLite active_users and redirect

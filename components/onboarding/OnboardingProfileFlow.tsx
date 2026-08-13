@@ -6,6 +6,7 @@ import { ChevronLeft, Plus, X } from 'lucide-react'
 import { useAuth } from '@/lib/auth-context'
 import { supabase } from '@/lib/supabase'
 import type { MotherhoodStage } from '@/lib/types'
+import { trackEvent } from '@/lib/analytics'
 
 type ProfileStep = 1 | 2 | 3 | 4 | 'done'
 
@@ -99,11 +100,15 @@ export function OnboardingProfileFlow() {
     }
 
     if (profileError) {
+      // The alarm. Last time this broke, we found out days later by accident.
+      trackEvent('onboarding_failed', { step: 'profile', code: profileError.code ?? 'unknown' })
       console.error('user_profiles upsert error:', profileError)
       setSaveError(profileError.message)
       setSaving(false)
       return
     }
+
+    trackEvent('onboarding_completed')
 
     const { error: prefError } = await supabase.from('user_preference_profile').upsert(
       {

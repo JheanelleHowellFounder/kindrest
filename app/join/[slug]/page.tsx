@@ -3,6 +3,8 @@
 import { useEffect, useState } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 
+import { trackEvent } from '@/lib/analytics'
+
 const ORG_KEY = 'kindrest_org'
 
 /**
@@ -24,6 +26,7 @@ export default function JoinPage() {
     if (!slug) return
     // Remember which cohort she came from, even if she signs up later.
     try { localStorage.setItem(ORG_KEY, slug) } catch {}
+    trackEvent('pilot_link_opened', { slug })
 
     fetch(`/api/org/join?slug=${encodeURIComponent(slug)}`)
       .then(r => r.json())

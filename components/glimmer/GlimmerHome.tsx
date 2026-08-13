@@ -11,6 +11,7 @@ import { CrisisCard } from '@/components/shared/CrisisCard'
 import { getTodaysPrompt } from '@/lib/glimmers'
 import { getTodaysQuote } from '@/lib/quotes'
 import { CareNudge } from '@/components/glimmer/CareNudge'
+import { trackEvent } from '@/lib/analytics'
 
 function timeGreeting(): string {
   const h = new Date().getHours()
@@ -139,6 +140,9 @@ export function GlimmerHome() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ body: bodyValue, signal }),
       })
+      // Weekly-active numerator. Deliberately carries no signal and no text —
+      // that she showed up is the metric; what she felt is not ours to send.
+      trackEvent('glimmer_saved')
     } catch {
       /* best-effort; the moment still counts for her */
     }
