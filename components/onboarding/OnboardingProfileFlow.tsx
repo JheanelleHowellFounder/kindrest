@@ -7,8 +7,11 @@ import { useAuth } from '@/lib/auth-context'
 import { supabase } from '@/lib/supabase'
 import type { MotherhoodStage } from '@/lib/types'
 import { trackEvent } from '@/lib/analytics'
+import { readAttribution, ATTRIBUTION_KEY } from '@/lib/attribution'
+import { track as trackGrowth } from '@/lib/posthog'
+import { HEARD_OPTIONS } from '@/lib/heard-about'
 
-type ProfileStep = 1 | 2 | 3 | 4 | 'done'
+type ProfileStep = 1 | 2 | 3 | 4 | 5 | 'done'
 
 const MOTHERHOOD_STAGES: { value: MotherhoodStage; label: string; emoji: string }[] = [
   { value: 'expecting',   label: 'Expecting',          emoji: '✨' },
@@ -45,6 +48,8 @@ export function OnboardingProfileFlow() {
   const router = useRouter()
 
   const [step, setStep] = useState<ProfileStep>(1)
+  const [heardAbout, setHeardAbout] = useState<string | null>(null)
+  const [heardOther, setHeardOther] = useState('')
 
   // Step data
   const [selectedStage, setSelectedStage] = useState<MotherhoodStage | null>(null)
@@ -109,6 +114,31 @@ export function OnboardingProfileFlow() {
     }
 
     trackEvent('onboarding_completed')
+    trackGrowth('signup_completed')
+
+    // Attribution is written separately, on purpose. Folding these columns into
+    // the upsert above would put signup back at the mercy of a missing column —
+    // which is exactly the bug that broke onboarding in production. If this
+    // fails, she is already a user and only the attribution is lost.
+    const attribution = readAttribution()
+    const heard = heardAbout === 'Other' ? (heardOther.trim() || null) : heardAbout
+    if (attribution || heard) {
+      const { error: attrError } = await supabase
+        .from('user_profiles')
+        .update({
+          utm_source:    attribution?.utm_source   ?? null,
+          utm_medium:    attribution?.utm_medium   ?? null,
+          utm_campaign:  attribution?.utm_campaign ?? null,
+          referrer:      attribution?.referrer     ?? null,
+          device_type:   attribution?.device_type  ?? null,
+          first_seen_at: attribution?.first_seen_at ?? null,
+          heard_about_us: heard,
+        })
+        .eq('user_id', user.id)
+
+      if (attrError) console.error('attribution write failed (non-fatal):', attrError.message)
+      else { try { localStorage.removeItem(ATTRIBUTION_KEY) } catch {} }
+    }
 
     const { error: prefError } = await supabase.from('user_preference_profile').upsert(
       {
@@ -186,8 +216,8 @@ export function OnboardingProfileFlow() {
     setSupportPeople(prev => prev.map((p, i) => i === idx ? { ...p, [field]: value } : p))
   }
 
-  const totalSteps = 4
-  const stepNum = step === 'done' ? 4 : (step as number)
+  const totalSteps = 5
+  const stepNum = step === 'done' ? 5 : (step as number)
 
   // ── Progress Bar ──────────────────────────────────────────────────────────
   function ProgressBar({ current, back }: { current: number; back: () => void }) {
@@ -203,6 +233,72 @@ export function OnboardingProfileFlow() {
           />
         </div>
         <span className="text-xs font-display text-chocolate/40">{current}/{totalSteps}</span>
+      </div>
+    )
+  }
+
+  // ── Step 5 — How she found us ─────────────────────────────────────────────
+  // Optional and one tap. It is the only attribution that survives word of
+  // mouth, which is the channel most likely to actually be working.
+  if (step === 5) {
+    return (
+      <div className="min-h-screen bg-cream flex flex-col">
+        <ProgressBar current={5} back={() => setStep(4)} />
+
+        <div className="px-5 mt-8">
+          <h1 className="font-serif text-[26px] text-chocolate leading-tight">
+            How did you hear about Kindrest?
+          </h1>
+          <p className="font-sans text-[13px] text-chocolate/50 mt-2">
+            Last one, and it really helps me know where to show up.
+          </p>
+        </div>
+
+        <div className="px-5 mt-6 flex-1 space-y-2">
+          {HEARD_OPTIONS.map(option => {
+            const selected = heardAbout === option
+            return (
+              <button
+                key={option}
+                onClick={() => setHeardAbout(selected ? null : option)}
+                aria-pressed={selected}
+                className={`w-full text-left rounded-2xl px-4 py-3.5 border font-sans text-[14.5px] transition-colors ${
+                  selected
+                    ? 'border-mustard bg-mustard/10 text-chocolate'
+                    : 'border-beige/40 bg-white text-chocolate/75 hover:border-mustard/40'
+                }`}
+              >
+                {option}
+              </button>
+            )
+          })}
+
+          {heardAbout === 'Other' && (
+            <input
+              type="text"
+              value={heardOther}
+              onChange={e => setHeardOther(e.target.value)}
+              placeholder="Where did you find us?"
+              maxLength={120}
+              autoFocus
+              className="w-full bg-white rounded-2xl px-4 py-3.5 font-sans text-[14.5px] text-chocolate placeholder:text-chocolate/30 outline-none border border-beige/40 focus:border-mustard transition-colors"
+            />
+          )}
+        </div>
+
+        <div className="px-5 py-6 space-y-3">
+          <button onClick={() => setStep('done')} className="btn-primary">
+            Continue
+          </button>
+          <div className="text-center">
+            <button
+              onClick={() => { setHeardAbout(null); setStep('done') }}
+              className="text-sm text-chocolate/40 font-sans underline"
+            >
+              Skip for now
+            </button>
+          </div>
+        </div>
       </div>
     )
   }
@@ -423,14 +519,14 @@ export function OnboardingProfileFlow() {
 
         <div className="px-5 py-6 space-y-3">
           <button
-            onClick={() => setStep('done')}
+            onClick={() => setStep(5)}
             className="btn-primary"
           >
             Continue
           </button>
           <div className="text-center">
             <button
-              onClick={() => setStep('done')}
+              onClick={() => setStep(5)}
               className="text-sm text-chocolate/40 font-sans underline"
             >
               Skip for now

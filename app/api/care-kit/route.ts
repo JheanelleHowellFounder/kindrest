@@ -263,6 +263,19 @@ Do not list the recommendations. Do not use quotes.`,
           .from('user_preference_profile')
           .insert({ user_id: userId, total_checkins: 1, updated_at: new Date().toISOString() })
       }
+
+      // Stamp her first check-in, once. Activation in the growth table is
+      // "first check-in within 48h of signup", and this is the only record of
+      // when that happened — recommendation_feedback only exists if she rates
+      // something, which roughly a quarter of users never do.
+      // Non-fatal, and a no-op where the growth migration hasn't been run.
+      try {
+        await supabaseAdmin
+          .from('user_profiles')
+          .update({ first_checkin_at: new Date().toISOString() })
+          .eq('user_id', userId)
+          .is('first_checkin_at', null)
+      } catch { /* never let instrumentation break a care kit */ }
     }
 
     // ── Step 6: Store selected indicators for pattern tracking ──────────────

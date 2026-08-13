@@ -3,6 +3,7 @@ import './globals.css'
 import { AuthProvider } from '@/lib/auth-context'
 import { AppShell } from '@/components/layout/AppShell'
 import { Analytics } from '@vercel/analytics/next'
+import { GrowthTracking } from '@/components/shared/GrowthTracking'
 
 export const metadata: Metadata = {
   title: 'Kindrest',
@@ -32,6 +33,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <AppShell>{children}</AppShell>
         </AuthProvider>
         <Analytics />
+        <GrowthTracking />
       </body>
     </html>
   )

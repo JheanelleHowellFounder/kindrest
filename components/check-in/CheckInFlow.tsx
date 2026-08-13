@@ -11,6 +11,7 @@ import { authedFetch } from '@/lib/api-client'
 import { detectCrisisLanguage } from '@/lib/safety'
 import { CrisisCard } from '@/components/shared/CrisisCard'
 import { trackEvent } from '@/lib/analytics'
+import { track as trackGrowth } from '@/lib/posthog'
 
 type Step = 'mood' | 'mental' | 'physical' | 'emotional' | 'time' | 'carekit' | 'journal'
 type FeedbackRating = 1 | 2 | 3  // 1=skip  2=save  3=did_it
@@ -152,6 +153,15 @@ export function CheckInFlow() {
         setCareKit(data.recommendations)
         // She completed a check-in and got her kit. No mood, no indicators — just that.
         trackEvent('checkin_completed')
+
+        // Activation. Only the first one — the flag is local, so at worst a new
+        // device reports it twice; PostHog dedupes on the person either way.
+        try {
+          if (!localStorage.getItem('kindrest_first_checkin')) {
+            localStorage.setItem('kindrest_first_checkin', '1')
+            trackGrowth('first_checkin_completed')
+          }
+        } catch { /* storage unavailable — not worth failing for */ }
         // Accumulate all IDs ever shown so future retries avoid them too
         setShownIds(prev => {
           const next = [...prev]

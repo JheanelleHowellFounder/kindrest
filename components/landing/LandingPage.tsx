@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { Home, HeartPulse, Clock, User } from 'lucide-react'
+import { track as trackGrowth } from '@/lib/posthog'
 
 // ── Waitlist Form ─────────────────────────────────────────────────────────────
 const SELF_CARE_OPTIONS = [
@@ -312,6 +313,9 @@ function PhoneMockup() {
 
 // ── Main Landing Page ─────────────────────────────────────────────────────────
 export function LandingPage() {
+  // Top of the funnel. Fires once per page load.
+  useEffect(() => { trackGrowth('landing_view') }, [])
+
   const [openCard, setOpenCard] = useState<number | null>(null)
   const [navDark, setNavDark] = useState(true)
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -376,7 +380,11 @@ export function LandingPage() {
             >
               Sign in
             </a>
-            <Link href="/onboarding" className="px-5 py-2.5 bg-mustard text-white font-display font-semibold text-sm rounded-[15px] hover:opacity-90 transition-opacity">
+            <Link
+              href="/onboarding"
+              onClick={() => trackGrowth('cta_click', { location: 'nav' })}
+              className="px-5 py-2.5 bg-mustard text-white font-display font-semibold text-sm rounded-[15px] hover:opacity-90 transition-opacity"
+            >
               Start free
             </Link>
           </div>
@@ -418,6 +426,7 @@ export function LandingPage() {
             <div className="flex flex-col sm:flex-row items-start gap-4">
               <Link
                 href="/onboarding"
+                onClick={() => trackGrowth('cta_click', { location: 'hero' })}
                 className="px-8 py-4 bg-mustard text-white font-display font-semibold text-sm rounded-[15px] hover:opacity-90 transition-opacity"
               >
                 Start with one question
@@ -571,6 +580,7 @@ export function LandingPage() {
               <div className="pt-4">
                 <Link
                   href="/onboarding"
+                  onClick={() => trackGrowth('cta_click', { location: 'how-it-works' })}
                   className="inline-block px-8 py-4 bg-mustard text-white font-display font-semibold text-sm rounded-[15px] hover:opacity-90 transition-opacity"
                 >
                   Sign up to meet yourself again
@@ -670,6 +680,7 @@ export function LandingPage() {
           <div className="flex justify-center mb-14">
             <Link
               href="/onboarding"
+              onClick={() => trackGrowth('cta_click', { location: 'footer' })}
               className="px-8 py-4 bg-mustard text-white font-display font-semibold text-sm rounded-[15px] hover:opacity-90 transition-opacity"
             >
               Start with one question
