@@ -124,14 +124,14 @@ export function OrganizationsPage() {
           <div className="max-w-2xl mb-16">
             <p className="font-display text-xs text-mustard tracking-[0.2em] uppercase mb-5">How it works</p>
             <h2 className="font-serif text-[32px] sm:text-[40px] text-chocolate leading-tight">
-              A companion that fits inside her actual day.
+              Fifteen seconds a day, not another thing to keep up with.
             </h2>
           </div>
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {[
-              { n: '01', t: 'She checks in', d: 'Mood, mind, body, emotions. About two minutes, built for a hard day, not a long one.' },
-              { n: '02', t: 'She gets a care kit', d: 'A few micro-practices matched to her state, her time, and her energy right now, not a generic library.' },
-              { n: '03', t: 'Kindrest learns', d: 'Every skip, save, and done refines what she sees next. It gets more personal, not more generic, over time.' },
+              { n: '01', t: 'She’s asked one question', d: 'The same small question every mother gets that day, in about fifteen seconds. On the days she has nothing, it asks for less than that.' },
+              { n: '02', t: 'She takes what she needs', d: 'A check-in that returns a few micro-practices matched to her state and the time she actually has — or a Rest Card, if that’s more her speed today.' },
+              { n: '03', t: 'Kindrest learns her', d: 'Every skip, save, and done refines what she sees next. It gets more personal, not more generic, over time.' },
             ].map(({ n, t, d }) => (
               <div key={n} className="bg-white rounded-3xl p-10">
                 <span className="font-serif text-[52px] text-mustard/20 leading-none block mb-6">{n}</span>
@@ -182,12 +182,18 @@ export function OrganizationsPage() {
               and the least visible. Kindrest is that support: a personalized daily
               companion, built for her, hers to use however she needs.
             </p>
+            <p className="font-sans text-base text-cream/60 leading-relaxed mb-6">
+              Most workplace mental health benefits go unused. Kindrest is built the other
+              way around: one question a day, arriving by email each morning, with nothing
+              to book and nobody to be matched with. The bar to use it is fifteen seconds,
+              which is the only reason a tired mother uses anything at all.
+            </p>
             <p className="font-sans text-base text-cream/60 leading-relaxed mb-10">
-              You&apos;ll know it&apos;s working. You&apos;ll see aggregate, de-identified
-              engagement, so you know your investment is reaching people and landing. What
-              she writes stays hers. You never see her check-ins, her entries, or anything
-              she&apos;d want kept private. You see that she&apos;s being supported, not
-              what she&apos;s carrying.
+              You&apos;ll know whether it&apos;s working. Every week you see how many of
+              your cohort enrolled and how many are actually using it. What she writes
+              stays hers — you never see her check-ins, her entries, or anything she&apos;d
+              want kept private. You see that she&apos;s being supported, not what
+              she&apos;s carrying.
             </p>
 
             <p className="font-display font-semibold text-cream text-sm uppercase tracking-[0.15em] mb-5">
