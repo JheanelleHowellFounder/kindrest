@@ -8,6 +8,10 @@
  * is the same question for everyone by design. That keeps it free, and it means
  * MailerLite owns unsubscribes — both the decent thing and the legal one.
  *
+ * The email body deliberately ends at the button. MailerLite appends its own
+ * footer (address, socials, unsubscribe), so anything we add there is a second
+ * copy of the same thing.
+ *
  * The audience is rebuilt from Kindrest accounts before every send (see
  * lib/reminder-audience.ts), so new users are picked up automatically and nobody
  * without an account is ever emailed.
@@ -50,6 +54,8 @@ function mlFetch(path: string, options: RequestInit = {}) {
 /**
  * The email. One question, one link, nothing else.
  *
+ * Ends at the button — MailerLite appends the address and unsubscribe footer.
+ *
  * No streak, no "you haven't been back in 4 days", no count of what she missed.
  * She's being invited, not chased — a guilt-shaped reminder is the fastest way
  * to make someone stop opening your email, and it would contradict the product.
@@ -76,10 +82,6 @@ function buildHtml(question: string): string {
             </a>
           </td></tr>
         </table>
-        <p style="margin:22px 0 0;font-family:Helvetica,Arial,sans-serif;font-size:12px;line-height:1.6;color:#9a877d;max-width:480px;">
-          You're getting this because you have a Kindrest account.<br />
-          <a href="{$unsubscribe}" style="color:#9a877d;">Stop these daily notes</a>
-        </p>
       </td></tr>
     </table>
   </body>
