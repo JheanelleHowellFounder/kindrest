@@ -54,12 +54,13 @@ export async function GET(req: NextRequest) {
   }
 
   // ── Profiles + feedback in parallel ───────────────────────────────────────
-  // signup_source only exists where the Founding Moms migration has been run.
-  // Ask for it, and fall back cleanly where the column isn't there — otherwise the
-  // whole report silently returns zero users.
+  // signup_source and first_checkin_at each depend on a migration having been
+  // run. Ask for both, and fall back cleanly where either is missing — otherwise
+  // the whole report silently returns zero users. Activation then falls back to
+  // the earliest rating, which is less accurate but never blank.
   const profilesWithSource = await supabaseAdmin
     .from('user_profiles')
-    .select('user_id, name, motherhood_stage, onboarding_completed, created_at, signup_source')
+    .select('user_id, name, motherhood_stage, onboarding_completed, created_at, signup_source, first_checkin_at')
     .order('created_at', { ascending: false })
 
   const profilesFallback = profilesWithSource.error
@@ -309,6 +310,81 @@ export async function GET(req: NextRequest) {
     }
   }
 
+  // ── Signup cohorts by week ────────────────────────────────────────────────
+  // Moved here when /admin/growth was folded into this page. Answers the two
+  // questions the funnel above can't: did the people who joined that week
+  // actually start, and did they come back the week after.
+  //
+  // Activated  = first check-in within 48h of signing up.
+  // Returned   = any check-in, glimmer or journal entry the following week.
+  const weekStartOf = (d: Date) => {
+    const x = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()))
+    x.setUTCDate(x.getUTCDate() - ((x.getUTCDay() + 6) % 7))   // Sunday(0) → 6, Monday(1) → 0
+    return x.toISOString().slice(0, 10)
+  }
+  const plusDays = (iso: string, n: number) => {
+    const d = new Date(iso + 'T00:00:00Z')
+    d.setUTCDate(d.getUTCDate() + n)
+    return d.getTime()
+  }
+
+  const firstRatingAt = new Map<string, number>()
+  const activityAt    = new Map<string, number[]>()
+  const noteActivity  = (uid: string, ms: number) => {
+    const list = activityAt.get(uid)
+    if (list) list.push(ms); else activityAt.set(uid, [ms])
+  }
+
+  for (const f of feedback) {
+    if (!f.created_at) continue
+    const ms = new Date(f.created_at).getTime()
+    noteActivity(f.user_id, ms)
+    const prev = firstRatingAt.get(f.user_id)
+    if (prev === undefined || ms < prev) firstRatingAt.set(f.user_id, ms)
+  }
+
+  if (supabaseAdmin) {
+    const { data: gl } = await supabaseAdmin.from('glimmers').select('user_id, entry_date')
+    const { data: jr } = await supabaseAdmin.from('journal_entries').select('user_id, entry_date')
+    for (const g of gl ?? []) if (g.entry_date) noteActivity(g.user_id, new Date(g.entry_date + 'T12:00:00Z').getTime())
+    for (const j of jr ?? []) if (j.entry_date) noteActivity(j.user_id, new Date(j.entry_date + 'T12:00:00Z').getTime())
+  }
+
+  // first_checkin_at is the accurate signal; the earliest rating covers anyone
+  // who checked in before that column existed.
+  const firstCheckinAt = new Map<string, number>()
+  for (const p of allProfiles as { user_id: string; first_checkin_at?: string | null }[]) {
+    if (p.first_checkin_at) firstCheckinAt.set(p.user_id, new Date(p.first_checkin_at).getTime())
+  }
+
+  const weekMap = new Map<string, { signups: number; activated: number; returned: number }>()
+  for (const u of authUsers) {
+    const joined = new Date(u.created_at)
+    const wk = weekStartOf(joined)
+    const row = weekMap.get(wk) ?? { signups: 0, activated: 0, returned: 0 }
+    row.signups++
+
+    const stamped = firstCheckinAt.get(u.id)
+    const rated   = firstRatingAt.get(u.id)
+    const first   = stamped !== undefined && rated !== undefined ? Math.min(stamped, rated) : (stamped ?? rated)
+    if (first !== undefined && first - joined.getTime() <= 2 * 86_400_000) row.activated++
+
+    const from = plusDays(wk, 7), to = plusDays(wk, 14)
+    if ((activityAt.get(u.id) ?? []).some(t => t >= from && t < to)) row.returned++
+
+    weekMap.set(wk, row)
+  }
+
+  const weeklyCohorts = Array.from(weekMap.entries())
+    .sort((a, b) => b[0].localeCompare(a[0]))
+    .map(([week, r]) => ({
+      week,
+      signups: r.signups,
+      activated: r.activated,
+      activationRate: r.signups ? `${Math.round((r.activated / r.signups) * 100)}%` : '—',
+      returned: r.returned,
+    }))
+
   // ── Landing page: views, and what fraction of them became signups ─────────
   // The only place we can see the people who looked and left. Directional only:
   // the counter is public, so treat it as a trend rather than an audited number.
@@ -386,6 +462,7 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({
     generatedAt: now.toISOString(),
     landing,
+    weeklyCohorts,
     bingo,
     orgs,
     users: {

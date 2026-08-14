@@ -70,7 +70,6 @@ const VICTIM = '00000000-0000-0000-0000-000000000001'
 const GATED = [
   ['/api/admin/report', 'GET'],
   ['/api/admin/orgs', 'GET'],
-  ['/api/admin/growth', 'GET'],
   ['/api/glimmer', 'POST', { body: 'audit' }],
   ['/api/glimmer/timeline', 'GET'],
   ['/api/rest-card/complete', 'POST', { position: 0 }],

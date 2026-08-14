@@ -63,6 +63,7 @@ interface ReportData {
   checkins: { total: number; thisWeek: number; activeUsersThisWeek: number }
   bingo: { last7: number; last14: number; last30: number; total: number }
   orgs: { name: string; slug: string; cohortSize: number | null; joined: number; everCheckedIn: number; activeThisWeek: number }[]
+  weeklyCohorts: { week: string; signups: number; activated: number; activationRate: string; returned: number }[]
   landing: {
     views7: number
     views30: number
@@ -283,7 +284,7 @@ export default function AdminReport() {
     )
   }
 
-  const { users, funnel, checkins, bingo, orgs, landing, stageBreakdown, topRecs, atRiskUsers, cohorts, allUsers, dropOffUsers, generatedAt } = report
+  const { users, funnel, checkins, bingo, orgs, landing, weeklyCohorts, stageBreakdown, topRecs, atRiskUsers, cohorts, allUsers, dropOffUsers, generatedAt } = report
 
   const q = search.trim().toLowerCase()
   const filteredInApp = allUsers.filter(u => !u.authOnly && (!q || u.name.toLowerCase().includes(q) || u.email.toLowerCase().includes(q)))
@@ -348,6 +349,45 @@ export default function AdminReport() {
             <Metric label="Active Users"   value={checkins.activeUsersThisWeek} />
           </div>
         </section>
+
+
+        {/* ── Signup Cohorts ────────────────────────────────────────────────── */}
+        {weeklyCohorts.length > 0 && (
+          <section>
+            <SectionHeader emoji="📈" label="By Signup Week" sub="did they start, and did they come back" />
+            <div className="bg-white rounded-2xl border border-beige/20 p-4 overflow-x-auto">
+              <table className="w-full text-left border-collapse min-w-[380px]">
+                <thead>
+                  <tr>
+                    {['Week', 'Signups', 'Activated', 'Rate', 'Returned'].map((h, i) => (
+                      <th
+                        key={h}
+                        className={`font-display font-semibold text-[10.5px] tracking-widest uppercase text-chocolate/40 pb-2 border-b border-beige/40 ${i ? 'text-right' : ''}`}
+                      >
+                        {h}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {weeklyCohorts.map(w => (
+                    <tr key={w.week}>
+                      <td className="font-sans text-[13px] text-chocolate/80 py-2 border-b border-beige/20">{w.week}</td>
+                      <td className="font-sans text-[13px] text-chocolate/80 py-2 border-b border-beige/20 text-right tabular-nums">{w.signups}</td>
+                      <td className="font-sans text-[13px] text-chocolate/80 py-2 border-b border-beige/20 text-right tabular-nums">{w.activated}</td>
+                      <td className="font-display font-semibold text-[13px] text-mustard py-2 border-b border-beige/20 text-right tabular-nums">{w.activationRate}</td>
+                      <td className="font-sans text-[13px] text-chocolate/80 py-2 border-b border-beige/20 text-right tabular-nums">{w.returned}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <p className="text-[10.5px] text-chocolate/35 font-sans mt-2 leading-relaxed">
+              Weeks start Monday. Activated = first check-in within 48 hours of signing up.
+              Returned = any check-in, glimmer or journal entry the week after joining.
+            </p>
+          </section>
+)}
 
         {/* ── Stage Breakdown ───────────────────────────────────────────── */}
         {stageBreakdown.length > 0 && (
