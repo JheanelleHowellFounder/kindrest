@@ -314,7 +314,18 @@ function PhoneMockup() {
 // ── Main Landing Page ─────────────────────────────────────────────────────────
 export function LandingPage() {
   // Top of the funnel. Fires once per page load.
-  useEffect(() => { trackGrowth('landing_view') }, [])
+  useEffect(() => {
+    trackGrowth('landing_view')
+    // Also counted in our own database, so conversion is visible on the admin
+    // report without depending on an analytics vendor. Once per browser
+    // session, so refreshes and back-navigation don't inflate it.
+    try {
+      if (!sessionStorage.getItem('kindrest_landing_counted')) {
+        sessionStorage.setItem('kindrest_landing_counted', '1')
+        fetch('/api/landing-view', { method: 'POST', keepalive: true }).catch(() => {})
+      }
+    } catch { /* storage blocked — skip the count, never break the page */ }
+  }, [])
 
   const [openCard, setOpenCard] = useState<number | null>(null)
   const [navDark, setNavDark] = useState(true)

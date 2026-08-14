@@ -63,6 +63,19 @@ interface ReportData {
   checkins: { total: number; thisWeek: number; activeUsersThisWeek: number }
   bingo: { last7: number; last14: number; last30: number; total: number }
   orgs: { name: string; slug: string; cohortSize: number | null; joined: number; everCheckedIn: number; activeThisWeek: number }[]
+  landing: {
+    views7: number
+    views30: number
+    signups7: number
+    signups30: number
+    conversion7: string | null
+    conversion30: string | null
+    needsMigration: boolean
+    devices: { label: string; count: number }[]
+    sources: { label: string; count: number }[]
+    referrers: { label: string; count: number }[]
+    heardAbout: { label: string; count: number }[]
+  }
   mood: {
     avgMoodLabel: string | null; avgMoodScore: number | null
     breakdown: { mood: string; count: number }[]
@@ -70,7 +83,6 @@ interface ReportData {
   }
   stageBreakdown: { stage: string; count: number }[]
   topRecs: { title: string; category: string; liked: number; skipped: number; total: number }[]
-  categoryBreakdown: { category: string; count: number }[]
   atRiskUsers: UserRow[]
   allUsers: UserRow[]
   dropOffUsers: UserRow[]
@@ -230,6 +242,7 @@ export default function AdminReport() {
   const [fetching, setFetching] = useState(true)
   const [error, setError]       = useState<string | null>(null)
   const [showDropOff, setShowDropOff] = useState(false)
+  const [showRoster, setShowRoster] = useState(false)
   const [showAll, setShowAll]   = useState(false)
   const [search, setSearch]     = useState('')
 
@@ -270,7 +283,7 @@ export default function AdminReport() {
     )
   }
 
-  const { users, funnel, checkins, bingo, orgs, mood, stageBreakdown, topRecs, categoryBreakdown, atRiskUsers, cohorts, allUsers, dropOffUsers, generatedAt } = report
+  const { users, funnel, checkins, bingo, orgs, landing, stageBreakdown, topRecs, atRiskUsers, cohorts, allUsers, dropOffUsers, generatedAt } = report
 
   const q = search.trim().toLowerCase()
   const filteredInApp = allUsers.filter(u => !u.authOnly && (!q || u.name.toLowerCase().includes(q) || u.email.toLowerCase().includes(q)))
@@ -279,7 +292,6 @@ export default function AdminReport() {
   const filteredDropOffs = dropOffUsers.filter(u => !q || u.name.toLowerCase().includes(q) || u.email.toLowerCase().includes(q))
   const visibleActive  = showAll || q ? activeUsers : activeUsers.slice(0, 6)
 
-  const totalMoods = mood.breakdown.reduce((s, m) => s + m.count, 0)
 
   return (
     <div className="min-h-screen bg-cream pb-20">
@@ -335,60 +347,6 @@ export default function AdminReport() {
             <Metric label="Check-ins"      value={checkins.thisWeek} />
             <Metric label="Active Users"   value={checkins.activeUsersThisWeek} />
           </div>
-        </section>
-
-        {/* ── Community Mood ────────────────────────────────────────────── */}
-        <section>
-          <SectionHeader
-            emoji={mood.avgMoodLabel ? MOOD_EMOJI[mood.avgMoodLabel] : '💭'}
-            label="Community Mood"
-            sub={mood.avgMoodLabel ? `avg: ${mood.avgMoodLabel}` : undefined}
-          />
-
-          {/* Mood breakdown bars */}
-          <div className="bg-white rounded-2xl border border-beige/20 p-4 space-y-2.5 mb-3">
-            {mood.breakdown.map(({ mood: m, count }) => {
-              const pct = totalMoods > 0 ? Math.round((count / totalMoods) * 100) : 0
-              return (
-                <div key={m}>
-                  <div className="flex items-center justify-between mb-1">
-                    <div className="flex items-center gap-2">
-                      <span className="text-base">{MOOD_EMOJI[m] ?? '⛅'}</span>
-                      <p className="font-display font-semibold text-sm text-chocolate capitalize">{m}</p>
-                    </div>
-                    <p className="text-xs font-display text-chocolate/50">{count} · {pct}%</p>
-                  </div>
-                  <Bar pct={pct} />
-                </div>
-              )
-            })}
-          </div>
-
-          {/* Weekly trend — plain week-by-week mood summary */}
-          {mood.weeklyTrend.some(w => w.count > 0) && (
-            <div className="bg-white rounded-2xl border border-beige/20 p-4">
-              <p className="font-display font-semibold text-xs text-chocolate/40 uppercase tracking-widest mb-3">Week by Week</p>
-              <div className="space-y-2">
-                {mood.weeklyTrend.map((w, i) => {
-                  const label = w.avgScore >= 0 ? MOOD_ORDER[Math.round(w.avgScore)] : null
-                  return (
-                    <div key={i} className="flex items-center justify-between">
-                      <p className="text-xs font-sans text-chocolate/50 w-16">{w.week}</p>
-                      {w.count > 0 && label ? (
-                        <div className="flex items-center gap-2 flex-1 justify-end">
-                          <span className="text-lg">{MOOD_EMOJI[label]}</span>
-                          <p className="font-display font-semibold text-sm text-chocolate capitalize">{label}</p>
-                          <p className="text-[10px] text-chocolate/30 font-sans">({w.count} sessions)</p>
-                        </div>
-                      ) : (
-                        <p className="text-[10px] text-chocolate/25 font-sans">no data</p>
-                      )}
-                    </div>
-                  )
-                })}
-              </div>
-            </div>
-          )}
         </section>
 
         {/* ── Stage Breakdown ───────────────────────────────────────────── */}
@@ -481,7 +439,19 @@ export default function AdminReport() {
 
         {/* ── User Roster ───────────────────────────────────────────────── */}
         <section>
-          <SectionHeader emoji="👥" label="User Roster" sub={`${allUsers.filter(u => !u.authOnly).length} in app`} />
+          <button
+            onClick={() => setShowRoster(v => !v)}
+            className="w-full text-left"
+            aria-expanded={showRoster}
+          >
+            <SectionHeader
+              emoji="👥"
+              label="User Roster"
+              sub={`${allUsers.filter(u => !u.authOnly).length} in app · tap to ${showRoster ? 'hide' : 'open'}`}
+            />
+          </button>
+
+          {showRoster && (<>
           <input
             type="text"
             value={search}
@@ -544,34 +514,81 @@ export default function AdminReport() {
               <Users size={14} className="text-chocolate/20" />
             </button>
           )}
+          </>)}
         </section>
 
-        {/* ── Category Breakdown ────────────────────────────────────────── */}
-        {categoryBreakdown.length > 0 && (
-          <section>
-            <SectionHeader emoji="📊" label="Most Used Categories" />
-            <div className="bg-white rounded-2xl border border-beige/20 p-4 space-y-2.5">
-              {categoryBreakdown.map(({ category, count }) => {
-                const total = categoryBreakdown.reduce((s, c) => s + c.count, 0)
-                const pct   = Math.round((count / total) * 100)
-                return (
-                  <div key={category}>
-                    <div className="flex items-center justify-between mb-1">
-                      <p className="font-display font-semibold text-sm text-chocolate">{category}</p>
-                      <p className="text-xs font-display text-chocolate/50">{count} · {pct}%</p>
-                    </div>
-                    <Bar pct={pct} color="bg-chocolate/50" />
-                  </div>
-                )
-              })}
+        {/* ── Landing Page ──────────────────────────────────────────────── */}
+        <section>
+          <SectionHeader
+            emoji="🚪"
+            label="Landing Page"
+            sub={landing.needsMigration ? 'run supabase/landing-views.sql' : 'last 7 days'}
+          />
+
+          {landing.needsMigration ? (
+            <div className="bg-white rounded-2xl border border-mustard/40 p-4">
+              <p className="font-sans text-[13px] text-chocolate/60 leading-relaxed">
+                View counting isn&apos;t on yet. Run <span className="font-mono text-[12px]">supabase/landing-views.sql</span>,
+                and this fills in from the next visitor onward. The breakdowns below already work.
+              </p>
             </div>
-          </section>
-        )}
+          ) : (
+            <div className="grid grid-cols-3 gap-3 mb-3">
+              <Metric label="Visitors" value={landing.views7} sub="7 days" />
+              <Metric label="Signed up" value={landing.signups7} sub="7 days" />
+              <Metric label="Converted" value={landing.conversion7 ?? '—'} sub="of visitors" accent />
+            </div>
+          )}
+
+          {!landing.needsMigration && landing.views30 > 0 && (
+            <p className="text-[11px] text-chocolate/40 font-sans mb-3">
+              Last 30 days: {landing.views30} visitors · {landing.signups30} signed up · {landing.conversion30 ?? '—'} converted
+            </p>
+          )}
+
+          <div className="grid sm:grid-cols-2 gap-3">
+            <Breakdown title="How they heard about us" rows={landing.heardAbout} />
+            <Breakdown title="Campaign source" rows={landing.sources} />
+            <Breakdown title="Came from" rows={landing.referrers} />
+            <Breakdown title="Device" rows={landing.devices} />
+          </div>
+
+          <p className="text-[10.5px] text-chocolate/35 font-sans mt-3 leading-relaxed">
+            Visitor counts are directional — the counter is public, so treat it as a trend, not an audited number.
+            Breakdowns describe people who signed up, so they only fill in for accounts created from 13 Aug onward.
+          </p>
+        </section>
+
 
         <p className="text-center text-[10px] text-chocolate/25 font-sans pb-4">Kindrest Admin · Only visible to you 🤎</p>
       </div>
 
       {showDropOff && <DropOffSheet users={dropOffUsers} onClose={() => setShowDropOff(false)} />}
+    </div>
+  )
+}
+
+/** A small labelled count list. Used for the landing-page breakdowns. */
+function Breakdown({ title, rows }: { title: string; rows: { label: string; count: number }[] }) {
+  const total = rows.reduce((s, r) => s + r.count, 0)
+  return (
+    <div className="bg-white rounded-2xl border border-beige/20 p-4">
+      <p className="font-display font-semibold text-chocolate/40 text-[11px] mb-2.5 uppercase tracking-widest">{title}</p>
+      {rows.length === 0 ? (
+        <p className="font-sans text-[12.5px] text-chocolate/30">Nothing yet.</p>
+      ) : (
+        <div className="space-y-2">
+          {rows.slice(0, 6).map(({ label, count }) => (
+            <div key={label}>
+              <div className="flex items-center justify-between gap-3 mb-1">
+                <p className="font-sans text-[13px] text-chocolate/75 truncate">{label}</p>
+                <p className="text-xs font-display text-chocolate/45 tabular-nums flex-shrink-0">{count}</p>
+              </div>
+              <Bar pct={total ? Math.round((count / total) * 100) : 0} color="bg-mustard/60" />
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   )
 }

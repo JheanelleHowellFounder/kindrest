@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { ADMIN_EMAILS } from '@/lib/admin'
+import { isMissingTable } from '@/lib/pg-errors'
 import { LINES } from '@/lib/restcard'
 
 export const dynamic = 'force-dynamic'
@@ -197,52 +198,6 @@ export async function GET(req: NextRequest) {
     .sort((a, b) => b[1] - a[1])
     .map(([stage, count]) => ({ stage, count }))
 
-  // ── Mood breakdown (one per session) ──────────────────────────────────────
-  const MOOD_ORDER = ['overwhelmed', 'struggling', 'okay', 'good', 'thriving']
-  const moodSessionsSeen = new Set<string>()
-  const moodCounts: Record<string, number> = {}
-  let moodScoreTotal = 0, moodScoreCount = 0
-
-  for (const f of feedback) {
-    if (!f.check_in_mood) continue
-    const key = `${f.user_id}:${f.created_at.split('T')[0]}`
-    if (moodSessionsSeen.has(key)) continue
-    moodSessionsSeen.add(key)
-    moodCounts[f.check_in_mood] = (moodCounts[f.check_in_mood] ?? 0) + 1
-    const score = MOOD_ORDER.indexOf(f.check_in_mood)
-    if (score >= 0) { moodScoreTotal += score; moodScoreCount++ }
-  }
-
-  const moodBreakdown = Object.entries(moodCounts)
-    .sort((a, b) => MOOD_ORDER.indexOf(a[0]) - MOOD_ORDER.indexOf(b[0]))
-    .map(([mood, count]) => ({ mood, count }))
-
-  // Average mood score → label (0=overwhelmed … 4=thriving)
-  const avgMoodScore = moodScoreCount > 0 ? moodScoreTotal / moodScoreCount : null
-  const avgMoodLabel = avgMoodScore === null ? null : MOOD_ORDER[Math.round(avgMoodScore)]
-
-  // ── Mood trend: last 4 weeks, one avg score per week ─────────────────────
-  const weeklyMood: { week: string; avgScore: number; count: number }[] = []
-  for (let w = 3; w >= 0; w--) {
-    const wStart = new Date(now.getTime() - (w + 1) * 7 * 24 * 60 * 60 * 1000).toISOString()
-    const wEnd   = new Date(now.getTime() - w       * 7 * 24 * 60 * 60 * 1000).toISOString()
-    const seen   = new Set<string>()
-    let total = 0, count = 0
-    for (const f of feedback) {
-      if (!f.check_in_mood || f.created_at < wStart || f.created_at >= wEnd) continue
-      const key = `${f.user_id}:${f.created_at.split('T')[0]}`
-      if (seen.has(key)) continue
-      seen.add(key)
-      const score = MOOD_ORDER.indexOf(f.check_in_mood)
-      if (score >= 0) { total += score; count++ }
-    }
-    weeklyMood.push({
-      week: new Date(+new Date(wEnd) - 1).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-      avgScore: count > 0 ? Math.round((total / count) * 10) / 10 : -1,
-      count,
-    })
-  }
-
   // ── Top recs ───────────────────────────────────────────────────────────────
   const recMap: Record<string, { title: string; category: string; liked: number; skipped: number; total: number }> = {}
   for (const f of feedback) {
@@ -256,15 +211,6 @@ export async function GET(req: NextRequest) {
     .filter(r => r.total > 0)
     .sort((a, b) => b.liked - a.liked)
     .slice(0, 5)
-
-  // ── Category breakdown ─────────────────────────────────────────────────────
-  const catCounts: Record<string, number> = {}
-  for (const f of feedback) {
-    if (f.category) catCounts[f.category] = (catCounts[f.category] ?? 0) + 1
-  }
-  const categoryBreakdown = Object.entries(catCounts)
-    .sort((a, b) => b[1] - a[1])
-    .map(([category, count]) => ({ category, count }))
 
   // ── Signup source cohorts (e.g. founding_mom campaign) ─────────────────────
   const sourceGroups: Record<string, typeof profileUsers> = {}
@@ -363,8 +309,83 @@ export async function GET(req: NextRequest) {
     }
   }
 
+  // ── Landing page: views, and what fraction of them became signups ─────────
+  // The only place we can see the people who looked and left. Directional only:
+  // the counter is public, so treat it as a trend rather than an audited number.
+  const dayKey = (d: Date) => d.toISOString().slice(0, 10)
+  const since = (days: number) => dayKey(new Date(now.getTime() - days * 86_400_000))
+
+  let landing = {
+    views7: 0, views30: 0,
+    signups7: 0, signups30: 0,
+    conversion7: null as string | null,
+    conversion30: null as string | null,
+    needsMigration: false,
+    devices: [] as { label: string; count: number }[],
+    sources: [] as { label: string; count: number }[],
+    referrers: [] as { label: string; count: number }[],
+    heardAbout: [] as { label: string; count: number }[],
+  }
+
+  if (supabaseAdmin) {
+    const { data: views, error: viewErr } = await supabaseAdmin
+      .from('landing_views')
+      .select('day, views')
+      .gte('day', since(30))
+
+    if (isMissingTable(viewErr)) {
+      landing.needsMigration = true
+    } else {
+      for (const v of views ?? []) {
+        landing.views30 += v.views
+        if (v.day >= since(7)) landing.views7 += v.views
+      }
+    }
+
+    // Signups over the same windows, so the ratio compares like with like.
+    const ms7 = now.getTime() - 7 * 86_400_000
+    const ms30 = now.getTime() - 30 * 86_400_000
+    for (const u of authUsers) {
+      const t = new Date(u.created_at).getTime()
+      if (t >= ms30) landing.signups30++
+      if (t >= ms7) landing.signups7++
+    }
+
+    const pct = (a: number, b: number) => (b > 0 ? `${Math.round((a / b) * 1000) / 10}%` : null)
+    landing.conversion7  = pct(landing.signups7,  landing.views7)
+    landing.conversion30 = pct(landing.signups30, landing.views30)
+
+    // Where the people who *did* sign up came from.
+    const { data: attribution, error: attrErr } = await supabaseAdmin
+      .from('user_profiles')
+      .select('device_type, utm_source, referrer, heard_about_us')
+
+    if (!attrErr) {
+      const tally = (pick: (r: Record<string, string | null>) => string | null | undefined, blank = 'Unknown') => {
+        const counts = new Map<string, number>()
+        for (const row of (attribution ?? []) as Record<string, string | null>[]) {
+          const key = (pick(row) || '').trim() || blank
+          counts.set(key, (counts.get(key) ?? 0) + 1)
+        }
+        return Array.from(counts.entries())
+          .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+          .map(([label, count]) => ({ label, count }))
+      }
+      // Hostname only — the full URL is noise in a table.
+      const host = (u: string | null | undefined) => {
+        if (!u) return null
+        try { return new URL(u).hostname.replace(/^www\./, '') } catch { return u }
+      }
+      landing.devices    = tally(r => r.device_type)
+      landing.sources    = tally(r => r.utm_source, 'Direct / none')
+      landing.referrers  = tally(r => host(r.referrer), 'None')
+      landing.heardAbout = tally(r => r.heard_about_us, 'Not answered')
+    }
+  }
+
   return NextResponse.json({
     generatedAt: now.toISOString(),
+    landing,
     bingo,
     orgs,
     users: {
@@ -391,15 +412,8 @@ export async function GET(req: NextRequest) {
       thisWeek: checkinsThisWeek,
       activeUsersThisWeek: activeThisWeek,
     },
-    mood: {
-      avgMoodLabel,
-      avgMoodScore,
-      breakdown: moodBreakdown,
-      weeklyTrend: weeklyMood,
-    },
     stageBreakdown,
     topRecs,
-    categoryBreakdown,
     atRiskUsers,
     allUsers,
     dropOffUsers,
