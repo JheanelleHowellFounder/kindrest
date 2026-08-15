@@ -108,8 +108,13 @@ export default function VillageNotePage() {
             Leave {name} a note.
           </h1>
           <p className="font-sans text-[15px] leading-[1.6] text-chocolate/60">
-            She’s using an app that asks her one small question a day. This is the
-            part where the people who love her get to answer back.
+            {name} uses <span className="text-chocolate/85 font-semibold">Kindrest</span>, an app
+            for mothers. It asks her one small question a day, then gives her something she can
+            actually do with the time she has — five minutes, on a hard day. No streaks, nothing
+            to catch up on.
+          </p>
+          <p className="font-sans text-[15px] leading-[1.6] text-chocolate/60">
+            This is the part it can’t do on its own: the people who love her, saying so.
           </p>
         </div>
 
@@ -157,10 +162,19 @@ export default function VillageNotePage() {
           </button>
         </div>
 
-        <p className="font-sans text-[12.5px] text-chocolate/40 text-center leading-relaxed">
-          Only {name} sees this. You won’t see anything she’s written, and you don’t
-          need an account.
-        </p>
+        <div className="flex flex-col gap-2.5">
+          <p className="font-sans text-[12.5px] text-chocolate/40 text-center leading-relaxed">
+            Only {name} sees this. You won’t see anything she’s written, and you don’t
+            need an account.
+          </p>
+          <p className="font-sans text-[12.5px] text-chocolate/40 text-center leading-relaxed">
+            Carrying something similar?{' '}
+            <a href="/" className="text-mustard font-semibold underline underline-offset-2">
+              Kindrest is free
+            </a>
+            .
+          </p>
+        </div>
 
       </div>
     </div>
