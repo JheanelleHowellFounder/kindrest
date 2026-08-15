@@ -107,14 +107,10 @@ export default function VillageNotePage() {
           <h1 className="font-serif text-[30px] leading-[1.2] text-chocolate">
             Leave {name} a note.
           </h1>
-          <p className="font-sans text-[15px] leading-[1.6] text-chocolate/60">
-            {name} uses <span className="text-chocolate/85 font-semibold">Kindrest</span>, an app
-            for mothers. It asks her one small question a day, then gives her something she can
-            actually do with the time she has — five minutes, on a hard day. No streaks, nothing
-            to catch up on.
-          </p>
-          <p className="font-sans text-[15px] leading-[1.6] text-chocolate/60">
-            This is the part it can’t do on its own: the people who love her, saying so.
+          <p className="font-sans text-[15.5px] leading-[1.65] text-chocolate/60">
+            {name}’s been carrying a lot.{' '}
+            <span className="text-chocolate/85 font-semibold">Kindrest</span> checks in with her
+            every day — but it can’t do this part.
           </p>
         </div>
 
