@@ -41,6 +41,7 @@ const ROUTES = [
   '/history', '/profile', '/library', '/glimmers', '/rest-card',
   '/organizations', '/terms', '/privacy', '/forgot-password', '/join/pagerduty',
   '/i/AUDITXX',
+  '/for/AUDITXX',
 ]
 // Follow redirects (the apex → www canonical hop is expected on every route),
 // then assert on the path we actually landed on.
@@ -79,6 +80,8 @@ const GATED = [
   ['/api/org/join', 'POST', { slug: 'pagerduty' }],
   ['/api/invite', 'GET'],
   ['/api/invite', 'POST', { code: 'AUDITXX' }],
+  ['/api/village', 'GET'],
+  ['/api/village', 'DELETE', { id: '00000000-0000-0000-0000-000000000001' }],
 ]
 for (const [path, method, payload] of GATED) {
   try {
