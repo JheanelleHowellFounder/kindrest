@@ -13,6 +13,7 @@ import { getTodaysQuote } from '@/lib/quotes'
 import { CareNudge } from '@/components/glimmer/CareNudge'
 import { trackEvent } from '@/lib/analytics'
 import { InviteCard } from '@/components/glimmer/InviteCard'
+import { VillageCard } from '@/components/glimmer/VillageCard'
 
 function timeGreeting(): string {
   const h = new Date().getHours()
@@ -21,7 +22,7 @@ function timeGreeting(): string {
   return 'Good evening'
 }
 
-/** A note left by someone in her circle. Wires up with the community feature (V3). */
+/** A note left by someone in her village — see /village and /for/[code]. */
 interface PeopleNote {
   from: string
   body: string
@@ -95,8 +96,11 @@ export function GlimmerHome() {
   const [showCrisis, setShowCrisis] = useState(false)
   const [isFirstTime, setIsFirstTime] = useState(false)
   const [past, setPast] = useState<PastGlimmer[]>([])
-  // Populated by the community feature (V3); until then the quote holds this slot.
-  const [note] = useState<PeopleNote | null>(null)
+  // The newest unread note from her village. When there isn't one, the quote
+  // holds this slot — she should never land on an empty space where a kind
+  // word used to be.
+  const [note, setNote] = useState<PeopleNote | null>(null)
+  const [noteCount, setNoteCount] = useState(0)
 
   useEffect(() => {
     let active = true
@@ -113,6 +117,19 @@ export function GlimmerHome() {
       })
       .catch(() => {})
     return () => { active = false }
+  }, [])
+
+  // Anything her village has left her. Unread first, newest of those.
+  useEffect(() => {
+    authedFetch('/api/village')
+      .then(r => r.json())
+      .then(d => {
+        const all: { from_name: string; body: string; seen_at: string | null }[] = d?.notes ?? []
+        setNoteCount(all.length)
+        const fresh = all.find(n => !n.seen_at)
+        if (fresh) setNote({ from: fresh.from_name, body: fresh.body })
+      })
+      .catch(() => {})
   }, [])
 
   // Her collection: drives the first-time helper and the "lately" strip below.
@@ -174,12 +191,15 @@ export function GlimmerHome() {
           </p>
 
           {note ? (
-            <div className="bg-mustard/[0.07] rounded-2xl px-4 py-3.5 flex flex-col gap-1">
+            <Link
+              href="/village"
+              className="bg-mustard/[0.07] rounded-2xl px-4 py-3.5 flex flex-col gap-1 active:opacity-80 transition-opacity"
+            >
               <p className="font-display font-semibold text-[12px] tracking-[0.03em] text-mustard">
                 {note.from} left this for you
               </p>
               <p className="font-serif italic text-[19px] leading-[1.4] text-chocolate">{note.body}</p>
-            </div>
+            </Link>
           ) : (
             <p className="font-serif italic text-[19px] leading-[1.4] text-chocolate pr-3">{quote}</p>
           )}
@@ -379,8 +399,13 @@ export function GlimmerHome() {
           </div>
         )}
 
-        {/* ── 5. Pass it on — only once today's already behind her ─────────── */}
-        {phase === 'done' && <InviteCard />}
+        {/* ── 5. Her people — only once today's already behind her ────────── */}
+        {phase === 'done' && (
+          <div className="flex flex-col gap-3">
+            <VillageCard noteCount={noteCount} />
+            <InviteCard />
+          </div>
+        )}
 
       </div>
     </div>
