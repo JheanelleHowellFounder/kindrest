@@ -639,6 +639,67 @@ export function LandingPage() {
         </div>
       </section>
 
+      {/* ── Your Village ─────────────────────────────────────────────────────── */}
+      <section className="bg-cream py-28 px-6 lg:px-10">
+        <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
+
+          <div>
+            <p className="font-display text-xs text-mustard tracking-[0.2em] uppercase mb-5">Your village</p>
+            <h2 className="font-serif text-[36px] sm:text-[46px] text-chocolate leading-tight mb-6">
+              The part an app can&apos;t do.
+            </h2>
+            <p className="font-sans text-[16px] text-chocolate/55 leading-relaxed mb-6">
+              Send one link to the people who hold you up — your mom, your sister, the
+              group chat that keeps you upright. They leave you a note. It&apos;s waiting
+              on your home screen the next time you open Kindrest.
+            </p>
+            <p className="font-sans text-[16px] text-chocolate/55 leading-relaxed mb-10">
+              They don&apos;t need an account, and they never see your check-ins, your
+              journal, or anything you write. Notes only travel one way — to you. Delete
+              any of them, or close the link entirely, whenever you want.
+            </p>
+            <Link
+              href="/onboarding"
+              onClick={() => trackGrowth('cta_click', { location: 'village' })}
+              className="inline-block px-8 py-4 bg-mustard text-white font-display font-semibold text-sm rounded-[15px] hover:opacity-90 transition-opacity"
+            >
+              Start with one question
+            </Link>
+          </div>
+
+          {/* What it actually looks like on her home screen */}
+          <div className="lg:justify-self-end w-full max-w-sm">
+            <div className="bg-white rounded-[26px] p-6 shadow-[0_18px_50px_-24px_rgba(48,33,26,0.45)]">
+              <p className="font-display font-semibold text-[19px] text-mustard leading-tight mb-3.5">
+                Good morning, Nia.
+              </p>
+
+              <div className="bg-mustard/[0.09] rounded-2xl px-4 py-3.5 mb-4">
+                <p className="font-display font-semibold text-[11.5px] tracking-[0.03em] text-mustard mb-1">
+                  Auntie Rose left this for you
+                </p>
+                <p className="font-serif italic text-[17px] leading-[1.45] text-chocolate">
+                  You&apos;re doing better than you think. I saw it today.
+                </p>
+              </div>
+
+              <div className="border-t border-beige/50 pt-4">
+                <p className="font-display font-semibold text-[10.5px] tracking-[0.16em] uppercase text-mustard mb-1.5">
+                  Today&apos;s glimmer
+                </p>
+                <p className="font-serif text-[16px] leading-[1.35] text-chocolate/85">
+                  What did your body quietly enjoy today?
+                </p>
+              </div>
+            </div>
+            <p className="font-sans text-[12.5px] text-chocolate/35 text-center mt-4">
+              Her note sits where the daily quote usually is.
+            </p>
+          </div>
+
+        </div>
+      </section>
+
       {/* ── Founder ───────────────────────────────────────────────────────────── */}
       <section id="our-story" className="bg-chocolate py-28 px-6 lg:px-10">
         <div className="max-w-7xl mx-auto">
