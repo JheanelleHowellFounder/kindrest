@@ -100,6 +100,64 @@ export default function TermsPage() {
           </section>
 
           <section>
+            <h2 className="font-serif text-[22px] text-chocolate mb-3">Notes from your village</h2>
+            <p className="mb-3">
+              Kindrest lets you share a private link so people you choose — family, friends,
+              whoever holds you up — can leave you a short note. They don&apos;t need an account,
+              and they never see your check-ins, your journal, or anything else you write in
+              Kindrest. Notes only ever travel one way: to you.
+            </p>
+            <p className="mb-3">
+              Because anyone holding your link can write to you, a few things are worth being
+              clear about:
+            </p>
+            <ul className="space-y-3 mb-3">
+              <li className="flex gap-3">
+                <span className="text-mustard flex-shrink-0">•</span>
+                <span>
+                  <strong className="text-chocolate">You control the link.</strong> You can close
+                  it or replace it at any time from your village page. Replacing it stops the old
+                  link working immediately. Your existing notes stay yours.
+                </span>
+              </li>
+              <li className="flex gap-3">
+                <span className="text-mustard flex-shrink-0">•</span>
+                <span>
+                  <strong className="text-chocolate">You can delete any note, instantly,</strong>{' '}
+                  for any reason or none. You never have to explain it to anyone.
+                </span>
+              </li>
+              <li className="flex gap-3">
+                <span className="text-mustard flex-shrink-0">•</span>
+                <span>
+                  <strong className="text-chocolate">Notes are written by other people, not by
+                  us.</strong> We don&apos;t review them before they reach you, and we can&apos;t
+                  vouch for what they say. We block links inside notes and limit how many can
+                  arrive in an hour, but the meaningful protection is that you decide who gets
+                  your link in the first place.
+                </span>
+              </li>
+              <li className="flex gap-3">
+                <span className="text-mustard flex-shrink-0">•</span>
+                <span>
+                  <strong className="text-chocolate">If something arrives that upsets you,</strong>{' '}
+                  delete it and replace your link. If someone is harassing you, please tell us at{' '}
+                  <a href="mailto:jheanelle@kindrest.co" className="text-mustard underline underline-offset-2">
+                    jheanelle@kindrest.co
+                  </a>{' '}
+                  — we can remove notes and block a link for good.
+                </span>
+              </li>
+            </ul>
+            <p>
+              If you&apos;re the one leaving a note: please write only what you&apos;d be happy for
+              her to read on a hard day. Don&apos;t send advertising, links, or anything you
+              wouldn&apos;t say to her face. We may remove notes and disable access for anyone who
+              misuses this.
+            </p>
+          </section>
+
+          <section>
             <h2 className="font-serif text-[22px] text-chocolate mb-3">Limitation of Liability</h2>
             <p>Since Kindrest is still in development, we cannot guarantee uninterrupted or error-free service. To the extent allowed by law, we are not responsible for damages arising from the use of our site, forms, or communications.</p>
           </section>

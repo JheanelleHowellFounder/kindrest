@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import {
   Gauge, Sun, Layers, Plus,
-  Mail, Lock, Shield, LogOut, ChevronRight,
+  Mail, Lock, Shield, LogOut, ChevronRight, Heart,
   ChevronLeft, X, Check,
 } from 'lucide-react'
 import type { MotherhoodStage } from '@/lib/types'
@@ -178,6 +178,25 @@ export function ProfileScreen() {
       </div>
 
       <div className="px-5 mt-5 space-y-5">
+
+        {/* ── Her village — a permanent home for it ─────────────────────────
+            The home-screen card only appears once she's answered today, so
+            without this there are days she simply can't find it. */}
+        <button
+          onClick={() => router.push('/village')}
+          className="w-full bg-white rounded-2xl shadow-[0_6px_18px_-8px_rgba(48,33,26,0.18)] p-5 flex items-center gap-4 text-left active:scale-[0.99] transition-transform"
+        >
+          <span className="w-9 h-9 rounded-full bg-mustard/12 flex items-center justify-center flex-shrink-0">
+            <Heart className="w-4 h-4 text-mustard" />
+          </span>
+          <span className="flex-1">
+            <span className="block font-display font-semibold text-[14.5px] text-chocolate">Your village</span>
+            <span className="block font-sans text-[12.5px] text-chocolate/50 mt-0.5 leading-snug">
+              Share your link. Read what they’ve left you.
+            </span>
+          </span>
+          <ChevronRight className="w-4 h-4 text-chocolate/25 flex-shrink-0" />
+        </button>
 
         {/* ── "What Kindrest knows" section ──────────────────────────────── */}
         <div>

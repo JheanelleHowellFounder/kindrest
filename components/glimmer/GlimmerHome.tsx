@@ -399,13 +399,15 @@ export function GlimmerHome() {
           </div>
         )}
 
-        {/* ── 5. Her people — only once today's already behind her ────────── */}
-        {phase === 'done' && (
-          <div className="flex flex-col gap-3">
-            <VillageCard noteCount={noteCount} />
-            <InviteCard />
-          </div>
-        )}
+        {/* ── 5. Her people ────────────────────────────────────────────────
+            The village card shows always — it's how she discovers the feature
+            at all, and asking her people for support isn't something to earn.
+            The invite still waits until today's behind her: that one asks her
+            to give something. */}
+        <div className="flex flex-col gap-3">
+          <VillageCard noteCount={noteCount} />
+          {phase === 'done' && <InviteCard />}
+        </div>
 
       </div>
     </div>
