@@ -661,9 +661,10 @@ export function LandingPage() {
             <Link
               href="/onboarding"
               onClick={() => trackGrowth('cta_click', { location: 'village' })}
-              className="inline-block px-8 py-4 bg-mustard text-white font-display font-semibold text-sm rounded-[15px] hover:opacity-90 transition-opacity"
+              className="inline-flex items-center gap-2 font-display font-semibold text-sm text-mustard hover:gap-3 transition-all"
             >
-              Start with one question
+              Set up yours
+              <span aria-hidden>→</span>
             </Link>
           </div>
 
