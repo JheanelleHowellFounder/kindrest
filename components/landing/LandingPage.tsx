@@ -639,19 +639,20 @@ export function LandingPage() {
         </div>
       </section>
 
-      {/* ── Your Village ─────────────────────────────────────────────────────── */}
+      {/* ── Love Notes ───────────────────────────────────────────────────────── */}
       <section className="bg-cream py-28 px-6 lg:px-10">
         <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
 
           <div>
-            <p className="font-display text-xs text-mustard tracking-[0.2em] uppercase mb-5">Your village</p>
+            <p className="font-display text-xs text-mustard tracking-[0.2em] uppercase mb-5">Love Notes</p>
             <h2 className="font-serif text-[36px] sm:text-[46px] text-chocolate leading-tight mb-6">
               The part an app can&apos;t do.
             </h2>
             <p className="font-sans text-[16px] text-chocolate/55 leading-relaxed mb-6">
-              Send one link to the people who hold you up — your mom, your sister, the
-              group chat that keeps you upright. They leave you a note. It&apos;s waiting
-              on your home screen the next time you open Kindrest.
+              A love note is exactly what it sounds like. You send one link to the
+              people who hold you up — your mom, your sister, the group chat that keeps
+              you upright — and they write you something. It&apos;s waiting on your home
+              screen the next time you open Kindrest.
             </p>
             <p className="font-sans text-[16px] text-chocolate/55 leading-relaxed mb-10">
               They don&apos;t need an account, and they never see your check-ins, your

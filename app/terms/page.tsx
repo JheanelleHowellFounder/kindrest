@@ -100,10 +100,10 @@ export default function TermsPage() {
           </section>
 
           <section>
-            <h2 className="font-serif text-[22px] text-chocolate mb-3">Notes from your village</h2>
+            <h2 className="font-serif text-[22px] text-chocolate mb-3">Love Notes</h2>
             <p className="mb-3">
-              Kindrest lets you share a private link so people you choose — family, friends,
-              whoever holds you up — can leave you a short note. They don&apos;t need an account,
+              Love Notes lets you share a private link so people you choose — family,
+              friends, whoever holds you up — can leave you a short note. They don&apos;t need an account,
               and they never see your check-ins, your journal, or anything else you write in
               Kindrest. Notes only ever travel one way: to you.
             </p>
@@ -116,7 +116,7 @@ export default function TermsPage() {
                 <span className="text-mustard flex-shrink-0">•</span>
                 <span>
                   <strong className="text-chocolate">You control the link.</strong> You can close
-                  it or replace it at any time from your village page. Replacing it stops the old
+                  it or replace it at any time from your Love Notes page. Replacing it stops the old
                   link working immediately. Your existing notes stay yours.
                 </span>
               </li>

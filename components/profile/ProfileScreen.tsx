@@ -190,9 +190,9 @@ export function ProfileScreen() {
             <Heart className="w-4 h-4 text-mustard" />
           </span>
           <span className="flex-1">
-            <span className="block font-display font-semibold text-[14.5px] text-chocolate">Your village</span>
+            <span className="block font-display font-semibold text-[14.5px] text-chocolate">Love Notes</span>
             <span className="block font-sans text-[12.5px] text-chocolate/50 mt-0.5 leading-snug">
-              Share your link. Read what they’ve left you.
+              Let your people leave you a note. Share your link, read what they said.
             </span>
           </span>
           <ChevronRight className="w-4 h-4 text-chocolate/25 flex-shrink-0" />

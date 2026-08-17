@@ -63,10 +63,11 @@ export default function VillagePage() {
   async function share() {
     if (!link) return
     const text =
-      'I’ve been using an app that asks me one small question a day. This is the ' +
-      'part where you get to answer back — leave me a note if you feel like it.'
+      'I’ve been using an app called Kindrest — it checks in with me every day. ' +
+      'It has a thing called Love Notes where the people in your corner can leave ' +
+      'you a message. No sign-up, takes a second. Leave me one if you feel like it.'
     if (navigator.share) {
-      try { await navigator.share({ title: 'Leave me a note', text, url: link }); return } catch { /* fell back */ }
+      try { await navigator.share({ title: 'Leave me a Love Note', text, url: link }); return } catch { /* fell back */ }
     }
     try {
       await navigator.clipboard.writeText(`${text}\n\n${link}`)
@@ -110,10 +111,11 @@ export default function VillagePage() {
           <ArrowLeft className="w-4 h-4" /> Home
         </button>
 
-        <h1 className="font-serif text-[28px] text-chocolate">Your village</h1>
+        <h1 className="font-serif text-[28px] text-chocolate">Love Notes</h1>
         <p className="font-sans text-[14px] text-chocolate/50 mt-1 mb-7">
-          Send this to the people who love you. They can leave you a note — they
-          can’t see anything you’ve written.
+          A note from someone who loves you, waiting on your home screen. Send them
+          the link below — they don’t need an account, and they’ll never see your
+          check-ins, your journal, or anything you write.
         </p>
 
         {needsMigration ? (
