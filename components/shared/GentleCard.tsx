@@ -3,9 +3,14 @@
 /**
  * Tier 2 — for language that reads as real difficulty but not danger.
  *
- * Deliberately quieter than CrisisCard: cream rather than chocolate, a warmline
- * rather than 988 first, and no mention of 911. It names what it noticed and
- * offers one door, without implying she's in an emergency she didn't describe.
+ * Deliberately quieter than CrisisCard: the warmline leads, and there's no 911.
+ * It names what it noticed and offers a door, without implying she's in an
+ * emergency she didn't describe.
+ *
+ * 988 still appears, in smaller type underneath. Keyword matching assigns a
+ * tier by phrase, not by state — "I feel numb" can mean either — so the number
+ * has to be reachable from this card too. It costs almost nothing to include
+ * and covers every case we've sorted into the wrong tier.
  *
  * Nothing she wrote is blocked or lost. This appears alongside it.
  */
@@ -29,6 +34,13 @@ export function GentleCard() {
         </a>
         <p className="font-sans text-[12px] text-chocolate/45">
           Call or text. They&apos;ll talk about anything — you don&apos;t have to be in crisis.
+        </p>
+        <p className="font-sans text-[12px] text-chocolate/45 pt-1.5">
+          If it&apos;s heavier than that, the{' '}
+          <a href="tel:988" className="text-chocolate/70 font-semibold underline underline-offset-2">
+            Suicide &amp; Crisis Lifeline is 988
+          </a>
+          , any hour.
         </p>
       </div>
     </div>

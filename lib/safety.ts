@@ -6,7 +6,8 @@
  * built for.
  *
  * TIER 1 — DANGER. Explicit statements about ending her life, harming herself,
- * harming her baby, or psychosis. Response is the full crisis card with 988,
+ * harming her baby, or psychosis — plus passive suicidal ideation ("they'd be
+ * better off"), which is danger wearing quieter language. Response is the full crisis card with 988,
  * Postpartum Support International, and 911. False positives are an acceptable
  * cost here; false negatives are not.
  *
@@ -44,6 +45,15 @@ const DANGER_PATTERNS: RegExp[] = [
   /harm(ing)?\s+(my\s+)?(the\s+)?baby/i,
   /hearing\s+voices/i,
   /scared\s+i'?ll\s+hurt/i,
+
+  // Passive suicidal ideation. These began in Tier 2, which meant they got a
+  // warmline where the previous single-tier build gave them 988 — a regression
+  // for exactly the phrases that could least afford one.
+  /(everyone|they|he|she|the\s+kids?|my\s+(kids?|family|husband|partner))('?d|\s+would)\s+be\s+better\s+off/i,
+  /i('?m|\s+am)\s+not\s+safe/i,
+  // Only the specific form. Plain "I don't trust myself" stays Tier 2 — it is
+  // often about decisions, not danger.
+  /(don'?t|do not)\s+trust\s+myself\s+(with|around|alone)/i,
 ]
 
 /**
@@ -60,15 +70,13 @@ const DISTRESS_PATTERNS: RegExp[] = [
   /thoughts?\s+i\s+can'?t\s+control/i,
   /what\s+if\s+i\s+(dropped|drop|hurt|lost)/i,
 
-  // Fear of herself
+  // Fear of herself — the general form only; "trust myself with/around" is Tier 1
   /scared\s+of\s+myself/i,
   /(don'?t|do not)\s+trust\s+myself/i,
   /afraid\s+of\s+what\s+i/i,
-  /i'?m\s+not\s+safe/i,
 
   // Wanting to escape — short of self-harm
   /want\s+to\s+(disappear|run\s+away|vanish)/i,
-  /(everyone|they|he|she)('?d|\s+would)\s+be\s+better\s+off/i,
   /no\s+one\s+would\s+notice/i,
 
   // Numbness and dissociation
