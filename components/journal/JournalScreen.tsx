@@ -6,8 +6,9 @@ import { BookOpen, Plus, X, ChevronRight } from 'lucide-react'
 import { useAuth } from '@/lib/auth-context'
 import { supabase } from '@/lib/supabase'
 import { authedFetch } from '@/lib/api-client'
-import { detectCrisisLanguage } from '@/lib/safety'
+import { assessSafety, type SafetyLevel } from '@/lib/safety'
 import { CrisisCard } from '@/components/shared/CrisisCard'
+import { GentleCard } from '@/components/shared/GentleCard'
 
 interface JournalEntryRow {
   id: string
@@ -45,7 +46,7 @@ export function JournalScreen() {
   const [newContent, setNewContent] = useState('')
   const [saving, setSaving] = useState(false)
   const [affirmation, setAffirmation] = useState<string | null>(null)
-  const [showCrisis, setShowCrisis] = useState(false)
+  const [safety, setSafety] = useState<SafetyLevel>('none')
   const [expandedId, setExpandedId] = useState<string | null>(null)
 
   // Redirect unauthenticated users to sign in, then bring them right back here
@@ -83,7 +84,7 @@ export function JournalScreen() {
         created_at: new Date().toISOString(),
       }
       setEntries(prev => [optimistic, ...prev])
-      setShowCrisis(detectCrisisLanguage(newContent))
+      setSafety(assessSafety(newContent))
       setAffirmation(JOURNAL_AFFIRMATIONS[Math.floor(Math.random() * JOURNAL_AFFIRMATIONS.length)])
       setNewContent('')
       setIsWriting(false)
@@ -125,10 +126,11 @@ export function JournalScreen() {
       <div className="px-5 space-y-4">
 
         {/* Crisis card takes priority over the ordinary affirmation */}
-        {showCrisis && !isWriting && <CrisisCard />}
+        {safety === 'danger'   && !isWriting && <CrisisCard />}
+        {safety === 'distress' && !isWriting && <GentleCard />}
 
         {/* Affirmation after saving */}
-        {affirmation && !isWriting && !showCrisis && (
+        {affirmation && !isWriting && safety === 'none' && (
           <div className="bg-mustard/5 border border-mustard/15 rounded-2xl p-4 flex items-start gap-2.5">
             <span className="text-lg flex-shrink-0">🤎</span>
             <p className="font-sans text-sm text-chocolate/70 leading-relaxed">{affirmation}</p>
@@ -138,7 +140,7 @@ export function JournalScreen() {
         {/* New Entry Button */}
         {!isWriting ? (
           <button
-            onClick={() => { setIsWriting(true); setAffirmation(null); setShowCrisis(false) }}
+            onClick={() => { setIsWriting(true); setAffirmation(null); setSafety('none') }}
             className="w-full bg-chocolate text-white font-display font-semibold rounded-[15px] py-3.5 flex items-center justify-center gap-2"
           >
             <Plus size={18} />

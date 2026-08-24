@@ -8,6 +8,7 @@ import { authedFetch } from '@/lib/api-client'
 
 interface Note {
   id: string
+  status?: string
   from_name: string
   body: string
   created_at: string
@@ -36,6 +37,7 @@ export default function VillagePage() {
   const [code, setCode] = useState<string | null>(null)
   const [active, setActive] = useState(true)
   const [notes, setNotes] = useState<Note[]>([])
+  const [pending, setPending] = useState<Note[]>([])
   const [needsMigration, setNeedsMigration] = useState(false)
   const [fetching, setFetching] = useState(true)
   const [copied, setCopied] = useState(false)
@@ -48,6 +50,7 @@ export default function VillagePage() {
     setCode(d?.code ?? null)
     setActive(d?.active ?? true)
     setNotes(d?.notes ?? [])
+    setPending(d?.pending ?? [])
     // She's looking at them now, so home stops surfacing them as new.
     if ((d?.unseen ?? 0) > 0) authedFetch('/api/village', { method: 'PATCH' }).catch(() => {})
   }, [])
@@ -88,6 +91,17 @@ export default function VillagePage() {
       })
       await load()
     } finally { setBusy(false) }
+  }
+
+  /** First note from a new name — she decides whether that person gets through. */
+  async function decide(id: string, action: 'allow' | 'block') {
+    setPending(prev => prev.filter(n => n.id !== id))
+    await authedFetch('/api/village', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action, noteId: id }),
+    }).catch(() => {})
+    await load().catch(() => {})
   }
 
   async function remove(id: string) {
@@ -166,6 +180,45 @@ export default function VillagePage() {
                 </button>
               </div>
             </div>
+
+            {/* ── Waiting for her ──────────────────────────────────────── */}
+            {pending.length > 0 && (
+              <div className="mt-8 flex flex-col gap-3">
+                <p className="font-display font-semibold text-[11.5px] tracking-[0.14em] uppercase text-mustard">
+                  {pending.length} waiting
+                </p>
+                <p className="font-sans text-[13px] text-chocolate/50 leading-relaxed -mt-1">
+                  First note from someone new. Allow them and anything they send after
+                  this goes straight to your home screen.
+                </p>
+                {pending.map(n => (
+                  <div key={n.id} className="bg-white rounded-[20px] px-5 py-4 border border-mustard/30 flex flex-col gap-3">
+                    <div className="flex flex-col gap-1.5">
+                      <p className="font-display font-semibold text-[12.5px] text-mustard">
+                        {n.from_name}
+                      </p>
+                      <p className="font-serif italic text-[17px] leading-[1.45] text-chocolate">
+                        “{n.body}”
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2.5">
+                      <button
+                        onClick={() => decide(n.id, 'allow')}
+                        className="flex-1 bg-mustard text-white font-display font-semibold text-[13.5px] py-2.5 rounded-[11px]"
+                      >
+                        Keep it
+                      </button>
+                      <button
+                        onClick={() => decide(n.id, 'block')}
+                        className="flex-1 bg-cream border border-beige/60 text-chocolate/70 font-display font-semibold text-[13.5px] py-2.5 rounded-[11px]"
+                      >
+                        Block {n.from_name}
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
 
             {/* ── What they've left her ────────────────────────────────── */}
             <div className="mt-8 flex flex-col gap-3">

@@ -84,10 +84,27 @@ export async function POST(req: NextRequest) {
     )
   }
 
+  // Has she heard from this name before? First note from someone new waits for
+  // her; after that they're trusted and it goes straight to her home screen.
+  const nameKey = check.name!.toLowerCase().trim()
+  const { data: sender } = await supabaseAdmin
+    .from('village_senders')
+    .select('status')
+    .eq('user_id', owner.userId)
+    .eq('name_key', nameKey)
+    .maybeSingle()
+
+  // Blocked senders get the same success response as everyone else. Telling
+  // them they've been blocked only invites them to come back under a new name.
+  if (sender?.status === 'blocked') {
+    return NextResponse.json({ ok: true, name: owner.firstName })
+  }
+
   const { error } = await supabaseAdmin.from('village_notes').insert({
     user_id: owner.userId,
     from_name: check.name,
     body: check.body,
+    status: sender?.status === 'allowed' ? 'kept' : 'pending',
   })
 
   if (error) {

@@ -41,6 +41,48 @@ export async function GET(req: NextRequest) {
     .order('created_at', { ascending: false })
     .limit(200)
 
+  // ── Glimmers and journal entries ──────────────────────────────────────────
+  // Insights used to count check-ins only, so a mother answering the daily
+  // question every day saw an empty page — the main loop contributed nothing
+  // to her sense of showing up.
+  const { data: glimmerRows } = await supabaseAdmin
+    .from('glimmers')
+    .select('entry_date, responded, body')
+    .eq('user_id', userId)
+    .order('entry_date', { ascending: false })
+    .limit(400)
+
+  const { data: journalRows } = await supabaseAdmin
+    .from('journal_entries')
+    .select('entry_date')
+    .eq('user_id', userId)
+    .order('entry_date', { ascending: false })
+    .limit(400)
+
+  const dayOf = (iso: string) => iso.slice(0, 10)
+  const weekAgo = new Date(Date.now() - 7 * 86_400_000).toISOString().slice(0, 10)
+
+  const glimmerDays = new Set((glimmerRows ?? []).map(g => g.entry_date).filter(Boolean))
+  const journalDays = new Set((journalRows ?? []).map(j => j.entry_date).filter(Boolean))
+  const checkinDays = new Set((feedback ?? []).map(f => dayOf(f.created_at)).filter(Boolean))
+
+  const showingUp = {
+    glimmersThisWeek: Array.from(glimmerDays).filter(d => d >= weekAgo).length,
+    journalThisWeek:  Array.from(journalDays).filter(d => d >= weekAgo).length,
+    checkinsThisWeek: Array.from(checkinDays).filter(d => d >= weekAgo).length,
+    glimmersTotal: glimmerDays.size,
+    journalTotal:  journalDays.size,
+    checkinsTotal: checkinDays.size,
+    // Any day she did any one of the three. This is the honest "you showed up".
+    daysThisWeek: new Set(
+      [...Array.from(glimmerDays), ...Array.from(journalDays), ...Array.from(checkinDays)]
+        .filter(d => d >= weekAgo)
+    ).size,
+    daysTotal: new Set(
+      [...Array.from(glimmerDays), ...Array.from(journalDays), ...Array.from(checkinDays)]
+    ).size,
+  }
+
   // ── Fetch user preference profile ─────────────────────────────────────────
   const { data: profile } = await supabaseAdmin
     .from('user_preference_profile')
@@ -50,6 +92,7 @@ export async function GET(req: NextRequest) {
 
   if (!feedback || feedback.length === 0) {
     return NextResponse.json({
+      showingUp,
       totalCheckins: 0,
       topTechniques: [],
       recentHistory: [],
@@ -158,6 +201,7 @@ export async function GET(req: NextRequest) {
   }
 
   return NextResponse.json({
+    showingUp,
     totalCheckins: profile?.total_checkins ?? Math.ceil(feedback.length / 3),
     topTechniques,
     recentHistory,

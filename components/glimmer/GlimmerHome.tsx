@@ -6,8 +6,9 @@ import { useRouter } from 'next/navigation'
 import { ArrowRight } from 'lucide-react'
 import { useAuth } from '@/lib/auth-context'
 import { authedFetch } from '@/lib/api-client'
-import { detectCrisisLanguage } from '@/lib/safety'
+import { assessSafety, type SafetyLevel } from '@/lib/safety'
 import { CrisisCard } from '@/components/shared/CrisisCard'
+import { GentleCard } from '@/components/shared/GentleCard'
 import { getTodaysPrompt } from '@/lib/glimmers'
 import { getTodaysQuote } from '@/lib/quotes'
 import { CareNudge } from '@/components/glimmer/CareNudge'
@@ -93,7 +94,7 @@ export function GlimmerHome() {
   const [text, setText] = useState('')
   const [phase, setPhase] = useState<'writing' | 'fork' | 'saving' | 'done'>('writing')
   const [outcome, setOutcome] = useState<'answered' | 'quiet' | 'heavy'>('answered')
-  const [showCrisis, setShowCrisis] = useState(false)
+  const [safety, setSafety] = useState<SafetyLevel>('none')
   const [isFirstTime, setIsFirstTime] = useState(false)
   const [past, setPast] = useState<PastGlimmer[]>([])
   // The newest unread note from her village. When there isn't one, the quote
@@ -147,7 +148,7 @@ export function GlimmerHome() {
 
   function onChange(v: string) {
     setText(v)
-    if (showCrisis && !detectCrisisLanguage(v)) setShowCrisis(false)
+    if (safety !== 'none' && assessSafety(v) === 'none') setSafety('none')
   }
 
   async function persist(bodyValue: string | null, signal: 'answered' | 'quiet' | 'heavy') {
@@ -168,7 +169,7 @@ export function GlimmerHome() {
   }
 
   function saveAnswer() {
-    if (detectCrisisLanguage(text)) setShowCrisis(true)   // still saves — never silence her
+    setSafety(assessSafety(text))   // still saves either way — never silence her
     setOutcome('answered')
     persist(text, 'answered')
   }
@@ -229,8 +230,8 @@ export function GlimmerHome() {
                 value={text}
                 onChange={e => onChange(e.target.value)}
                 placeholder="One sentence is plenty."
-                rows={2}
-                className="w-full border-0 border-b border-beige bg-transparent font-sans text-base text-chocolate placeholder:text-chocolate/35 px-0.5 py-1.5 outline-none focus:border-mustard resize-none transition-colors"
+                rows={4}
+                className="w-full min-h-[104px] rounded-[14px] border border-beige/60 bg-cream/60 font-sans text-base leading-[1.6] text-chocolate placeholder:text-chocolate/35 px-3.5 py-3 outline-none focus:border-mustard resize-none transition-colors"
               />
 
               <div className="flex items-center justify-between">
@@ -355,7 +356,8 @@ export function GlimmerHome() {
           )}
         </div>
 
-        {showCrisis && <CrisisCard />}
+        {safety === 'danger' && <CrisisCard />}
+        {safety === 'distress' && <GentleCard />}
 
         {/* ── 3. Three ways in ───────────────────────────────────────────── */}
         <div className="flex flex-col gap-3.5 items-center">

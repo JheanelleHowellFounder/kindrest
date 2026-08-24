@@ -8,8 +8,9 @@ import type { MoodLabel, TimeAvailable, Recommendation, RegulationType } from '@
 import { useAuth } from '@/lib/auth-context'
 import { supabase } from '@/lib/supabase'
 import { authedFetch } from '@/lib/api-client'
-import { detectCrisisLanguage } from '@/lib/safety'
+import { assessSafety, type SafetyLevel } from '@/lib/safety'
 import { CrisisCard } from '@/components/shared/CrisisCard'
+import { GentleCard } from '@/components/shared/GentleCard'
 import { trackEvent } from '@/lib/analytics'
 import { track as trackGrowth } from '@/lib/posthog'
 
@@ -47,13 +48,18 @@ const INDICATOR_TYPE_MAP: Record<string, RegulationType> = {}
 })
 
 // Map the user's selected mood (ui_label lowercase) to Airtable mood_label
-const MOOD_TO_LABEL: Record<string, string> = {
-  thriving:    'Great',
-  good:        'Good',
-  okay:        'Okay',
-  struggling:  'Struggling',
-  overwhelmed: 'Overwhelmed',
-}
+/**
+ * Which indicator set belongs to each mood she picks.
+ *
+ * Derived from MOODS rather than hardcoded. The two vocabularies genuinely
+ * differ — she picks "Overwhelmed", the indicators for it are tagged
+ * "Struggling" — and a hand-written map drifted out of sync: "Overwhelmed"
+ * matched nothing, so every indicator screen rendered empty, and "Struggling"
+ * silently pulled the more severe list.
+ */
+const MOOD_TO_LABEL: Record<string, string> = Object.fromEntries(
+  MOODS.map(m => [m.ui_label.toLowerCase(), m.mood_label])
+)
 
 export function CheckInFlow() {
   const router = useRouter()
@@ -79,7 +85,7 @@ export function CheckInFlow() {
   const [journalSaving, setJournalSaving] = useState(false)
   const [journalDone, setJournalDone]     = useState(false)
   const [journalAffirmation, setJournalAffirmation] = useState('')
-  const [journalCrisis, setJournalCrisis] = useState(false)
+  const [journalSafety, setJournalSafety] = useState<SafetyLevel>('none')
 
   // Care kit state
   const [careKit, setCareKit]             = useState<Recommendation[]>([])
@@ -98,6 +104,7 @@ export function CheckInFlow() {
   const [reflectionDone, setReflectionDone]   = useState<Set<number>>(new Set())
   const [reflectionAffirmations, setReflectionAffirmations] = useState<Record<number, string>>({})
   const [reflectionCrisis, setReflectionCrisis] = useState<Set<number>>(new Set())
+  const [reflectionDistress, setReflectionDistress] = useState<Set<number>>(new Set())
 
   // Pre-load the user's preferred time window from their profile so the time
   // step shows their usual choice already selected (they can always change it)
@@ -223,7 +230,7 @@ export function CheckInFlow() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ content: journalEntry.trim(), userId: user.id, source: 'unknown_door' }),
       })
-      setJournalCrisis(detectCrisisLanguage(journalEntry))
+      setJournalSafety(assessSafety(journalEntry))
       const affirmation = JOURNAL_AFFIRMATIONS[Math.floor(Math.random() * JOURNAL_AFFIRMATIONS.length)]
       setJournalAffirmation(affirmation)
       setJournalDone(true)
@@ -247,9 +254,9 @@ export function CheckInFlow() {
           source: 'reflective_rec',
         }),
       })
-      if (detectCrisisLanguage(reflectionText)) {
-        setReflectionCrisis(prev => new Set(prev).add(rec.rec_id))
-      }
+      const level = assessSafety(reflectionText)
+      if (level === 'danger') setReflectionCrisis(prev => new Set(prev).add(rec.rec_id))
+      if (level === 'distress') setReflectionDistress(prev => new Set(prev).add(rec.rec_id))
       const affirmation = JOURNAL_AFFIRMATIONS[Math.floor(Math.random() * JOURNAL_AFFIRMATIONS.length)]
       setReflectionAffirmations(prev => ({ ...prev, [rec.rec_id]: affirmation }))
       setReflectionDone(prev => new Set(prev).add(rec.rec_id))
@@ -287,9 +294,16 @@ export function CheckInFlow() {
 
   // Filter indicators to only show options relevant to the selected mood
   const moodLabel = mood ? (MOOD_TO_LABEL[mood] ?? 'Okay') : 'Okay'
-  const filteredMental   = MENTAL_INDICATORS.filter(i => i.mood_label === moodLabel)
-  const filteredPhysical = PHYSICAL_INDICATORS.filter(i => i.mood_label === moodLabel)
-  const filteredEmotional = EMOTIONAL_INDICATORS.filter(i => i.mood_label === moodLabel)
+
+  // If a mood ever has no indicators tagged to it, fall back to the Okay set
+  // rather than showing her an empty screen with a Continue button.
+  const forMood = <T extends { mood_label: string }>(list: T[]): T[] => {
+    const hit = list.filter(i => i.mood_label === moodLabel)
+    return hit.length > 0 ? hit : list.filter(i => i.mood_label === 'Okay')
+  }
+  const filteredMental    = forMood(MENTAL_INDICATORS)
+  const filteredPhysical  = forMood(PHYSICAL_INDICATORS)
+  const filteredEmotional = forMood(EMOTIONAL_INDICATORS)
 
   if (authLoading || !user) {
     return (
@@ -410,9 +424,19 @@ export function CheckInFlow() {
                   Back to check-in
                 </button>
               </>
-            ) : journalCrisis ? (
+            ) : journalSafety === 'danger' ? (
               <div className="space-y-5 pt-2">
                 <CrisisCard />
+                <button onClick={() => router.push('/')} className="btn-primary">
+                  Back to Home
+                </button>
+              </div>
+            ) : journalSafety === 'distress' ? (
+              <div className="space-y-5 pt-2">
+                <p className="font-serif text-xl text-chocolate leading-snug text-center px-4">
+                  {journalAffirmation}
+                </p>
+                <GentleCard />
                 <button onClick={() => router.push('/')} className="btn-primary">
                   Back to Home
                 </button>
@@ -628,6 +652,8 @@ export function CheckInFlow() {
                       <div className={`mt-3 pt-3 border-t ${isPrimary ? 'border-white/10' : 'border-beige/30'}`}>
                         {reflectionDone.has(rec.rec_id) && reflectionCrisis.has(rec.rec_id) ? (
                           <CrisisCard />
+                        ) : reflectionDone.has(rec.rec_id) && reflectionDistress.has(rec.rec_id) ? (
+                          <GentleCard />
                         ) : reflectionDone.has(rec.rec_id) ? (
                           <p className={`text-xs font-sans leading-relaxed ${isPrimary ? 'text-white/60' : 'text-chocolate/50'}`}>
                             🤎 {reflectionAffirmations[rec.rec_id] ?? 'You reflected on this. That matters.'}

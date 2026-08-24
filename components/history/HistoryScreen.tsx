@@ -45,6 +45,11 @@ const ALL_LIB_CATEGORIES = ['Rest', 'Micro Practice', 'Joy', 'Movement', 'Reflec
 
 interface LiveStats {
   totalCheckins: number
+  showingUp?: {
+    glimmersThisWeek: number; journalThisWeek: number; checkinsThisWeek: number
+    glimmersTotal: number; journalTotal: number; checkinsTotal: number
+    daysThisWeek: number; daysTotal: number
+  }
   streakDays: number
   topTechniques: { title: string; usedCount: number; likedCount: number; category: string }[]
   recentHistory: { rec_id: number; title: string; rating: number; mood: string; category: string; created_at: string }[]
@@ -571,12 +576,24 @@ export function HistoryScreen() {
           <p className="font-sans text-[14px] text-chocolate/70 leading-[1.75]">
             {trend.paragraph}
           </p>
-          {stats && stats.totalCheckins > 0 && (
-            <div className="mt-4 flex items-center gap-2.5 pt-4 border-t border-beige/30">
-              <span className="font-serif text-[26px] text-chocolate leading-none">{stats.totalCheckins}</span>
-              <p className="font-sans text-[13px] text-chocolate/50 leading-snug">
-                total check-in{stats.totalCheckins !== 1 ? 's' : ''}.{' '}
-                <span className="text-chocolate/70 font-semibold">You keep coming back.</span>
+          {stats?.showingUp && stats.showingUp.daysTotal > 0 && (
+            <div className="mt-4 pt-4 border-t border-beige/30 flex flex-col gap-2.5">
+              <div className="flex items-center gap-2.5">
+                <span className="font-serif text-[26px] text-chocolate leading-none">
+                  {stats.showingUp.daysTotal}
+                </span>
+                <p className="font-sans text-[13px] text-chocolate/50 leading-snug">
+                  day{stats.showingUp.daysTotal !== 1 ? 's' : ''} you showed up.{' '}
+                  <span className="text-chocolate/70 font-semibold">In any way at all.</span>
+                </p>
+              </div>
+              {/* Every door counts, not just the check-in. */}
+              <p className="font-sans text-[12.5px] text-chocolate/45 leading-relaxed">
+                {[
+                  stats.showingUp.glimmersTotal > 0 && `${stats.showingUp.glimmersTotal} glimmer${stats.showingUp.glimmersTotal !== 1 ? 's' : ''}`,
+                  stats.showingUp.journalTotal > 0 && `${stats.showingUp.journalTotal} journal day${stats.showingUp.journalTotal !== 1 ? 's' : ''}`,
+                  stats.showingUp.checkinsTotal > 0 && `${stats.showingUp.checkinsTotal} check-in${stats.showingUp.checkinsTotal !== 1 ? 's' : ''}`,
+                ].filter(Boolean).join(' · ')}
               </p>
             </div>
           )}
