@@ -1,0 +1,250 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Kindrest — Request for Clinical Review</title>
+<!--
+  Source for "Kindrest Clinical Review.pdf". Kept in the repo so it survives.
+  Rebuild:
+    "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" --headless \
+      --no-pdf-header-footer --print-to-pdf="<out>.pdf" "file://<abs path>/clinical-review.html"
+-->
+<style>
+  @page { size: Letter; margin: 0.85in 0.8in; }
+  * { box-sizing: border-box; }
+  body {
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: 10.5pt; line-height: 1.45; color: #1a1a1a; background: #fff; margin: 0;
+    orphans: 3; widows: 3;
+  }
+  h1 { font-size: 18pt; margin: 0 0 .2rem; line-height: 1.15; }
+  .sub { font-size: 10.5pt; color: #444; margin: 0; font-style: italic; }
+  .meta { font-size: 8.5pt; color: #666; margin: .4rem 0 0; font-family: Arial, Helvetica, sans-serif; }
+  hr.rule { border: none; border-top: 1.25pt solid #1a1a1a; margin: .6rem 0 1rem; }
+  h2 { break-inside: avoid; font-size: 12pt; margin: 1.15rem 0 .45rem; padding-bottom: .15rem;
+       border-bottom: .5pt solid #c4c4c4; page-break-after: avoid; break-after: avoid; }
+  h3 { font-size: 10.5pt; margin: .85rem 0 .3rem; page-break-after: avoid; break-after: avoid; }
+  p { margin: 0 0 .5rem; }
+  .ask { border: 1.25pt solid #1a1a1a; background: #f6f6f6; padding: .6rem .8rem; margin: .7rem 0 1rem; page-break-inside: avoid; }
+  .ask p { margin: 0; font-size: 11pt; }
+  .q { border-left: 2.5pt solid #777; padding: .05rem 0 .05rem .65rem; margin: .5rem 0 .3rem; page-break-inside: avoid; }
+  .q p { margin: 0 0 .28rem; font-size: 10.5pt; } .q p:last-child { margin: 0; }
+  .verbatim { border: .5pt solid #bbb; background: #fafafa; padding: .55rem .75rem; margin: .45rem 0 .6rem; page-break-inside: avoid; }
+  .verbatim .cap { font-family: Arial, Helvetica, sans-serif; font-size: 7.5pt; letter-spacing: .07em;
+       text-transform: uppercase; color: #777; margin: 0 0 .3rem; }
+  .verbatim p { margin: 0 0 .28rem; font-size: 10pt; } .verbatim p:last-child { margin: 0; }
+  .verbatim .said { font-style: italic; }
+  ol, ul { margin: 0 0 .55rem; padding-left: 1.45rem; }
+  li { margin-bottom: .2rem; }
+  ol.prompts { padding-left: 1.75rem; }
+  ol.prompts li { margin-bottom: .28rem; font-style: italic; }
+  .cols { column-count: 2; column-gap: 1.5rem; margin: .3rem 0 .55rem; }
+  .cols ul { margin: 0 0 .5rem; padding-left: .95rem; }
+  .cols li { font-size: 9.5pt; margin-bottom: .16rem; break-inside: avoid; }
+  .cols h4 { font-size: 9pt; font-family: Arial, Helvetica, sans-serif; text-transform: uppercase;
+       letter-spacing: .06em; color: #555; margin: 0 0 .2rem; break-after: avoid; }
+  .grp { break-inside: avoid; margin-bottom: .5rem; }
+  .triggers { column-count: 2; column-gap: 1.5rem; margin: .3rem 0 .6rem; padding-left: 1.6rem; }
+  .triggers li { font-size: 9.5pt; margin-bottom: .16rem; break-inside: avoid; }
+  .tight { font-size: 9.5pt; color: #555; font-family: Arial, Helvetica, sans-serif; }
+  footer { margin-top: 1.2rem; padding-top: .45rem; border-top: .5pt solid #c4c4c4;
+       font-size: 8.5pt; color: #666; font-family: Arial, Helvetica, sans-serif; }
+</style></head><body>
+
+<h1>Kindrest — Request for Clinical Review</h1>
+<p class="sub">A daily support app for mothers. Live, in use, and never reviewed by anyone clinical.</p>
+<p class="meta">Jheanelle Howell, Founder &nbsp;·&nbsp; jheanelle@kindrest.co &nbsp;·&nbsp; kindrest.co &nbsp;·&nbsp; August 2026</p>
+<hr class="rule">
+
+<h2>1. What Kindrest is</h2>
+<p>A free app for mothers in the years <em>after</em> birth — not pregnancy, not delivery, but the long stretch afterwards where structured support has usually stopped.</p>
+<p>It asks <strong>one question a day</strong>, answerable in about fifteen seconds. She writes a sentence or taps “not today.” From there she can take a two-minute check-in that returns a few small practices, mark items on a “Rest Card” that were already true of her day, or write privately in a journal.</p>
+<p>No streaks, no scores, no way to fall behind. A points-and-rewards system was built and deliberately removed before launch.</p>
+<p><strong>Kindrest does not claim to be therapy, treatment, or clinical care, and is not staffed by clinicians.</strong> It is a daily layer between appointments — for women who, in most cases, are not in treatment at all. It was built by one person with no clinical supervision, which is exactly why I'm asking.</p>
+
+<div class="ask">
+  <p><strong>The request:</strong> tell me where this is clinically unsound, ethically questionable, or likely to land badly on someone’s worst day. Everything below is the actual content — you can review it on paper without opening the app.</p>
+</div>
+
+<h2>2. The safety net — two tiers <span class="tight">— highest priority</span></h2>
+<p>Everything she writes — the daily question, check-in reflections, journal entries — is scanned for language suggesting she may be in danger, or carrying something heavier than Kindrest is built for. It is keyword matching, <strong>not a clinical screening instrument</strong>. Nothing she writes is ever blocked, deleted, or hidden from her.</p>
+<p><strong>There are two levels, and the same sentence never produces both.</strong> Tier 1 is checked first and wins outright. The tiers exist because everything used to fire the same alarm — and showing a mother the full 988 card for “I feel numb” teaches her to dismiss it, which costs the one moment it genuinely mattered.</p>
+
+<h3>Tier 1 — Danger. Sixteen triggers, full crisis card.</h3>
+<ol class="triggers">
+  <li>“kill myself” / “killing myself”</li>
+  <li>any word containing “suicid–”</li>
+  <li>“end my life” / “ending my life”</li>
+  <li>“end it all”</li>
+  <li>“don’t want to be here”</li>
+  <li>“want to die” / “wanted to die”</li>
+  <li>“wish I was dead” / “wish I were dead”</li>
+  <li>“better off without me”</li>
+  <li>“no reason to live”</li>
+  <li>“hurt myself” / “hurting myself”</li>
+  <li>“harm myself” / “harming myself”</li>
+  <li>“self-harm” / “self harm”</li>
+  <li>“hurt my baby” / “hurt the baby”</li>
+  <li>“harm my baby” / “harm the baby”</li>
+  <li>“hearing voices”</li>
+  <li>“scared I’ll hurt…”</li>
+</ol>
+<div class="verbatim">
+  <p class="cap">Tier 1 response, word for word</p>
+  <p class="said"><strong>You don’t have to carry this alone right now.</strong></p>
+  <p class="said">What you wrote matters, and it sounds like this is more than Kindrest is built for. Please reach out to someone who can help right now:</p>
+  <p class="said">Suicide &amp; Crisis Lifeline: Call or text <strong>988</strong><br>
+     Postpartum Support International: <strong>1-800-944-4773</strong><br>
+     Crisis Text Line: Text <strong>HOME</strong> to <strong>741741</strong></p>
+  <p class="said">If you or your baby are in immediate danger, please call 911.</p>
+</div>
+
+<h3>Tier 2 — Distress. Eighteen triggers, a gentle card and a warmline. No 988, no 911.</h3>
+<ol class="triggers">
+  <li><em>Intrusive:</em> “intrusive thought”</li>
+  <li>“can’t stop thinking”</li>
+  <li>“thoughts I can’t control”</li>
+  <li>“what if I dropped / hurt / lost”</li>
+  <li><em>Fear of self:</em> “scared of myself”</li>
+  <li>“don’t trust myself”</li>
+  <li>“afraid of what I…”</li>
+  <li>“I’m not safe”</li>
+  <li><em>Escape:</em> “want to disappear / run away”</li>
+  <li>“they’d be better off” (without “me”)</li>
+  <li>“no one would notice”</li>
+  <li><em>Numbness:</em> “feel nothing” / “feel numb”</li>
+  <li>“can’t feel anything”</li>
+  <li>“watching myself from…”</li>
+  <li>“not really here”</li>
+  <li><em>The baby:</em> “hate / resent my baby”</li>
+  <li>“don’t love / feel connected to the baby”</li>
+  <li>“regret having…”</li>
+</ol>
+<div class="verbatim">
+  <p class="cap">Tier 2 response, word for word</p>
+  <p class="said"><strong>That sounds heavy.</strong></p>
+  <p class="said">What you wrote is yours and it stays here. If any of it has been sitting on you, there are people who talk to mothers about exactly this — no crisis required, and it’s free.</p>
+  <p class="said">Postpartum Support International · 1-800-944-4773 — call or text. They’ll talk about anything; you don’t have to be in crisis.</p>
+</div>
+
+<p><strong>Deliberately excluded from both tiers:</strong> ordinary venting — “I’m exhausted”, “I feel like a bad mother”, “I can’t do this anymore”. These are close to universal postpartum, and including them would fire on nearly everyone and teach her to ignore the card. <em>That is a judgement call, and the one I would most like you to challenge.</em></p>
+
+<div class="q">
+  <p><strong>2a.</strong> What is Tier 1 missing — particularly postpartum-specific presentations such as early psychosis, and the ways these appear in ordinary language rather than clinical phrasing?</p>
+  <p><strong>2b.</strong> Is anything in Tier 2 actually Tier 1, or the reverse?</p>
+  <p><strong>2c.</strong> Was excluding ordinary venting right, or is that exactly the moment to say something?</p>
+  <p><strong>2d.</strong> Are those the right resources, in the right order, for each tier?</p>
+  <p><strong>2e.</strong> Is a warmline the right Tier 2 response — or should it do more, or less?</p>
+</div>
+
+<h2>3. The day she has nothing good to say <span class="tight">— highest priority</span></h2>
+<p>The daily question asks her to notice something small and positive. On a hard day that could land badly, so she can tap “not today” and is asked one thing:</p>
+<div class="verbatim">
+  <p class="cap">The fork, word for word</p>
+  <p class="said"><strong>Option 1 —</strong> “A calm or plain day. Nothing’s wrong.”</p>
+  <p class="said"><strong>Option 2 —</strong> “Today’s asking a lot of me.”</p>
+  <p class="said">Choosing the second returns: <strong>“Thank you for being honest.”</strong> then an offer — <strong>“Check in with me — two minutes. No performing, no fixing.”</strong></p>
+</div>
+<p>Separately, if she reports <strong>three or more hard days within any fourteen</strong>, a card appears on her home screen. It can be dismissed and does not nag.</p>
+<div class="verbatim">
+  <p class="cap">The nudge, word for word</p>
+  <p class="said"><strong>These past couple of weeks have been heavy.</strong></p>
+  <p class="said">You’ve shown up on some hard days lately — that takes something. You don’t have to carry it alone. Whenever you want, someone’s here.</p>
+  <p class="said">Postpartum Support International: 1-800-944-4773 &nbsp;·&nbsp; 988</p>
+</div>
+<div class="q">
+  <p><strong>3a.</strong> Is that fork sufficient, and is the wording right?</p>
+  <p><strong>3b.</strong> Is three hard days in fourteen a defensible threshold? <em>I chose it by instinct, not evidence.</em></p>
+  <p><strong>3c.</strong> Does a positive-affect prompt risk harm for someone depressed, and does the fork adequately mitigate that?</p>
+  <p><strong>3d.</strong> Should a stretch of heavy days do more than show a card?</p>
+</div>
+
+<h2>4. The eleven daily questions</h2>
+<p>One per day on rotation, the same for every user, drawn from work on glimmers and polyvagal theory (Deb Dana), matrescence (Aurélie Athan), and savoring (Hanson; Fredrickson).</p>
+<ol class="prompts">
+  <li>When did you last feel most like yourself — not a role, just you?</li>
+  <li>What’s something you did recently that felt unmistakably like you?</li>
+  <li>When did you last notice your shoulders drop, even for a second?</li>
+  <li>What tiny thing made you smile today when you weren’t expecting to?</li>
+  <li>What’s a small pleasure that’s just yours — tied to no one else’s needs?</li>
+  <li>When did you last feel genuinely with someone — a look, a laugh, a small understanding?</li>
+  <li>What’s something recently that made you feel alive, not just functional?</li>
+  <li>When did you last catch a glimpse of the woman you were before all this — and feel glad she’s still here?</li>
+  <li>What’s a moment from today you’d want to keep, even a plain one?</li>
+  <li>What did your body quietly enjoy today — warmth, rest, a good stretch, a first sip?</li>
+  <li>What are you quietly looking forward to, however small?</li>
+</ol>
+<div class="q">
+  <p><strong>4a.</strong> Is that theoretical grounding sound, or have I misapplied it?</p>
+  <p><strong>4b.</strong> Is any single question a poor idea for someone grieving, in a difficult relationship, or unwell? <em>Number 8 is the one I am least sure of.</em></p>
+</div>
+
+<h2>5. The forty-six practices she may be offered</h2>
+<p>A check-in returns a small number of these, matched to her stated mood and available time. All low-effort by design — nothing requiring money, childcare, or leaving the house. Grouped by the kind of regulation each tends toward.</p>
+<div class="cols">
+  <div class="grp"><h4>Physical (12)</h4><ul>
+    <li>Move your body in a way that feels celebratory</li><li>Close your eyes for 90 seconds</li>
+    <li>Take a 5-minute walk — no destination</li><li>Shake out your hands and roll your neck</li>
+    <li>Let your body be horizontal</li><li>Feel the ground hold you</li>
+    <li>Do one thing slowly on purpose</li><li>Notice what your body feels like when things are okay</li>
+    <li>Drink a full glass of water</li><li>Stretch your shoulders</li>
+    <li>Take 3 slow breaths</li><li>Stand in sunlight briefly</li>
+  </ul></div>
+  <div class="grp"><h4>Emotional (8)</h4><ul>
+    <li>Put one hand on your chest</li><li>Pause and savor this moment</li>
+    <li>Check in: what emotion is actually here right now?</li><li>Express gratitude out loud</li>
+    <li>Write one compassionate sentence to yourself</li><li>Write: Right now I wish someone knew…</li>
+    <li>Sit quietly before bed</li><li>Let yourself feel good without qualifying it</li>
+  </ul></div>
+  <div class="grp"><h4>Mental (8)</h4><ul>
+    <li>Say out loud: “I only have to handle right now”</li><li>Voice memo: name what feels heavy</li>
+    <li>Close every tab you are not using</li><li>Get one thing out of your head and onto paper</li>
+    <li>Colour something — no goal, no rules</li><li>Spend 5 minutes colouring</li>
+    <li>Write your three non-negotiables for tomorrow</li><li>Identify what made today lighter</li>
+  </ul></div>
+  <div class="grp"><h4>Sensory (7)</h4><ul>
+    <li>Lower the noise</li><li>Put phone away for 10 minutes</li>
+    <li>Put on music that’s just for you — not the kids</li><li>Create a small ritual that marks this as a good day</li>
+    <li>Do something that feels indulgent but is actually just normal</li>
+    <li>Make something warm to drink and actually sit down with it</li>
+    <li>Change one thing about your physical environment</li>
+  </ul></div>
+  <div class="grp"><h4>Relational (6)</h4><ul>
+    <li>Send a quick “thinking of you” to someone</li><li>Read a message from someone who loves you</li>
+    <li>Text someone safe</li><li>Share one real thing with someone safe today</li>
+    <li>Make a plan with someone you love — not because anything is wrong</li>
+    <li>Text someone: I am having a hard day</li>
+  </ul></div>
+  <div class="grp"><h4>Identity (5)</h4><ul>
+    <li>Record a voice memo to yourself</li><li>Name one thing that is still yours</li>
+    <li>Celebrate one small win</li><li>Spend 3 minutes with something that made you you</li>
+    <li>Plan something to look forward to — and put it in the calendar</li>
+  </ul></div>
+</div>
+<div class="q">
+  <p><strong>5a.</strong> Is anything here contraindicated for a specific presentation — trauma, dissociation, disordered eating, OCD?</p>
+  <p><strong>5b.</strong> Is “low-effort self-regulation” the right frame at all for someone who in fact needs treatment?</p>
+  <p><strong>5c.</strong> Anything you would remove outright?</p>
+</div>
+
+<h2>6. Boundaries, and messages from other people</h2>
+<p>Kindrest states plainly that it is not therapy and not a replacement for clinical care. It also includes a feature called <strong>Love Notes</strong>: she shares a private link, and people she chooses can leave a short message that appears on her home screen. They need no account and can never see anything she writes.</p>
+<p><strong>The first note from a name she hasn’t heard from waits for her approval</strong> — she sees it in Love Notes and chooses to keep it or block the sender. Once allowed, that person’s later notes appear directly, so her mother isn’t re-approved every time. She can delete any note or close the link instantly.</p>
+<div class="q">
+  <p><strong>6a.</strong> Is the “this is not therapy” boundary clear enough, and where might a user still mistake it for care?</p>
+  <p><strong>6b.</strong> Is first-note approval the right safeguard, or should every note wait?</p>
+  <p><strong>6c.</strong> Any concern with third parties sending messages to someone who may be unwell?</p>
+</div>
+
+<h2>7. What I am not asking</h2>
+<ul>
+  <li>Not asking for endorsement or to use your name. If that ever arises it will be a separate conversation, in writing.</li>
+  <li>Not asking for a formal report, documentation, or unpaid consulting hours.</li>
+  <li>Not asking about design, branding, or the business — only whether this is safe and sound.</li>
+</ul>
+<p><strong>If any of this creates a duty or a conflict for you professionally, please say so and I will withdraw the request.</strong> I would rather lose the feedback than put you in an awkward position.</p>
+
+<h2>8. How to reply</h2>
+<p>Section numbers are there so you can answer in shorthand — “2b: numbness belongs in Tier 1” is perfect. Email, voice note, bullet points, or a call all work. Partial answers are genuinely useful.</p>
+<p>If you would rather see it running, it is at <strong>kindrest.co</strong> — free, about two minutes to sign up. Writing one of the phrases above into the journal will show you the matching response on a real account.</p>
+<p class="tight">And if you think a mother you know would find this useful, you’re welcome to pass it on — only if it genuinely would help her, and only if it sits comfortably with your role.</p>
+
+<footer>Kindrest &nbsp;·&nbsp; kindrest.co &nbsp;·&nbsp; Jheanelle Howell, Founder &nbsp;·&nbsp; jheanelle@kindrest.co</footer>
+</body></html>
