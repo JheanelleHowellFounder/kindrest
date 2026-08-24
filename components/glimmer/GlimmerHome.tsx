@@ -29,20 +29,6 @@ interface PeopleNote {
   body: string
 }
 
-interface PastGlimmer {
-  id: string
-  body: string
-  entry_date: string
-}
-
-/** "Tuesday" for this week, "Mar 4" beyond it. */
-function shortDate(d: string): string {
-  const date = new Date(d + 'T00:00:00')
-  const days = Math.floor((Date.now() - date.getTime()) / 86_400_000)
-  if (days <= 6) return date.toLocaleDateString('en-US', { weekday: 'long' })
-  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-}
-
 const CIRCLES = [
   {
     label: 'Play',
@@ -96,12 +82,12 @@ export function GlimmerHome() {
   const [outcome, setOutcome] = useState<'answered' | 'quiet' | 'heavy'>('answered')
   const [safety, setSafety] = useState<SafetyLevel>('none')
   const [isFirstTime, setIsFirstTime] = useState(false)
-  const [past, setPast] = useState<PastGlimmer[]>([])
   // The newest unread note from her village. When there isn't one, the quote
   // holds this slot — she should never land on an empty space where a kind
   // word used to be.
   const [note, setNote] = useState<PeopleNote | null>(null)
   const [noteCount, setNoteCount] = useState(0)
+  const [notes, setNotes] = useState<PeopleNote[]>([])
 
   useEffect(() => {
     let active = true
@@ -127,6 +113,7 @@ export function GlimmerHome() {
       .then(d => {
         const all: { from_name: string; body: string; seen_at: string | null }[] = d?.notes ?? []
         setNoteCount(all.length)
+        setNotes(all.map(n => ({ from: n.from_name, body: n.body })))
         const fresh = all.find(n => !n.seen_at)
         if (fresh) setNote({ from: fresh.from_name, body: fresh.body })
       })
@@ -139,9 +126,8 @@ export function GlimmerHome() {
     authedFetch('/api/glimmer/timeline')
       .then(r => r.json())
       .then(d => {
-        const all: PastGlimmer[] = d?.glimmers ?? []
+        const all: { entry_date: string; body: string }[] = d?.glimmers ?? []
         setIsFirstTime(all.length === 0)
-        setPast(all.filter(g => g.entry_date !== today && g.body).slice(0, 3))
       })
       .catch(() => {})
   }, [phase])
@@ -180,6 +166,11 @@ export function GlimmerHome() {
   }
 
   const canSave = text.trim().length > 0 && phase !== 'saving'
+
+  // The newest unread note takes the greeting slot up top, so the list below
+  // starts after it rather than repeating it.
+  const bottomNotes = (note ? notes.filter(n => !(n.from === note.from && n.body === note.body)) : notes)
+    .slice(0, 3)
 
   return (
     <div className="flex flex-col min-h-screen pb-28 bg-cream">
@@ -378,25 +369,28 @@ export function GlimmerHome() {
           </div>
         </div>
 
-        {/* ── 4. Her collection — a record, never a task ──────────────────── */}
-        {past.length > 0 && (
+        {/* ── 4. What her people have said ───────────────────────────────────
+            Her own past glimmers used to sit here. They live in History, and
+            this space does more good holding someone else's words than
+            replaying her own. */}
+        {bottomNotes.length > 0 && (
           <div className="flex flex-col gap-3 pt-1">
             <p className="font-display font-semibold text-[11.5px] tracking-[0.14em] uppercase text-chocolate/35">
-              Lately, you noticed
+              From your people
             </p>
             <div className="flex flex-col">
-              {past.map((g, i) => (
-                <div key={g.id} className={i > 0 ? 'border-t border-beige/50 pt-3 mt-3' : ''}>
-                  <p className="font-serif text-[15px] leading-[1.5] text-chocolate/75">“{g.body}”</p>
-                  <p className="font-sans text-[11.5px] text-chocolate/35 mt-1">{shortDate(g.entry_date)}</p>
+              {bottomNotes.map((n, i) => (
+                <div key={`${n.from}-${i}`} className={i > 0 ? 'border-t border-beige/50 pt-3 mt-3' : ''}>
+                  <p className="font-serif text-[15px] leading-[1.5] text-chocolate/75">“{n.body}”</p>
+                  <p className="font-sans text-[11.5px] text-chocolate/35 mt-1">{n.from}</p>
                 </div>
               ))}
             </div>
             <Link
-              href="/glimmers"
+              href="/village"
               className="font-sans text-[13px] text-chocolate/45 hover:text-chocolate transition-colors"
             >
-              All your glimmers →
+              All your Love Notes →
             </Link>
           </div>
         )}
