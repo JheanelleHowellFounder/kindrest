@@ -93,15 +93,22 @@ export function OnboardingProfileFlow() {
       updated_at: new Date().toISOString(),
     }
 
+    // Both of these MUST name user_id as the conflict target. Without it,
+    // upsert defaults to the primary key and tries to INSERT — which collides
+    // with the unique constraint on user_id for anyone who already has a row,
+    // and she finishes onboarding to a red error with nothing saved.
+    //
     // signup_source only exists where the Founding Moms migration has been run.
     // Try it, and retry without it if the column isn't there — a missing column
     // must never stop a mother from finishing onboarding.
     let { error: profileError } = await supabase
       .from('user_profiles')
-      .upsert({ ...profile, signup_source: signupSource })
+      .upsert({ ...profile, signup_source: signupSource }, { onConflict: 'user_id' })
 
     if (profileError) {
-      ;({ error: profileError } = await supabase.from('user_profiles').upsert(profile))
+      ;({ error: profileError } = await supabase
+        .from('user_profiles')
+        .upsert(profile, { onConflict: 'user_id' }))
     }
 
     if (profileError) {
