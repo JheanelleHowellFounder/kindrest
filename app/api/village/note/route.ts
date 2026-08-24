@@ -69,21 +69,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'This link isn’t active anymore.' }, { status: 404 })
   }
 
-  // Rate limit per recipient. Her village is small; a flood is not her village.
-  const since = new Date(Date.now() - NOTE_RATE_WINDOW_MS).toISOString()
-  const { count } = await supabaseAdmin
-    .from('village_notes')
-    .select('id', { count: 'exact', head: true })
-    .eq('user_id', owner.userId)
-    .gte('created_at', since)
-
-  if ((count ?? 0) >= NOTE_RATE_LIMIT) {
-    return NextResponse.json(
-      { error: 'She’s had a lot of notes in the last hour. Try again a bit later.' },
-      { status: 429 }
-    )
-  }
-
   // Has she heard from this name before? First note from someone new waits for
   // her; after that they're trusted and it goes straight to her home screen.
   const nameKey = check.name!.toLowerCase().trim()
@@ -100,11 +85,35 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true, name: owner.firstName })
   }
 
+  const trusted = sender?.status === 'allowed'
+
+  // Rate limit, scoped to the sender's standing.
+  //
+  // A single limit across everything let a stranger with her link post eight
+  // notes she hadn't even seen and lock out her mother for the hour. So a
+  // trusted sender is measured only against other trusted notes, and unknown
+  // senders only against the pending pile — strangers can crowd out strangers,
+  // never the people she has already welcomed.
+  const since = new Date(Date.now() - NOTE_RATE_WINDOW_MS).toISOString()
+  const { count } = await supabaseAdmin
+    .from('village_notes')
+    .select('id', { count: 'exact', head: true })
+    .eq('user_id', owner.userId)
+    .eq('status', trusted ? 'kept' : 'pending')
+    .gte('created_at', since)
+
+  if ((count ?? 0) >= NOTE_RATE_LIMIT) {
+    return NextResponse.json(
+      { error: 'She’s had a lot of notes in the last hour. Try again a bit later.' },
+      { status: 429 }
+    )
+  }
+
   const { error } = await supabaseAdmin.from('village_notes').insert({
     user_id: owner.userId,
     from_name: check.name,
     body: check.body,
-    status: sender?.status === 'allowed' ? 'kept' : 'pending',
+    status: trusted ? 'kept' : 'pending',
   })
 
   if (error) {
