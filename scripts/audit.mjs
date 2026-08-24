@@ -13,7 +13,10 @@
  *   2. Every endpoint that should require auth still refuses without it.
  *   3. Every write the app performs still matches the live schema.
  *
- * Test rows are written and deleted inside the run; nothing is left behind.
+ * Test rows are written and rolled back inside the run; nothing is left behind.
+ * Where a check has to upsert onto a REAL user's row, the original is
+ * snapshotted first and restored afterwards — see checkProfileWrite. Never add
+ * a bare upsert against live user data here.
  * Exits non-zero if anything fails, so it can gate a deploy.
  */
 
@@ -115,16 +118,37 @@ async function checkWrite(label, table, row, opts = {}) {
 }
 
 // The exact shape OnboardingProfileFlow writes — this is what silently broke.
-await checkWrite('signup → user_profiles', 'user_profiles', {
-  user_id: uid, name: 'audit', motherhood_stage: 'infant', preferred_time_window: 'morning',
+//
+// ⚠️ These two are UPSERTS ON A REAL USER'S ROW. An earlier version of this
+// script wrote the test values and never put the original back, quietly
+// destroying two mothers' names, stages, time windows, categories and support
+// people — while reporting a pass. Snapshot first, restore always.
+async function checkProfileWrite(label, table, testRow, columns) {
+  if (!uid) return
+  const { data: before } = await sb.from(table).select(columns).eq('user_id', uid).maybeSingle()
+
+  const { error } = await sb.from(table).upsert(testRow, { onConflict: 'user_id' })
+
+  // Restore before reporting, so a failed assertion can't skip the rollback.
+  if (before) {
+    await sb.from(table).upsert({ user_id: uid, ...before }, { onConflict: 'user_id' })
+  } else {
+    await sb.from(table).delete().eq('user_id', uid)   // there was no row; leave none
+  }
+
+  error ? fail(`${label} — ${error.message}`) : pass(label)
+}
+
+await checkProfileWrite('signup → user_profiles', 'user_profiles', {
+  user_id: uid, name: '_audit', motherhood_stage: 'infant', preferred_time_window: 'morning',
   preferred_categories: [], support_people: [], onboarding_completed: true,
   updated_at: new Date().toISOString(),
-}, { conflict: 'user_id' })
+}, 'name, motherhood_stage, preferred_time_window, preferred_categories, support_people, onboarding_completed, updated_at')
 
-await checkWrite('signup → user_preference_profile', 'user_preference_profile', {
+await checkProfileWrite('signup → user_preference_profile', 'user_preference_profile', {
   user_id: uid, preferred_categories: [], avoided_categories: [], preferred_effort: 'Low',
   strong_regulation_types: [], total_checkins: 0, updated_at: new Date().toISOString(),
-}, { conflict: 'user_id' })
+}, 'preferred_categories, avoided_categories, preferred_effort, strong_regulation_types, total_checkins, updated_at')
 
 await checkWrite('glimmer save', 'glimmers', {
   user_id: uid, prompt_id: '_audit', prompt_text: 'audit', body: null,
