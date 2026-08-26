@@ -206,11 +206,15 @@ for (const fn of cleanup) { try { await fn?.() } catch {} }
 head('FUNNEL — is anyone getting stuck?')
 if (uid) {
   const { data: all } = await sb.auth.admin.listUsers({ page: 1, perPage: 1000 })
-  const { data: profiles } = await sb.from('user_profiles').select('user_id')
+  // "Has a profile row" is not "finished onboarding" — a row can exist while the
+  // flow was abandoned. Counting rows overstated completion by six.
+  const { data: profiles } = await sb.from('user_profiles').select('user_id, onboarding_completed')
   const ids = new Set((profiles ?? []).map(p => p.user_id))
-  const stuck = (all?.users ?? []).filter(u => !ids.has(u.id))
+  const done = new Set((profiles ?? []).filter(p => p.onboarding_completed).map(p => p.user_id))
+  const stuck = (all?.users ?? []).filter(u => !done.has(u.id))
+  const unconfirmed = (all?.users ?? []).filter(u => !u.email_confirmed_at)
   const recentStuck = stuck.filter(u => Date.now() - new Date(u.created_at).getTime() < 7 * 86400000)
-  console.log(`  accounts: ${all?.users?.length ?? 0} · completed onboarding: ${ids.size} · stuck: ${stuck.length}`)
+  console.log(`  accounts: ${all?.users?.length ?? 0} · finished onboarding: ${done.size} · has a profile row: ${ids.size} · never confirmed email: ${unconfirmed.length}`)
   recentStuck.length
     ? fail(`${recentStuck.length} signed up in the last 7 days and never finished onboarding — check the signup path`)
     : pass('no one stuck in onboarding this week')
