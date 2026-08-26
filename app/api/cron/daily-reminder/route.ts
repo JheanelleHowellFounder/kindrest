@@ -1,8 +1,8 @@
 /**
- * The daily reminder — the thing that makes a daily ritual daily.
+ * The reminder — the thing that brings her back.
  *
  * Kindrest shipped without any way to bring a mother back, and every early user
- * drifted off. This sends one email a day carrying today's glimmer question.
+ * drifted off. This sends one email carrying that day's glimmer question.
  *
  * It's a single MailerLite campaign, not 100 separate sends, because the glimmer
  * is the same question for everyone by design. That keeps it free, and it means
@@ -20,8 +20,15 @@
  * this route reports exactly what it *would* send and stops. Turning it on is a
  * deliberate act, because the first run reaches real people.
  *
- * Triggered by the Vercel cron in vercel.json. Vercel signs cron requests with
- * CRON_SECRET; anything else is refused so this can't be fired by a stranger.
+ * Triggered by the Vercel cron in vercel.json — Monday, Wednesday and Friday at
+ * 9am Eastern. It ran daily for the first two weeks: 46% open rate, one
+ * unsubscribe, no spam complaints, but opens drifting 53% → 41% and only four
+ * click-throughs. People were reading it and not coming, so the volume was
+ * buying fatigue rather than returns. Three a week keeps the rhythm without
+ * spending the goodwill.
+ *
+ * Vercel signs cron requests with CRON_SECRET; anything else is refused so this
+ * can't be fired by a stranger.
  */
 
 import { NextRequest, NextResponse } from 'next/server'

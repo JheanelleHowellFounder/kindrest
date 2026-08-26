@@ -61,15 +61,25 @@ Deno.serve(async (req: Request) => {
       return json({ error: 'Email service not configured' }, 500)
     }
 
-    // Build the verification link — Supabase validates token_hash, then
-    // redirects the user to the app at redirect_to.
+    // Build the verification link pointing to the APP callback page, not
+    // directly to Supabase's /auth/v1/verify endpoint.
+    //
+    // Why: email scanners (Gmail Safe Browsing, etc.) make GET requests to
+    // every link in an email. Pointing directly to the Supabase verify endpoint
+    // causes the scanner to consume the one-time token before the user clicks.
+    // Pointing to the app instead is safe — scanners fetch the HTML but don't
+    // execute JavaScript, so verifyOtp() never runs until a real browser loads.
     const fallbackUrl = site_url || 'https://kindrest.vercel.app'
-    const destination = redirect_to || fallbackUrl
+    const appBase     = (redirect_to || fallbackUrl).replace(/\/$/, '')
+    // Use the redirect_to URL directly if it points at /auth/callback;
+    // otherwise append /auth/callback so the page knows how to handle it.
+    const callbackUrl = appBase.includes('/auth/callback')
+      ? appBase
+      : `${appBase}/auth/callback`
     const confirmUrl  =
-      `${SUPABASE_URL}/auth/v1/verify` +
+      `${callbackUrl}` +
       `?token_hash=${encodeURIComponent(token_hash)}` +
-      `&type=${email_action_type}` +
-      `&redirect_to=${encodeURIComponent(destination)}`
+      `&type=${email_action_type}`
 
     const { subject, html } = buildEmail(email_action_type, confirmUrl)
 
