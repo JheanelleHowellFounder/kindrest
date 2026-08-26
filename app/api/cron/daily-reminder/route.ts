@@ -20,12 +20,21 @@
  * this route reports exactly what it *would* send and stops. Turning it on is a
  * deliberate act, because the first run reaches real people.
  *
- * Triggered by the Vercel cron in vercel.json — Monday, Wednesday and Friday at
- * 9am Eastern. It ran daily for the first two weeks: 46% open rate, one
- * unsubscribe, no spam complaints, but opens drifting 53% → 41% and only four
- * click-throughs. People were reading it and not coming, so the volume was
- * buying fatigue rather than returns. Three a week keeps the rhythm without
- * spending the goodwill.
+ * WHEN IT SENDS (vercel.json, two entries, both UTC):
+ *   weekdays  8:30pm Eastern  →  "30 0 * * 2-6"   (00:30 UTC Tue–Sat)
+ *   weekends  9:00am Eastern  →  "0 13 * * 0,6"
+ *
+ * Evenings on weekdays because nine of the eleven questions are retrospective —
+ * they ask what she noticed *today*. Sent at 9am she had nothing to answer with
+ * and would have to hold the question all day; two weeks of that produced a 46%
+ * open rate and four click-throughs. After bedtime she has a day to look back on.
+ *
+ * Weekend mornings because the load shifts rather than lifts at a weekend, and a
+ * slow morning is often the only unhurried moment she gets.
+ *
+ * ⚠️ Vercel cron is UTC and does not follow daylight saving. These times are
+ * correct for EDT; when the clocks go back in November each send lands an hour
+ * earlier in Eastern and both entries need shifting by one hour.
  *
  * Vercel signs cron requests with CRON_SECRET; anything else is refused so this
  * can't be fired by a stranger.
@@ -108,7 +117,10 @@ export async function GET(req: NextRequest) {
 
   const prompt = getTodaysPrompt()
   const today = new Date().toISOString().slice(0, 10)
-  const subject = prompt.text.length <= 60 ? prompt.text : 'Today’s glimmer'
+  // Each prompt carries its own short hook. The old rule — use the question if
+  // it fits in sixty characters — meant ten of eleven fell back to the same
+  // generic line, so fourteen consecutive emails arrived titled identically.
+  const subject = prompt.subject
 
   // ?preview=1 renders the email in the browser so it can be read before it's
   // ever sent to anyone. Sends nothing.

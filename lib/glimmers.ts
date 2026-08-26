@@ -25,6 +25,18 @@ export interface GlimmerPrompt {
   id: string
   text: string
   category: GlimmerCategory
+  /**
+   * Short hook for the reminder email's subject line.
+   *
+   * The full question is too long for a subject field — ten of eleven ran past
+   * sixty characters, so every send fell back to the same generic line. Fourteen
+   * consecutive emails arrived titled "Today's glimmer", which is the fastest way
+   * to teach someone their inbox has nothing new in it.
+   *
+   * Keep these under ~45 characters so they survive a phone's preview, and keep
+   * them curious rather than instructive. Never two the same.
+   */
+  subject: string
 }
 
 // Grounded in: Deb Dana (glimmers / polyvagal — small, embodied micro-moments),
@@ -33,17 +45,17 @@ export interface GlimmerPrompt {
 // Rules: anchor to one concrete moment · keep it small and embodied · thread
 // self-recognition, never distress.
 export const GLIMMER_PROMPTS: GlimmerPrompt[] = [
-  { id: 'g-self-role',   text: 'When did you last feel most like yourself — not a role, just you?', category: 'identity' },
-  { id: 'g-self-action', text: 'What’s something you did recently that felt unmistakably like you?', category: 'identity' },
-  { id: 'g-shoulders',   text: 'When did you last notice your shoulders drop, even for a second?', category: 'body' },
-  { id: 'g-smile',       text: 'What tiny thing made you smile today when you weren’t expecting to?', category: 'joy' },
-  { id: 'g-yours',       text: 'What’s a small pleasure that’s just yours — tied to no one else’s needs?', category: 'joy' },
-  { id: 'g-with',        text: 'When did you last feel genuinely with someone — a look, a laugh, a small understanding?', category: 'connection' },
-  { id: 'g-alive',       text: 'What’s something recently that made you feel alive, not just functional?', category: 'identity' },
-  { id: 'g-before',      text: 'When did you last catch a glimpse of the woman you were before all this — and feel glad she’s still here?', category: 'identity' },
-  { id: 'g-keep',        text: 'What’s a moment from today you’d want to keep, even a plain one?', category: 'presence' },
-  { id: 'g-body',        text: 'What did your body quietly enjoy today — warmth, rest, a good stretch, a first sip?', category: 'body' },
-  { id: 'g-forward',     text: 'What are you quietly looking forward to, however small?', category: 'joy' },
+  { id: 'g-self-role',   text: 'When did you last feel most like yourself — not a role, just you?', category: 'identity' , subject: 'When did you last feel like yourself?' },
+  { id: 'g-self-action', text: 'What’s something you did recently that felt unmistakably like you?', category: 'identity' , subject: 'Something that felt like you' },
+  { id: 'g-shoulders',   text: 'When did you last notice your shoulders drop, even for a second?', category: 'body' , subject: 'When did your shoulders last drop?' },
+  { id: 'g-smile',       text: 'What tiny thing made you smile today when you weren’t expecting to?', category: 'joy' , subject: 'What made you smile today?' },
+  { id: 'g-yours',       text: 'What’s a small pleasure that’s just yours — tied to no one else’s needs?', category: 'joy' , subject: 'One small thing that’s just yours' },
+  { id: 'g-with',        text: 'When did you last feel genuinely with someone — a look, a laugh, a small understanding?', category: 'connection' , subject: 'When did you last feel truly with someone?' },
+  { id: 'g-alive',       text: 'What’s something recently that made you feel alive, not just functional?', category: 'identity' , subject: 'Alive, not just functional' },
+  { id: 'g-before',      text: 'When did you last catch a glimpse of the woman you were before all this — and feel glad she’s still here?', category: 'identity' , subject: 'She’s still in there' },
+  { id: 'g-keep',        text: 'What’s a moment from today you’d want to keep, even a plain one?', category: 'presence' , subject: 'One moment from today, worth keeping' },
+  { id: 'g-body',        text: 'What did your body quietly enjoy today — warmth, rest, a good stretch, a first sip?', category: 'body' , subject: 'What did your body enjoy today?' },
+  { id: 'g-forward',     text: 'What are you quietly looking forward to, however small?', category: 'joy' , subject: 'What are you looking forward to?' },
 ]
 
 /**
