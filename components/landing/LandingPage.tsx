@@ -769,8 +769,10 @@ export function LandingPage() {
           <div className="flex justify-center">
             <WaitlistForm />
           </div>
-          <p className="font-sans text-xs text-chocolate/25 mt-8">
-            Kindrest is not a replacement for therapy or clinical care. It's the daily layer.
+          <p className="font-sans text-[13px] text-chocolate/50 mt-8 max-w-md mx-auto leading-relaxed">
+            <span className="font-semibold text-chocolate/70">Kindrest is a tool, not a therapist.</span>{' '}
+            It is built for the daily weight of motherhood. If what you are carrying needs
+            more than that, you deserve real care, and we will always point you toward it.
           </p>
         </div>
       </section>

@@ -10,6 +10,7 @@ import { trackEvent } from '@/lib/analytics'
 import { readAttribution, ATTRIBUTION_KEY } from '@/lib/attribution'
 import { track as trackGrowth } from '@/lib/posthog'
 import { HEARD_OPTIONS } from '@/lib/heard-about'
+import { WhatKindrestIs } from '@/components/shared/WhatKindrestIs'
 
 type ProfileStep = 1 | 2 | 3 | 4 | 5 | 'done'
 
@@ -560,6 +561,11 @@ export function OnboardingProfileFlow() {
       </p>
 
       <div className="h-0.5 w-16 bg-mustard mx-auto mt-6" />
+
+      {/* Set expectations before she has used it once. */}
+      <div className="w-full max-w-sm mt-8">
+        <WhatKindrestIs variant="dark" />
+      </div>
 
       <div className="mt-auto w-full pb-12 pt-8">
         {saveError && (

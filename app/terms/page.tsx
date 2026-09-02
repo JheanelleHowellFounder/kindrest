@@ -73,7 +73,8 @@ export default function TermsPage() {
 
           <section>
             <h2 className="font-serif text-[22px] text-chocolate mb-3">Health Disclaimer</h2>
-            <p>Kindrest is not a medical or mental health service. It is not intended to diagnose, treat, or provide professional health advice. If you are experiencing a medical or mental health emergency, please seek professional help.</p>
+            <p className="mb-3">Kindrest is a self-guided wellbeing tool. It is not a medical or mental health service, is not staffed by licensed clinicians, and is not intended to diagnose, treat, cure, or prevent any condition. Nothing in Kindrest constitutes medical advice or establishes a clinical relationship.</p>
+            <p>It is not a substitute for professional care, and it is not an emergency or crisis service. If you are experiencing a mental health emergency, call 988 or your local emergency number.</p>
           </section>
 
           <section>

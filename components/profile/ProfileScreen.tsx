@@ -11,6 +11,7 @@ import { useAuth } from '@/lib/auth-context'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { FeedbackSheet } from '@/components/shared/FeedbackSheet'
+import { WhatKindrestIs } from '@/components/shared/WhatKindrestIs'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -355,6 +356,9 @@ export function ProfileScreen() {
               </div>
             </div>
           </div>
+
+          {/* Findable whenever she wonders what this is. */}
+          <WhatKindrestIs />
 
           <button
             onClick={() => setShowFeedback(true)}

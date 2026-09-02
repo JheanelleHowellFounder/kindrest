@@ -770,6 +770,12 @@ export function CheckInFlow() {
                   {retryCount === 0 ? 'Try different suggestions' : 'Show me something else'}
                 </button>
               )}
+
+              {/* The one screen where Kindrest actually suggests what to do. */}
+              <p className="font-sans text-[11.5px] text-chocolate/35 leading-relaxed text-center px-2 pt-3">
+                Kindrest is a tool, not a therapist. If what you are carrying needs more
+                than this, you deserve real care.
+              </p>
             </div>
           </div>
         )}
