@@ -15,6 +15,19 @@ interface Note {
   seen_at: string | null
 }
 
+/**
+ * The message she forwards.
+ *
+ * Defined once and both shown to her and put on the clipboard — she should never
+ * be asked to send her mother words she hasn't read. Written to be sent as-is,
+ * because most people won't edit it, and to answer the two questions a recipient
+ * has immediately: do I need an account, and how long will this take.
+ */
+const SHARE_MESSAGE =
+  'I’ve been using an app called Kindrest — it checks in with me every day. ' +
+  'It has a thing called Love Notes where the people in your corner can leave ' +
+  'you a message. No sign-up, takes a second. Leave me one if you feel like it.'
+
 function ago(iso: string): string {
   const days = Math.floor((Date.now() - new Date(iso).getTime()) / 86_400_000)
   if (days === 0) return 'Today'
@@ -40,7 +53,7 @@ export default function VillagePage() {
   const [pending, setPending] = useState<Note[]>([])
   const [needsMigration, setNeedsMigration] = useState(false)
   const [fetching, setFetching] = useState(true)
-  const [copied, setCopied] = useState(false)
+  const [shareState, setShareState] = useState<'idle' | 'copied' | 'manual'>('idle')
   const [busy, setBusy] = useState(false)
 
   const load = useCallback(async () => {
@@ -65,18 +78,26 @@ export default function VillagePage() {
 
   async function share() {
     if (!link) return
-    const text =
-      'I’ve been using an app called Kindrest — it checks in with me every day. ' +
-      'It has a thing called Love Notes where the people in your corner can leave ' +
-      'you a message. No sign-up, takes a second. Leave me one if you feel like it.'
+    // Phones and Safari/Edge open the native share sheet, which previews the
+    // message itself. Chrome on a Mac and Firefox have no share sheet, so those
+    // fall through to the clipboard — where she needs telling what to do next.
     if (navigator.share) {
-      try { await navigator.share({ title: 'Leave me a Love Note', text, url: link }); return } catch { /* fell back */ }
+      try {
+        await navigator.share({ title: 'Leave me a Love Note', text: SHARE_MESSAGE, url: link })
+        return
+      } catch { /* she backed out of the sheet, or it failed — fall through */ }
     }
     try {
-      await navigator.clipboard.writeText(`${text}\n\n${link}`)
-      setCopied(true)
-      setTimeout(() => setCopied(false), 2200)
-    } catch { /* nothing sensible left to do */ }
+      await navigator.clipboard.writeText(`${SHARE_MESSAGE}\n\n${link}`)
+      setShareState('copied')
+      setTimeout(() => setShareState('idle'), 4000)
+    } catch {
+      // Clipboard access can be refused — an old browser, a locked-down device,
+      // a window that isn't focused. Silently doing nothing would read as a
+      // broken button, so point her at the message, which is on screen anyway.
+      setShareState('manual')
+      setTimeout(() => setShareState('idle'), 6000)
+    }
   }
 
   async function act(action: 'rotate' | 'close' | 'open') {
@@ -147,15 +168,37 @@ export default function VillagePage() {
             <div className="bg-white rounded-[22px] px-5 py-5 flex flex-col gap-3.5">
               {active ? (
                 <>
-                  <p className="font-mono text-[12.5px] text-chocolate/60 break-all">{link}</p>
+                  {/* What she's about to send, in full. Nobody should forward
+                      words to their own mother sight unseen. */}
+                  <div className="bg-cream/70 rounded-[14px] px-4 py-3.5 flex flex-col gap-2">
+                    <p className="font-display font-semibold text-[10.5px] tracking-[0.13em] uppercase text-chocolate/35">
+                      What they’ll get
+                    </p>
+                    <p className="font-sans text-[13.5px] leading-[1.6] text-chocolate/75">
+                      {SHARE_MESSAGE}
+                    </p>
+                    <p className="font-mono text-[12px] text-chocolate/50 break-all">{link}</p>
+                  </div>
+                  <p className="font-sans text-[12px] text-chocolate/40 -mt-1">
+                    You can change any of it before you send.
+                  </p>
+
                   <button
                     onClick={share}
                     className="w-full flex items-center justify-center gap-2 bg-mustard text-white font-display font-semibold text-[14.5px] py-3.5 rounded-[13px]"
                   >
-                    {copied
-                      ? <><Check className="w-4 h-4" />Link copied</>
-                      : <><Share2 className="w-4 h-4" />Share your link</>}
+                    {shareState === 'copied'
+                      ? <><Check className="w-4 h-4" />Copied — paste it into a text</>
+                      : shareState === 'manual'
+                        ? <>Copy the message above</>
+                        : <><Share2 className="w-4 h-4" />Share your link</>}
                   </button>
+                  {shareState === 'manual' && (
+                    <p className="font-sans text-[12.5px] text-chocolate/55 leading-relaxed -mt-1">
+                      Your browser wouldn’t let us copy it for you — select the message
+                      above and copy it yourself, then paste it into a text.
+                    </p>
+                  )}
                 </>
               ) : (
                 <p className="font-sans text-[14px] text-chocolate/60 leading-relaxed">
