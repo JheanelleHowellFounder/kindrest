@@ -20,7 +20,18 @@
  * this route reports exactly what it *would* send and stops. Turning it on is a
  * deliberate act, because the first run reaches real people.
  *
- * WHEN IT SENDS (vercel.json, two entries, both UTC):
+ * ⛔ PAUSED (Sep 2026). A daily send asked too much of a busy mother and wasn't
+ * earning its place in her inbox: 46% opens, four click-throughs in two weeks,
+ * and no sign it brought anyone back. Both cron entries were removed from
+ * vercel.json and DAILY_REMINDER_ENABLED was set to false, so nothing fires and
+ * nothing would send even if something did. The route, the audience sync and the
+ * preview are all left intact — this is a pause, not a deletion.
+ *
+ * Whatever replaces it should be less frequent and event-shaped rather than
+ * calendar-shaped: a Love Note arriving, a week she showed up. Restore the two
+ * entries below only alongside that decision.
+ *
+ * WHEN IT SENT, while it was running (vercel.json, two entries, both UTC):
  *   weekdays  8:30pm Eastern  →  "30 0 * * 2-6"   (00:30 UTC Tue–Sat)
  *   weekends  9:00am Eastern  →  "0 13 * * 0,6"
  *
