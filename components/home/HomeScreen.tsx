@@ -7,15 +7,13 @@ import { useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/auth-context'
 import { authedFetch } from '@/lib/api-client'
 import { FeedbackSheet } from '@/components/shared/FeedbackSheet'
+import { getTodaysQuote } from '@/lib/quotes'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const QUOTE_POOL = [
-  '"One moment at a time."',
-  '"You are doing better than you think."',
-  '"Rest is not a reward. It is a requirement."',
-  '"You haven\'t lost yourself. You are still here."',
-]
+// The warm line comes from lib/quotes.ts, the same pool GlimmerHome uses. This
+// screen used to keep its own four, which meant the two homes disagreed about
+// what today's line was.
 
 const CATEGORY_EMOJI: Record<string, string> = {
   'Rest':           '🌙',
@@ -124,11 +122,7 @@ export function HomeScreen() {
   const [statsLoaded, setStatsLoaded]   = useState(false)
   const [showFeedback, setShowFeedback] = useState(false)
 
-  const quote = useMemo(() => {
-    const start   = new Date(new Date().getFullYear(), 0, 0).getTime()
-    const dayOfYr = Math.floor((Date.now() - start) / 86400000)
-    return QUOTE_POOL[dayOfYr % QUOTE_POOL.length]
-  }, [])
+  const quote = useMemo(() => getTodaysQuote(), [])
 
   // Stage fact also rotates by day
   const stageFact = useMemo(() => {

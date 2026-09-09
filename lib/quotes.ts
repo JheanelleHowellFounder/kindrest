@@ -9,16 +9,27 @@
  */
 
 export const HOME_QUOTES = [
-  'You don’t have to have it all together today.',
-  'Rest is not a reward. It’s a requirement.',
-  'You are still in there, underneath all of it.',
-  'Doing less today is not falling behind.',
-  'You haven’t lost yourself. You’re just carrying a lot.',
-  'The bar is lower than you think, and you’re already over it.',
-  'Nothing about today has to be earned.',
-  'You’re allowed to need what you need.',
-  'Being tired is not a personal failing.',
-  'Whatever you managed today counts.',
+  'Take your time. There’s no wrong way to arrive.',
+  'You are allowed to want things for yourself.',
+  'Let today be what it is.',
+  'Being soft with yourself is a kind of strength.',
+  'You deserve the same care you give.',
+  'Some days you bloom. Some days you rest. Both are growing.',
+  'There’s a version of you being made right now. Be patient with her.',
+  'You can hold a lot and still set some of it down.',
+  'Tending to yourself is tending to your home.',
+  'You don’t have to pour from empty. You’re allowed to refill first.',
+  'Becoming her takes time, and you’re allowed to take it.',
+  'Peace can be small and still count.',
+  'Every new season of you deserves a warm welcome.',
+  'Soft is not weak. Soft is how new things grow.',
+  'You’re allowed to be new at this, again and again.',
+  'Nothing about you has to be finished today.',
+  'Keep what nourishes you. Let the rest go quietly.',
+  'You can love them fully and still belong to yourself.',
+  'Your softest moments are not wasted ones.',
+  'What you’re carrying matters. So does putting it down.',
+  'The woman you’re becoming is worth the wait.',
 ]
 
 function dayIndex(date: Date): number {
