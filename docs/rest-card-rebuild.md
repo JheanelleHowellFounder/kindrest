@@ -111,9 +111,11 @@ A mother draws squares tagged `all` **or** her own stage. No stage set means `al
 |---|---|
 | Cards with a duplicate square | **0** |
 | Repeats against the previous card | **0** |
-| Malformed cards (wrong size, missing free centre) | **0** |
-| Cards containing all six themes | **500 of 500** |
+| Malformed cards (wrong size, missing free centre, more than one free cell) | **0** |
+| Cards containing all six themes | **3000 of 3000** |
+| Unknown theme on any square | **0** |
 | Distinct labels seen per position | 84 at every position |
+| Stage-eligible pool, each of the 7 mappings | 84, all above the 8 needed |
 
 Edge cases: a pool of 7 returns `null`; a pool of exactly 8 deals a full card; an empty pool returns `null`; a pool that is entirely duplicates still yields 8 unique squares; a pool where every label is recent falls back and deals rather than blocking her card.
 
@@ -129,11 +131,35 @@ Free centre, tap to mark and unmark, the 14-day cycle, line completion retiring 
 
 ---
 
-## Two things to do in Airtable
+## Airtable state
 
-Both need `schema.bases:write`, which the current API token does not have, so they are UI steps.
+**The `active` checkbox is in, and all 84 rows are ticked.** Confirmed live: the column exists, 84 of 84 active, none dropped for a missing label or theme.
 
-1. **Add an `active` checkbox** to `Rest Card Squares`, then tick it for all 84 rows. Until it exists, the code treats every row as active, so nothing breaks either way - and the moment the column appears it starts filtering. Untick a square to retire it without losing the copy.
-2. **Add the stage choices.** The `stage` field currently offers only `all`. Add `pregnant`, `newborn`, `infant`, `toddler`, `preschool`, `school` when you are ready to write stage-specific squares.
+**The `stage` field still offers only `all`**, deliberately - stage-specific squares are a later build. The filter is written and tested against all seven mappings; it is simply a no-op while every row is `all`. Adding the choices later needs no code change.
 
-One label is over 40 characters: **#5, "Stretched my neck and shook out my shoulders"** (44). It will still render; it is just the longest cell on the board.
+### How `active` is read, and why it is not a plain boolean
+
+Airtable **omits an unticked checkbox from the API response entirely**. A retired square and a table with no `active` column are therefore identical on the wire: the field is just absent. So:
+
+- `active ?? true` would make unticking do nothing.
+- `active === true` would empty the board the moment the column was added but before anything was ticked.
+
+`getRestCardSquares()` decides per fetch instead: if no row anywhere carries the field, the column does not exist and every square is active; if any row does, the column is in use and absent means retired. Verified across every state:
+
+| State | Active | Result |
+|---|---|---|
+| No column | 84/84 | Card deals |
+| Column added, nothing ticked | 84/84 | Card deals |
+| Column added, 5 ticked | 5/84 | Holds - 503, "on its way" |
+| Column added, 10 ticked | 10/84 | Card deals |
+| All 84 ticked **(current)** | 84/84 | Card deals |
+| 3 retired later | 81/84 | Card deals |
+| All but 4 retired | 4/84 | Holds - 503, "on its way" |
+
+Retiring is verified end to end: a square with `active` unticked appeared on **0 of 2000** dealt cards.
+
+**Airtable responses are cached for 10 minutes** (`next: { revalidate: 600 }`), so an edit takes up to 10 minutes to reach the app.
+
+### One note on the content
+
+Label #5, **"Stretched my neck and shook out my shoulders"** (44 characters), is the longest on the board. It renders; it is just the biggest cell.

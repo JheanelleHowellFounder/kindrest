@@ -36,9 +36,14 @@ function kindOf(source: string): 'free' | 'self' {
 
 /**
  * The Rest Card — a 3×3 record of what already happened. The centre is free; the
- * other eight are drawn from the recommendations database, spread across
- * regulation types and written in past tense. Tap to mark, tap again to undo.
+ * other eight are dealt from the "Rest Card Squares" Airtable table, one per
+ * theme across the six themes plus two more, and rendered exactly as written.
+ * Tap to mark, tap again to undo.
  * Nothing is earned and nothing is a task — she never has to work for her rest.
+ *
+ * If the card can't be dealt (the table is empty, unreachable, or has fewer than
+ * eight eligible squares) the API answers 503 and this shows "Your card is on
+ * its way" rather than an empty board.
  */
 export function RestCard() {
   const { user, loading } = useAuth()

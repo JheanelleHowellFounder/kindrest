@@ -129,13 +129,24 @@ export const getRecommendations = cache(async (): Promise<Recommendation[]> => {
  * Labels are written by hand, in her own voice ("Drank water before coffee"),
  * and are rendered exactly as stored. Nothing here rewrites them.
  *
- * `active` gates whether a square can be dealt. Until that checkbox exists in
- * Airtable the field is simply absent from every row, so a missing value is
- * treated as active — adding the column later starts filtering immediately,
- * with no code change and no day where every square vanishes.
+ * `active` gates whether a square can be dealt.
+ *
+ * ⚠️ Airtable omits an unticked checkbox from the response entirely, so a
+ * retired square and a table with no `active` column look identical on the
+ * wire: the field is simply absent. Reading `active ?? true` would therefore
+ * make unticking do nothing, and reading `active === true` would empty the
+ * board the moment the column was added but before anything was ticked.
+ *
+ * So decide per fetch: if no row anywhere carries the field, the column does
+ * not exist and every square is active. If any row does, the column is in use
+ * and absent means retired. That is correct before the column exists, correct
+ * after it is fully ticked, and during the minutes in between it deals only
+ * from what has been ticked so far.
  */
 export const getRestCardSquares = cache(async (): Promise<RestCardSquare[]> => {
   const records = await fetchTable<AirtableRestSquareFields>(REST_CARD_TABLE)
+  const columnExists = records.some(r => r.fields.active !== undefined)
+
   return records
     .map(r => ({
       id: r.id,
@@ -143,7 +154,7 @@ export const getRestCardSquares = cache(async (): Promise<RestCardSquare[]> => {
       label: (r.fields.label ?? '').trim(),
       theme: (r.fields.theme ?? '').trim(),
       stage: (r.fields.stage ?? 'all').trim(),
-      active: r.fields.active ?? true,
+      active: columnExists ? r.fields.active === true : true,
     }))
     .filter(s => s.label && s.theme)
 })
