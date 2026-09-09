@@ -6,6 +6,38 @@ export type TimeAvailable = '2_minutes' | '5_minutes' | '10_minutes' | '15_plus_
 export type SentimentLabel = 'very_negative' | 'negative' | 'neutral' | 'positive' | 'very_positive'
 export type MotherhoodStage = 'expecting' | 'newborn' | 'infant' | 'toddler' | 'preschool' | 'school_age'
 
+/** One row of the "Rest Card Squares" Airtable table. */
+export interface RestCardSquare {
+  id: string
+  number: number | null
+  /** Rendered exactly as written. Nothing rewrites this. */
+  label: string
+  theme: string
+  /** 'all', or one AirtableStage. */
+  stage: string
+  active: boolean
+}
+
+/**
+ * The `stage` values the Airtable table uses.
+ *
+ * One per onboarding stage, plus 'all'. Deliberately not collapsed: preschool
+ * is its own transition, and so is the 3-to-12-month stretch, so folding either
+ * into a neighbour would make those squares wrong for the mothers in them.
+ */
+export type AirtableStage =
+  | 'all' | 'pregnant' | 'newborn' | 'infant' | 'toddler' | 'preschool' | 'school'
+
+/** Onboarding's stage → the Airtable `stage` value. */
+export const STAGE_TO_AIRTABLE: Record<MotherhoodStage, AirtableStage> = {
+  expecting:  'pregnant',
+  newborn:    'newborn',
+  infant:     'infant',
+  toddler:    'toddler',
+  preschool:  'preschool',
+  school_age: 'school',
+}
+
 export interface Mood {
   id: string
   mood_id: number

@@ -6,11 +6,14 @@
  */
 
 import { cache } from 'react'
-import type { Recommendation, RegulationPhase, RegulationType } from './types'
+import type { Recommendation, RegulationPhase, RegulationType, RestCardSquare } from './types'
 
 const BASE_URL = 'https://api.airtable.com/v0'
 const TOKEN = process.env.AIRTABLE_TOKEN
 const BASE_ID = process.env.AIRTABLE_BASE_ID ?? 'appxPVr6mBatB2jjj'
+
+/** Exact Airtable table name. Renaming the table in Airtable breaks the card. */
+const REST_CARD_TABLE = 'Rest Card Squares'
 
 // ─── Raw Airtable shapes ──────────────────────────────────────────────────────
 
@@ -35,6 +38,15 @@ interface AirtableIndicatorFields {
   description: string
 }
 
+interface AirtableRestSquareFields {
+  '#': number
+  label: string
+  theme: string
+  stage: string
+  /** Added in Airtable after launch — absent on older rows, which means active. */
+  active?: boolean
+}
+
 interface AirtableRecFields {
   rec_id: number
   title: string
@@ -50,24 +62,44 @@ interface AirtableRecFields {
 
 // ─── Fetch helper ─────────────────────────────────────────────────────────────
 
+/**
+ * Fetch every row of a table, following Airtable's pagination.
+ *
+ * Airtable returns at most 100 records per page and signals more with an
+ * `offset`. This used to read only the first page, which is silent truncation:
+ * no error, no warning, just content that stops existing at row 101.
+ */
 async function fetchTable<T>(tableName: string): Promise<AirtableRecord<T>[]> {
   if (!TOKEN) {
     console.warn('[airtable] AIRTABLE_TOKEN not set — using empty data')
     return []
   }
 
-  const res = await fetch(`${BASE_URL}/${BASE_ID}/${encodeURIComponent(tableName)}`, {
-    headers: { Authorization: `Bearer ${TOKEN}` },
-    next: { revalidate: 600 }, // cache 10 minutes
-  })
+  const records: AirtableRecord<T>[] = []
+  let offset: string | undefined
+  // Hard stop so a malformed offset can never spin forever. 20 pages = 2000 rows.
+  for (let page = 0; page < 20; page++) {
+    const url = new URL(`${BASE_URL}/${BASE_ID}/${encodeURIComponent(tableName)}`)
+    if (offset) url.searchParams.set('offset', offset)
 
-  if (!res.ok) {
-    console.error(`[airtable] Failed to fetch ${tableName}: ${res.status}`)
-    return []
+    const res = await fetch(url.toString(), {
+      headers: { Authorization: `Bearer ${TOKEN}` },
+      next: { revalidate: 600 }, // cache 10 minutes
+    })
+
+    if (!res.ok) {
+      console.error(`[airtable] Failed to fetch ${tableName}: ${res.status}`)
+      return records          // whatever we already have, rather than nothing
+    }
+
+    const data = await res.json()
+    records.push(...(data.records ?? []))
+    offset = data.offset
+    if (!offset) return records
   }
 
-  const data = await res.json()
-  return data.records ?? []
+  console.warn(`[airtable] ${tableName}: stopped after 20 pages — table may be truncated`)
+  return records
 }
 
 // ─── Public API — cached with React cache() so one call per request ───────────
@@ -89,6 +121,31 @@ export const getRecommendations = cache(async (): Promise<Recommendation[]> => {
       effort_level: (r.fields.effort_level ?? 'Low') as 'Low' | 'Medium' | 'High',
       saveable: r.fields.saveable ?? false,
     }))
+})
+
+/**
+ * The Rest Card's content source — the "Rest Card Squares" table.
+ *
+ * Labels are written by hand, in her own voice ("Drank water before coffee"),
+ * and are rendered exactly as stored. Nothing here rewrites them.
+ *
+ * `active` gates whether a square can be dealt. Until that checkbox exists in
+ * Airtable the field is simply absent from every row, so a missing value is
+ * treated as active — adding the column later starts filtering immediately,
+ * with no code change and no day where every square vanishes.
+ */
+export const getRestCardSquares = cache(async (): Promise<RestCardSquare[]> => {
+  const records = await fetchTable<AirtableRestSquareFields>(REST_CARD_TABLE)
+  return records
+    .map(r => ({
+      id: r.id,
+      number: r.fields['#'] ?? null,
+      label: (r.fields.label ?? '').trim(),
+      theme: (r.fields.theme ?? '').trim(),
+      stage: (r.fields.stage ?? 'all').trim(),
+      active: r.fields.active ?? true,
+    }))
+    .filter(s => s.label && s.theme)
 })
 
 export const getMoods = cache(async () => {
