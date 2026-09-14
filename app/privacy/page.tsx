@@ -1,6 +1,17 @@
 import Link from 'next/link'
 
-export const metadata = { title: 'Privacy Policy — Kindrest' }
+export const metadata = {
+  title: 'Privacy Policy',
+  alternates: { canonical: '/privacy' },
+  // Next replaces a parent's openGraph object rather than merging it, so the
+  // image has to be restated here or the preview loses it.
+  openGraph: {
+    title: 'Kindrest Privacy Policy',
+    url: '/privacy',
+    siteName: 'Kindrest',
+    images: [{ url: '/og.jpg', width: 1200, height: 630, alt: 'Kindrest' }],
+  },
+}
 
 export default function PrivacyPage() {
   return (

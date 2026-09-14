@@ -711,7 +711,7 @@ export function LandingPage() {
               <div className="relative">
                 <div className="w-[300px] h-[360px] sm:w-[340px] sm:h-[410px] rounded-3xl overflow-hidden">
                   <img
-                    src="/founder.png"
+                    src="/founder.jpg"
                     alt="Jheanelle Howell, Founder of Kindrest"
                     className="w-full h-full object-cover object-top"
                   />
