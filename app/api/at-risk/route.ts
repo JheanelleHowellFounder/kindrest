@@ -46,6 +46,18 @@ export async function GET(req: NextRequest) {
     .gte('created_at', cutoff.toISOString())
   for (const c of checkins ?? []) if (c.created_at) hardDays.add(c.created_at.split('T')[0])
 
+  // Hard check-ins from the check-in record itself, so an Overwhelmed check-in
+  // counts even when she couldn't manage to rate anything. The ratings query
+  // above stays for history from before the checkins table existed. A missing
+  // table just returns nothing here.
+  const { data: hardCheckins } = await supabaseAdmin
+    .from('checkins')
+    .select('created_at')
+    .eq('user_id', uid)
+    .in('mood', ['overwhelmed', 'struggling'])
+    .gte('created_at', cutoff.toISOString())
+  for (const c of hardCheckins ?? []) if (c.created_at) hardDays.add(c.created_at.split('T')[0])
+
   const count = hardDays.size
   return NextResponse.json({ atRisk: count >= HEAVY_THRESHOLD, hardDays: count })
 }

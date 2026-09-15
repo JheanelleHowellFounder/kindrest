@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
 import { supabaseAdmin } from '@/lib/supabase'
 import { requireUser } from '@/lib/auth-server'
+import { recordCheckin } from '@/lib/checkins'
 
 const anthropic = process.env.ANTHROPIC_API_KEY
   ? new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
@@ -51,6 +52,14 @@ export async function POST(req: NextRequest) {
     if (error) {
       console.error('[journal-entry] Insert failed:', error.message)
       return NextResponse.json({ error: error.message }, { status: 500 })
+    }
+
+    // "I'm not sure → let's write it out" starts a check-in and ends in the
+    // journal. She showed up to check in, so it counts as one. Non-fatal.
+    if (source === 'unknown_door') {
+      await recordCheckin(userId, { source: 'journal' }).catch(err =>
+        console.error('[journal-entry] check-in record failed:', err instanceof Error ? err.message : err)
+      )
     }
 
     // Update the living journal profile in the background — never blocks the response

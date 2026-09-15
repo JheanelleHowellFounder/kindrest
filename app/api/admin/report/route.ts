@@ -80,6 +80,26 @@ export async function GET(req: NextRequest) {
 
   const allProfiles = (profilesResult.data ?? []) as ProfileRow[]
   const feedback    = feedbackResult.data ?? []
+
+  // ── Check-ins: one row per time she went through the check-in process ─────
+  // This report used to infer check-ins from ratings, which missed every
+  // check-in where she rated nothing (6 real mothers at the time of the fix)
+  // and counted two check-ins on one day as one. Before supabase/checkins.sql
+  // is run, fall back to that old inference so the report never goes blank.
+  const { data: checkinRows, error: checkinErr } = await supabaseAdmin
+    .from('checkins')
+    .select('user_id, mood, created_at, estimated')
+    .order('created_at', { ascending: false })
+  const checkinTableMissing = Boolean(checkinErr)
+  type CheckinRow = { user_id: string; check_in_mood: string | null; created_at: string; estimated: boolean }
+  const checkins: CheckinRow[] = checkinTableMissing
+    ? Array.from(new Map(feedback.map(f => [
+        `${f.user_id}:${f.created_at.split('T')[0]}`,
+        { user_id: f.user_id, check_in_mood: f.check_in_mood ?? null, created_at: f.created_at, estimated: true },
+      ])).values())
+    : (checkinRows ?? []).map(c => ({
+        user_id: c.user_id, check_in_mood: c.mood ?? null, created_at: c.created_at, estimated: Boolean(c.estimated),
+      }))
   const profileIds  = new Set(allProfiles.map(p => p.user_id))
 
   // ── Auth lookup maps ───────────────────────────────────────────────────────
@@ -91,15 +111,14 @@ export async function GET(req: NextRequest) {
   }
 
   // ── Per-user activity ─────────────────────────────────────────────────────
-  const userCheckinDates:  Record<string, Set<string>>                    = {}
+  const userCheckinCount:  Record<string, number>                         = {}
   const userLastMood:      Record<string, string>                         = {}
   const userLastCheckin:   Record<string, string>                         = {}
   const userSessionMoods:  Record<string, { date: string; mood: string }[]> = {}
 
-  for (const f of feedback) {
+  for (const f of checkins) {
     const date = f.created_at.split('T')[0]
-    if (!userCheckinDates[f.user_id]) userCheckinDates[f.user_id] = new Set()
-    userCheckinDates[f.user_id].add(date)
+    userCheckinCount[f.user_id] = (userCheckinCount[f.user_id] ?? 0) + 1
 
     if (!userLastCheckin[f.user_id] || f.created_at > userLastCheckin[f.user_id]) {
       userLastCheckin[f.user_id] = f.created_at
@@ -124,7 +143,7 @@ export async function GET(req: NextRequest) {
     lastSeen:      lastSeenMap[p.user_id] ?? p.created_at,
     completed:     p.onboarding_completed,
     authOnly:      false,
-    totalCheckins: userCheckinDates[p.user_id]?.size ?? 0,
+    totalCheckins: userCheckinCount[p.user_id] ?? 0,
     lastCheckin:   userLastCheckin[p.user_id] ?? null,
     lastMood:      userLastMood[p.user_id] ?? null,
     recentMoods:   userSessionMoods[p.user_id] ?? [],
@@ -171,13 +190,20 @@ export async function GET(req: NextRequest) {
     : 0
 
   // ── Check-in counts ────────────────────────────────────────────────────────
-  const totalCheckins = Object.values(userCheckinDates).reduce((s, d) => s + d.size, 0)
+  const totalCheckins = checkins.length
+
+  // Backfilled check-ins from before the table existed are estimates. Report
+  // where exact counting began so nobody reads the old numbers as precise.
+  const exactStamps = checkins.filter(c => !c.estimated).map(c => c.created_at).sort()
+  const estimatedBefore = checkinTableMissing
+    ? now.toISOString()
+    : checkins.some(c => c.estimated) ? (exactStamps[0] ?? now.toISOString()) : null
 
   const checkinsThisWeekSet  = new Set<string>()
   const activeThisWeekUsers  = new Set<string>()
-  for (const f of feedback) {
+  for (const f of checkins) {
     if (f.created_at >= startOfWeek) {
-      checkinsThisWeekSet.add(`${f.user_id}:${f.created_at.split('T')[0]}`)
+      checkinsThisWeekSet.add(`${f.user_id}:${f.created_at}`)   // each check-in, not each day
       activeThisWeekUsers.add(f.user_id)
     }
   }
@@ -295,7 +321,7 @@ export async function GET(req: NextRequest) {
     const { data: members } = await supabaseAdmin.from('org_members').select('org_id, user_id')
     const checkedIn = new Set(profileUsers.filter(u => u.totalCheckins > 0).map(u => u.email))
     void checkedIn
-    const byUserCheckins = new Map(allProfiles.map(p => [p.user_id, userCheckinDates[p.user_id]?.size ?? 0]))
+    const byUserCheckins = new Map(allProfiles.map(p => [p.user_id, userCheckinCount[p.user_id] ?? 0]))
 
     for (const o of orgRows) {
       const ids = (members ?? []).filter(m => m.org_id === o.id).map(m => m.user_id)
@@ -355,6 +381,15 @@ export async function GET(req: NextRequest) {
   const firstCheckinAt = new Map<string, number>()
   for (const p of allProfiles as { user_id: string; first_checkin_at?: string | null }[]) {
     if (p.first_checkin_at) firstCheckinAt.set(p.user_id, new Date(p.first_checkin_at).getTime())
+  }
+
+  // Every check-in is activity for "returned", rated or not, and her earliest
+  // check-in record counts toward activation.
+  for (const c of checkins) {
+    const ms = new Date(c.created_at).getTime()
+    noteActivity(c.user_id, ms)
+    const prev = firstCheckinAt.get(c.user_id)
+    if (prev === undefined || ms < prev) firstCheckinAt.set(c.user_id, ms)
   }
 
   const weekMap = new Map<string, { signups: number; activated: number; returned: number }>()
@@ -488,6 +523,9 @@ export async function GET(req: NextRequest) {
       total: totalCheckins,
       thisWeek: checkinsThisWeek,
       activeUsersThisWeek: activeThisWeek,
+      // ISO timestamp: counts from before this are estimated. null when all exact.
+      estimatedBefore,
+      needsMigration: checkinTableMissing,
     },
     stageBreakdown,
     topRecs,

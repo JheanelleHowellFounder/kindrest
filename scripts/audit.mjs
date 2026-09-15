@@ -170,6 +170,13 @@ await checkWrite('email list', 'waitlist', {
   email: '_audit@kindrest.test', name: 'audit',
 }, { conflict: 'email', cleanup: () => sb.from('waitlist').delete().eq('email', '_audit@kindrest.test') })
 
+// The check-in record — History, the admin report and the hard-day nudge all
+// count from this table (supabase/checkins.sql). If it stops accepting writes,
+// every mother silently stops being counted.
+await checkWrite('check-in record', 'checkins', {
+  user_id: uid, mood: 'okay', time_available: '5_minutes', source: '_audit',
+}, { cleanup: () => sb.from('checkins').delete().eq('user_id', uid).eq('source', '_audit') })
+
 await checkWrite('organizations inquiry', 'org_inquiries', {
   name: '_audit', company: '_audit', employee_range: '0–25', message: null,
 }, { cleanup: () => sb.from('org_inquiries').delete().eq('company', '_audit') })

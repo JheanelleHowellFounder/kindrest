@@ -60,7 +60,13 @@ interface ReportData {
     signedUp: number; openedApp: number; everCheckedIn: number
     retained: number; retentionRate: number; avgCheckins: number
   }
-  checkins: { total: number; thisWeek: number; activeUsersThisWeek: number }
+  checkins: {
+    total: number; thisWeek: number; activeUsersThisWeek: number
+    /** ISO date: check-ins before this are estimated from ratings. null when all exact. */
+    estimatedBefore?: string | null
+    /** supabase/checkins.sql hasn't been run — every count here is the old estimate. */
+    needsMigration?: boolean
+  }
   bingo: { last7: number; last14: number; last30: number; total: number }
   orgs: { name: string; slug: string; cohortSize: number | null; joined: number; everCheckedIn: number; activeThisWeek: number }[]
   weeklyCohorts: { week: string; signups: number; activated: number; activationRate: string; returned: number }[]
@@ -334,6 +340,17 @@ export default function AdminReport() {
             <Metric label="Retention Rate" value={`${funnel.retentionRate}%`} sub="3+ check-in sessions" accent />
             <Metric label="Avg Check-ins" value={funnel.avgCheckins} sub="per active user" />
           </div>
+          {/* Check-ins were reconstructed from ratings before the checkins table
+              existed, so say plainly where exact counting starts. */}
+          {checkins.needsMigration ? (
+            <p className="text-[11px] text-chocolate/40 font-sans mt-2">
+              Check-in counts are estimated from ratings. Run supabase/checkins.sql to count them exactly.
+            </p>
+          ) : checkins.estimatedBefore ? (
+            <p className="text-[11px] text-chocolate/40 font-sans mt-2">
+              Check-ins before {new Date(checkins.estimatedBefore).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} are estimated.
+            </p>
+          ) : null}
         </section>
 
         {/* ── This Week ─────────────────────────────────────────────────── */}

@@ -99,6 +99,9 @@ export function CheckInFlow() {
   // The one card whose Done gets the acknowledgment, so it appears once, not on every card.
   const [doneMomentRecId, setDoneMomentRecId] = useState<number | null>(null)
   const [leavingLine, setLeavingLine]     = useState<string | null>(null)
+  // The check-in this care kit belongs to. Sent back on "Something else" so a
+  // swap stays the same check-in instead of counting her as showing up again.
+  const [checkinId, setCheckinId]         = useState<string | null>(null)
   const [isLoading, setIsLoading]         = useState(false)
   const [feedbackSent, setFeedbackSent]   = useState<Record<number, FeedbackRating>>({})
   const [expandedRecs, setExpandedRecs]   = useState<Set<number>>(new Set())
@@ -146,7 +149,7 @@ export function CheckInFlow() {
     return Array.from(types)
   }
 
-  async function fetchCareKit(excludedIds: number[] = [], broaden = false) {
+  async function fetchCareKit(excludedIds: number[] = [], broaden = false, reuseCheckinId: string | null = null) {
     if (!mood || !timeAvailable) return
     setIsLoading(true)
     try {
@@ -159,6 +162,8 @@ export function CheckInFlow() {
           selectedIndicators: [...mentalIndicators, ...physicalIndicators, ...emotionalIndicators],
           // Heart-screen taps on their own, in tap order — the header responds to these.
           emotionalIndicators,
+          // null on a new check-in; the current one on "Something else"
+          checkinId: reuseCheckinId,
           // On retry, skip the regulation-type pre-filter so the pool widens
           // to all recs for the current phase — avoids the same 3 coming back.
           regulationTypes: broaden ? [] : getRegulationTypes(),
@@ -170,7 +175,8 @@ export function CheckInFlow() {
       if (data.recommendations) {
         setCareKit(data.recommendations)
         // She completed a check-in and got her kit. No mood, no indicators — just that.
-        trackEvent('checkin_completed')
+        // Once per check-in: "Something else" used to fire this again every time.
+        if (data.isNewCheckin !== false) trackEvent('checkin_completed')
 
         // Activation. Only the first one — the flag is local, so at worst a new
         // device reports it twice; PostHog dedupes on the person either way.
@@ -191,6 +197,7 @@ export function CheckInFlow() {
       }
       if (data.header) setCareKitHeader(prev => prev || data.header)
       setPeople(data.people ?? {})
+      if (data.checkinId) setCheckinId(data.checkinId)
       // Kept from the first load, like the header, so "Something else" doesn't reshuffle it.
       if (data.showedUp) setShowedUp(prev => prev ?? data.showedUp)
 
@@ -291,7 +298,9 @@ export function CheckInFlow() {
     if (next === 'carekit') {
       setRetryCount(0)
       setShownIds([])
-      fetchCareKit()
+      // A fresh pass through the check-in: a new check-in, never a reused one.
+      setCheckinId(null)
+      fetchCareKit([], false, null)
     }
     setStep(next)
   }
@@ -781,7 +790,7 @@ export function CheckInFlow() {
                     setRetryCount(nextCount)
                     // broaden=true from the first retry onward so the pool
                     // widens beyond the user's selected indicator types
-                    fetchCareKit(shownIds, nextCount >= 1)
+                    fetchCareKit(shownIds, nextCount >= 1, checkinId)
                   }}
                   className="w-full text-center text-sm text-chocolate/40 font-sans py-2 hover:text-chocolate/60 transition-colors"
                 >

@@ -7,8 +7,13 @@
  *   - recent history (last 20 feedback events)
  *   - saved recommendations (rating = 2)
  *   - most common mood
- *   - active days this month (for calendar)
+ *   - active days (for calendar)
  *   - preferred categories from profile
+ *
+ * Check-ins are counted from the `checkins` table: one row per time she went
+ * through the check-in process, however many times she tapped "Something
+ * else", and whether or not she rated anything. They used to be inferred from
+ * ratings, so a mother who checked in without rating saw nothing here at all.
  */
 
 import { NextRequest, NextResponse } from 'next/server'
@@ -41,6 +46,17 @@ export async function GET(req: NextRequest) {
     .order('created_at', { ascending: false })
     .limit(200)
 
+  // ── Check-ins ─────────────────────────────────────────────────────────────
+  // Before supabase/checkins.sql is run the table is missing; fall back to the
+  // old inference (days with a rating) so nothing goes blank.
+  const { data: checkinRows, error: checkinErr } = await supabaseAdmin
+    .from('checkins')
+    .select('created_at')
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false })
+    .limit(2000)
+  const haveCheckinTable = !checkinErr
+
   // ── Glimmers and journal entries ──────────────────────────────────────────
   // Insights used to count check-ins only, so a mother answering the daily
   // question every day saw an empty page — the main loop contributed nothing
@@ -62,17 +78,31 @@ export async function GET(req: NextRequest) {
   const dayOf = (iso: string) => iso.slice(0, 10)
   const weekAgo = new Date(Date.now() - 7 * 86_400_000).toISOString().slice(0, 10)
 
+  // Every moment she checked in: the real records, plus any rating (a rating
+  // always happens inside a check-in, so it can only add days, never inflate).
+  const checkinStamps = [
+    ...(checkinRows ?? []).map(c => c.created_at as string),
+    ...(feedback ?? []).map(f => f.created_at as string),
+  ].filter(Boolean)
+
   const glimmerDays = new Set((glimmerRows ?? []).map(g => g.entry_date).filter(Boolean))
   const journalDays = new Set((journalRows ?? []).map(j => j.entry_date).filter(Boolean))
-  const checkinDays = new Set((feedback ?? []).map(f => dayOf(f.created_at)).filter(Boolean))
+  const checkinDays = new Set(checkinStamps.map(dayOf))
+
+  // TIMES she checked in, not days: two check-ins on one day are two.
+  const ratingDayCount = new Set((feedback ?? []).map(f => dayOf(f.created_at))).size
+  const checkinsTotal = haveCheckinTable ? (checkinRows ?? []).length : ratingDayCount
+  const checkinsThisWeek = haveCheckinTable
+    ? (checkinRows ?? []).filter(c => dayOf(c.created_at) >= weekAgo).length
+    : new Set((feedback ?? []).map(f => dayOf(f.created_at)).filter(d => d >= weekAgo)).size
 
   const showingUp = {
     glimmersThisWeek: Array.from(glimmerDays).filter(d => d >= weekAgo).length,
     journalThisWeek:  Array.from(journalDays).filter(d => d >= weekAgo).length,
-    checkinsThisWeek: Array.from(checkinDays).filter(d => d >= weekAgo).length,
+    checkinsThisWeek,
     glimmersTotal: glimmerDays.size,
     journalTotal:  journalDays.size,
-    checkinsTotal: checkinDays.size,
+    checkinsTotal,
     // Any day she did any one of the three. This is the honest "you showed up".
     daysThisWeek: new Set(
       [...Array.from(glimmerDays), ...Array.from(journalDays), ...Array.from(checkinDays)]
@@ -83,6 +113,39 @@ export async function GET(req: NextRequest) {
     ).size,
   }
 
+  // ── All check-in dates as ISO strings (for multi-month calendar) ──────────
+  const activeDays = Array.from(
+    new Set(checkinStamps.map(t => new Date(t).toDateString()))
+  ).map(d => new Date(d).toISOString())
+
+  // ── Streak: consecutive days with check-ins ending today/yesterday ────────
+  const distinctDates = Array.from(
+    new Set(checkinStamps.map(t => new Date(t).toDateString()))
+  ).map(d => new Date(d)).sort((a, b) => b.getTime() - a.getTime())
+
+  let streakDays = 0
+  const todayStr        = new Date().toDateString()
+  const yesterdayStr    = new Date(Date.now() - 86400000).toDateString()
+  const twoDaysAgoStr   = new Date(Date.now() - 86400000 * 2).toDateString()
+  const mostRecent      = distinctDates[0]?.toDateString()
+
+  // 2-day grace window: streak stays alive if last check-in was today, yesterday, or 2 days ago
+  if (mostRecent === todayStr || mostRecent === yesterdayStr || mostRecent === twoDaysAgoStr) {
+    let cursor = mostRecent === todayStr
+      ? new Date()
+      : mostRecent === yesterdayStr
+      ? new Date(Date.now() - 86400000)
+      : new Date(Date.now() - 86400000 * 2)
+    for (const d of distinctDates) {
+      if (d.toDateString() === cursor.toDateString()) {
+        streakDays++
+        cursor = new Date(cursor.getTime() - 86400000)
+      } else {
+        break
+      }
+    }
+  }
+
   // ── Fetch user preference profile ─────────────────────────────────────────
   const { data: profile } = await supabaseAdmin
     .from('user_preference_profile')
@@ -90,18 +153,24 @@ export async function GET(req: NextRequest) {
     .eq('user_id', userId)
     .single()
 
+  const totalCheckins = haveCheckinTable
+    ? checkinsTotal
+    : (profile?.total_checkins ?? Math.ceil((feedback ?? []).length / 3))
+
+  // No ratings yet. She may still have checked in — before, this returned zero
+  // check-ins and an empty calendar for exactly those mothers.
   if (!feedback || feedback.length === 0) {
     return NextResponse.json({
       showingUp,
-      totalCheckins: 0,
+      totalCheckins,
       topTechniques: [],
       recentHistory: [],
       savedRecs: [],
       commonMood: null,
-      activeDays: [],
-      preferredCategories: [],
-      motherhoodStage: null,
-      streakDays: 0,
+      activeDays,
+      preferredCategories: profile?.preferred_categories ?? [],
+      motherhoodStage: profile?.motherhood_stage ?? null,
+      streakDays,
     })
   }
 
@@ -167,42 +236,9 @@ export async function GET(req: NextRequest) {
   const commonMood = Array.from(moodCounts.entries())
     .sort((a, b) => b[1] - a[1])[0]?.[0] ?? null
 
-  // ── All check-in dates as ISO strings (for multi-month calendar) ──────────
-  const activeDays = Array.from(
-    new Set(feedback.map(f => new Date(f.created_at).toDateString()))
-  ).map(d => new Date(d).toISOString())
-
-  // ── Streak: consecutive days with check-ins ending today/yesterday ────────
-  const distinctDates = Array.from(
-    new Set(feedback.map(f => new Date(f.created_at).toDateString()))
-  ).map(d => new Date(d)).sort((a, b) => b.getTime() - a.getTime())
-
-  let streakDays = 0
-  const todayStr        = new Date().toDateString()
-  const yesterdayStr    = new Date(Date.now() - 86400000).toDateString()
-  const twoDaysAgoStr   = new Date(Date.now() - 86400000 * 2).toDateString()
-  const mostRecent      = distinctDates[0]?.toDateString()
-
-  // 2-day grace window: streak stays alive if last check-in was today, yesterday, or 2 days ago
-  if (mostRecent === todayStr || mostRecent === yesterdayStr || mostRecent === twoDaysAgoStr) {
-    let cursor = mostRecent === todayStr
-      ? new Date()
-      : mostRecent === yesterdayStr
-      ? new Date(Date.now() - 86400000)
-      : new Date(Date.now() - 86400000 * 2)
-    for (const d of distinctDates) {
-      if (d.toDateString() === cursor.toDateString()) {
-        streakDays++
-        cursor = new Date(cursor.getTime() - 86400000)
-      } else {
-        break
-      }
-    }
-  }
-
   return NextResponse.json({
     showingUp,
-    totalCheckins: profile?.total_checkins ?? Math.ceil(feedback.length / 3),
+    totalCheckins,
     topTechniques,
     recentHistory,
     savedRecs,

@@ -13,6 +13,7 @@
  *     regulationTypes: string[]        // derived types (e.g. ["Emotional", "Mental"])
  *     userId?: string                  // optional — enables personalisation
  *     excludedIds?: number[]           // shown already — skipped on "Something else"
+ *     checkinId?: string               // sent back on "Something else" so it stays ONE check-in
  *   }
  *
  * Response:
@@ -20,6 +21,9 @@
  *     recommendations: Recommendation[]  // 2 on hard days, 3 otherwise
  *     header: string                     // one hand-written line, or '' if unavailable
  *     people: Record<number, string>     // rec_id → "Maya or Tasha might be good for this."
+ *     showedUp: { done, leaving } | null // hard days only
+ *     checkinId: string | null           // the check-in this kit belongs to
+ *     isNewCheckin: boolean              // false on "Something else"
  *   }
  *
  * ⚠️ The header used to be written by Claude on every check-in: 55–70 words that
@@ -34,6 +38,7 @@ import { getFilteredRecommendations, getCareKitLines } from '@/lib/airtable'
 import { pickTopN, getMoodPhase } from '@/lib/recommendation-engine'
 import { supabaseAdmin } from '@/lib/supabase'
 import { requireUser } from '@/lib/auth-server'
+import { recordCheckin } from '@/lib/checkins'
 import type { RegulationType, Recommendation } from '@/lib/types'
 
 /** On these days she sees two cards instead of three. Choosing is its own load. */
@@ -50,6 +55,7 @@ export async function POST(req: NextRequest) {
       regulationTypes = [],
       userId,
       excludedIds = [],
+      checkinId = null,
     } = body as {
       mood: string
       timeAvailable: string
@@ -58,6 +64,7 @@ export async function POST(req: NextRequest) {
       regulationTypes: RegulationType[]
       userId?: string
       excludedIds?: number[]
+      checkinId?: string | null
     }
 
     if (!mood || !timeAvailable) {
@@ -176,47 +183,17 @@ export async function POST(req: NextRequest) {
       { whatHelps: journalContext.what_helps, recurringTriggers: journalContext.recurring_triggers }
     )
 
-    // ── Step 4: The line at the top, and who to reach out to ─────────────────
+    // ── Step 4: The line at the top, who to reach out to, hard-day moments ───
     const header = await chooseHeader(mood, emotionalIndicators)
     const people = peopleLines(recommendations, supportPeople, userPrefs.total_checkins ?? 0)
     const showedUp = HARD_DAY_MOODS.has(mood.toLowerCase()) ? await chooseShowedUp() : null
 
-    // ── Step 5: Increment check-in count ────────────────────────────────────
-    // A check-in = a care kit being generated, regardless of whether the user
-    // rates any recommendations. This gives an accurate session count.
-    if (userId && supabaseAdmin && recommendations.length > 0) {
-      const { data: existing } = await supabaseAdmin
-        .from('user_preference_profile')
-        .select('total_checkins')
-        .eq('user_id', userId)
-        .single()
-
-      if (existing) {
-        await supabaseAdmin
-          .from('user_preference_profile')
-          .update({
-            total_checkins: (existing.total_checkins ?? 0) + 1,
-            updated_at: new Date().toISOString(),
-          })
-          .eq('user_id', userId)
-      } else {
-        await supabaseAdmin
-          .from('user_preference_profile')
-          .insert({ user_id: userId, total_checkins: 1, updated_at: new Date().toISOString() })
-      }
-
-      // Stamp her first check-in, once. Activation in the growth table is
-      // "first check-in within 48h of signup", and this is the only record of
-      // when that happened — recommendation_feedback only exists if she rates
-      // something, which about a third of users never do.
-      // Non-fatal, and a no-op where the growth migration hasn't been run.
-      try {
-        await supabaseAdmin
-          .from('user_profiles')
-          .update({ first_checkin_at: new Date().toISOString() })
-          .eq('user_id', userId)
-          .is('first_checkin_at', null)
-      } catch { /* never let instrumentation break a care kit */ }
+    // ── Step 5: Record the check-in — once ──────────────────────────────────
+    // "Something else" sends checkinId back and reuses it, so a swap never
+    // counts as her showing up again. See lib/checkins.ts.
+    let checkin: { id: string | null; isNew: boolean } = { id: null, isNew: false }
+    if (userId && recommendations.length > 0) {
+      checkin = await recordCheckin(userId, { mood, timeAvailable, source: 'care_kit' }, checkinId)
     }
 
     // ── Step 6: Store selected indicators for pattern tracking ──────────────
@@ -233,7 +210,14 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    return NextResponse.json({ recommendations, header, people, showedUp })
+    return NextResponse.json({
+      recommendations,
+      header,
+      people,
+      showedUp,
+      checkinId: checkin.id,
+      isNewCheckin: checkin.isNew,
+    })
   } catch (err) {
     console.error('[care-kit] Error:', err)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
