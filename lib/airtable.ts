@@ -159,6 +159,50 @@ export const getRestCardSquares = cache(async (): Promise<RestCardSquare[]> => {
     .filter(s => s.label && s.theme)
 })
 
+interface AirtableCareKitLineFields {
+  type?: string              // 'mood' | 'heart'
+  mood?: string              // 'Overwhelmed' | 'Struggling' | 'Okay' | 'Good' | 'Thriving'
+  'option she taps'?: string // heart rows only: the exact heart-screen option label
+  text?: string
+  active?: boolean
+}
+
+export interface CareKitLine {
+  type: 'mood' | 'heart'
+  mood: string
+  option: string
+  text: string
+  active: boolean
+}
+
+/**
+ * The one line at the top of the care kit, written by the founder in the
+ * "Care Kit Lines" table. Rendered exactly as stored; nothing generates or
+ * rewrites it.
+ *
+ * Two kinds of row:
+ *   mood   a few lines per mood that rotate
+ *   heart  a response to one specific heart-screen option ("I feel alone in
+ *          this" → "You're not as alone as it feels.")
+ *
+ * `active` uses the same rule as the Rest Card: Airtable omits an unticked
+ * checkbox entirely, so if no row carries the field the column doesn't exist
+ * and every row is active; if any row carries it, absent means retired.
+ */
+export const getCareKitLines = cache(async (): Promise<CareKitLine[]> => {
+  const records = await fetchTable<AirtableCareKitLineFields>('Care Kit Lines')
+  const columnExists = records.some(r => r.fields.active !== undefined)
+  return records
+    .map(r => ({
+      type: (r.fields.type ?? '').trim().toLowerCase() === 'heart' ? 'heart' as const : 'mood' as const,
+      mood: (r.fields.mood ?? '').trim(),
+      option: (r.fields['option she taps'] ?? '').trim(),
+      text: (r.fields.text ?? '').trim(),
+      active: columnExists ? r.fields.active === true : true,
+    }))
+    .filter(l => l.text && l.mood)
+})
+
 export const getMoods = cache(async () => {
   const records = await fetchTable<AirtableMoodFields>('Mood')
   return records

@@ -1,0 +1,41 @@
+#,type,mood,option she taps,text,active
+1,mood,Overwhelmed,,It's okay to slow down. Nothing here has to be rushed.,checked
+2,mood,Overwhelmed,,Hard days don't need big fixes - start small.,checked
+3,mood,Overwhelmed,,You're allowed to do the smallest version of anything today.,checked
+4,mood,Struggling,,You don't have to push through this on your own.,checked
+5,mood,Struggling,,It makes sense this feels hard - be gentle with yourself.,checked
+6,mood,Struggling,,Small is enough today.,checked
+7,mood,Okay,,Okay days deserve care too.,checked
+8,mood,Okay,,You don't have to wait for a hard day to take care of you.,checked
+9,mood,Okay,,A little care now goes a long way later.,checked
+10,mood,Good,,Good days are worth taking care of too.,checked
+11,mood,Good,,Keep a little of today for yourself.,checked
+12,mood,Good,,This is a good day to do something just for you.,checked
+13,mood,Thriving,,Let yourself stay here a little longer.,checked
+14,mood,Thriving,,Days like this are worth remembering.,checked
+15,mood,Thriving,,Soak this in - you don't have to rush past it.,checked
+16,heart,Overwhelmed,Emotionally depleted,You don't have to have anything left to give right now.,checked
+17,heart,Overwhelmed,I feel alone in this,You're not as alone as it feels.,checked
+18,heart,Overwhelmed,I feel disconnected from myself,"You're still in there, even on days like this.",checked
+19,heart,Overwhelmed,I'm overwhelmed and tearful,It's okay to cry. You don't have to hold it together here.,checked
+20,heart,Overwhelmed,I feel like I'm failing,Having a hard day isn't the same as failing.,checked
+21,heart,Struggling,Feeling reactive,Short fuses happen when you're running low. That's human.,checked
+22,heart,Struggling,I feel a bit disconnected,It's okay to feel a little far away today.,checked
+23,heart,Struggling,Feeling unseen or unheard,"What you carry matters, even when no one says it.",checked
+24,heart,Struggling,Carrying some sadness,It's okay to let the sadness be here for a minute.,checked
+25,heart,Struggling,Frustrated and not sure why,You don't need a reason for it to count.,checked
+26,heart,Okay,Emotionally steady,Steady is its own kind of good.,checked
+27,heart,Okay,Okay but a bit flat,Flat days are allowed. Not every day needs a spark.,checked
+28,heart,Okay,Mild frustration in the background,Little things add up. It's okay to notice them.,checked
+29,heart,Okay,I'm steady but not quite joyful,"Today counts, even without the joy.",checked
+30,heart,Okay,I feel a bit invisible today,"You matter, even on the days no one notices.",checked
+31,heart,Good,Feeling content,Content is worth slowing down for.,checked
+32,heart,Good,Feeling hopeful,Hold onto that hope. It's yours.,checked
+33,heart,Good,I have patience today,"That patience is a gift, and you get some of it too.",checked
+34,heart,Good,I feel connected to myself,Feeling like yourself is worth noticing.,checked
+35,heart,Good,Feeling emotionally steady,Steady days are worth taking care of too.,checked
+36,heart,Thriving,Feeling genuinely joyful,Let yourself enjoy this without waiting for the catch.,checked
+37,heart,Thriving,I feel deeply connected,Connection like this is worth holding onto.,checked
+38,heart,Thriving,Feeling proud of myself,You're allowed to be proud of yourself.,checked
+39,heart,Thriving,I feel at peace,Let yourself stay in this peace a little longer.,checked
+40,heart,Thriving,Grateful and fully present,Moments like this are worth remembering.,checked

@@ -2,35 +2,42 @@
  * POST /api/care-kit
  *
  * Accepts a user's check-in state, fetches pre-filtered recommendations from
- * Airtable, scores them, then asks Claude to frame them with a warm message.
+ * Airtable, scores them, and picks the one line that sits at the top of the kit.
  *
  * Request body:
  *   {
  *     mood: string                     // 'overwhelmed' | 'struggling' | 'okay' | 'good' | 'thriving'
  *     timeAvailable: string            // '2_minutes' | '5_minutes' | '10_minutes' | '15_plus_minutes'
- *     selectedIndicators: string[]     // labels the user tapped (e.g. ["I feel overwhelmed", "I can't think clearly"])
+ *     selectedIndicators: string[]     // every label she tapped, all three screens
+ *     emotionalIndicators?: string[]   // just the heart-screen taps, in the order she tapped them
  *     regulationTypes: string[]        // derived types (e.g. ["Emotional", "Mental"])
  *     userId?: string                  // optional — enables personalisation
+ *     excludedIds?: number[]           // shown already — skipped on "Something else"
  *   }
  *
  * Response:
  *   {
- *     recommendations: Recommendation[]
- *     message: string                  // Claude's warm 2-sentence acknowledgment
+ *     recommendations: Recommendation[]  // 2 on hard days, 3 otherwise
+ *     header: string                     // one hand-written line, or '' if unavailable
+ *     people: Record<number, string>     // rec_id → "Maya or Tasha might be good for this."
  *   }
+ *
+ * ⚠️ The header used to be written by Claude on every check-in: 55–70 words that
+ * restated her selections, listed the suggestions, used em dashes in every run,
+ * and named her support circle only some of the time. It is now chosen from the
+ * founder's "Care Kit Lines" table. Don't reintroduce a generated header here;
+ * edit the table instead.
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import Anthropic from '@anthropic-ai/sdk'
-import { getFilteredRecommendations } from '@/lib/airtable'
+import { getFilteredRecommendations, getCareKitLines } from '@/lib/airtable'
 import { pickTopN, getMoodPhase } from '@/lib/recommendation-engine'
 import { supabaseAdmin } from '@/lib/supabase'
 import { requireUser } from '@/lib/auth-server'
-import type { RegulationType } from '@/lib/types'
+import type { RegulationType, Recommendation } from '@/lib/types'
 
-const anthropic = process.env.ANTHROPIC_API_KEY
-  ? new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
-  : null
+/** On these days she sees two cards instead of three. Choosing is its own load. */
+const HARD_DAY_MOODS = new Set(['overwhelmed', 'struggling'])
 
 export async function POST(req: NextRequest) {
   try {
@@ -39,6 +46,7 @@ export async function POST(req: NextRequest) {
       mood,
       timeAvailable,
       selectedIndicators = [],
+      emotionalIndicators = [],
       regulationTypes = [],
       userId,
       excludedIds = [],
@@ -46,9 +54,10 @@ export async function POST(req: NextRequest) {
       mood: string
       timeAvailable: string
       selectedIndicators: string[]
+      emotionalIndicators?: string[]
       regulationTypes: RegulationType[]
       userId?: string
-      excludedIds?: number[]  // IDs currently shown — skip these on "try again"
+      excludedIds?: number[]
     }
 
     if (!mood || !timeAvailable) {
@@ -74,16 +83,15 @@ export async function POST(req: NextRequest) {
 
     // ── Step 2: Load user feedback history for personalisation ───────────────
     let feedbackWeights: { rec_id: number; avg_rating: number; usage_count: number }[] = []
-    let userPrefs: { preferred_categories?: string[]; avoided_categories?: string[]; preferred_effort?: string } = {}
+    let userPrefs: {
+      preferred_categories?: string[]
+      avoided_categories?: string[]
+      preferred_effort?: string
+      total_checkins?: number
+    } = {}
     let recentlyUsedIds: number[] = []
     let supportPeople: { name: string; relationship: string }[] = []
-    let journalContext: {
-      patterns_summary?: string | null
-      recurring_triggers?: string[]
-      what_helps?: string[]
-      current_thread?: string | null
-      tone_notes?: string | null
-    } = {}
+    let journalContext: { recurring_triggers?: string[]; what_helps?: string[] } = {}
 
     if (userId && supabaseAdmin) {
       // Aggregate past feedback for this user
@@ -95,7 +103,6 @@ export async function POST(req: NextRequest) {
         .limit(50)
 
       if (feedback && feedback.length > 0) {
-        // Build weight map
         const weightMap = new Map<number, { sum: number; count: number }>()
         feedback.forEach(f => {
           const existing = weightMap.get(f.rec_id) ?? { sum: 0, count: 0 }
@@ -116,11 +123,11 @@ export async function POST(req: NextRequest) {
         recentlyUsedIds = Array.from(seen)
       }
 
-      // Load user preference profile, support circle, and journal profile in parallel
+      // Preference profile, support circle, and journal profile in parallel
       const [{ data: profile }, { data: userProfile }, { data: journalProfile }] = await Promise.all([
         supabaseAdmin
           .from('user_preference_profile')
-          .select('preferred_categories, avoided_categories, preferred_effort, strong_regulation_types, recent_indicators')
+          .select('preferred_categories, avoided_categories, preferred_effort, strong_regulation_types, total_checkins')
           .eq('user_id', userId)
           .single(),
         supabaseAdmin
@@ -130,7 +137,7 @@ export async function POST(req: NextRequest) {
           .single(),
         supabaseAdmin
           .from('journal_profile')
-          .select('patterns_summary, recurring_triggers, what_helps, current_thread, tone_notes')
+          .select('what_helps, recurring_triggers')
           .eq('user_id', userId)
           .single(),
       ])
@@ -144,16 +151,15 @@ export async function POST(req: NextRequest) {
       if (journalProfile) journalContext = journalProfile
     }
 
-    // ── Step 3: Score and pick top 3 ────────────────────────────────────────
-    // On "try again" requests, filter out currently-shown recs so the user
-    // always gets fresh suggestions. If the pool shrinks below 3, fall back
-    // to the full candidate set (the scoring novelty penalty still applies).
-    const excludedSet    = new Set(excludedIds)
+    // ── Step 3: Score and pick — 2 on hard days, 3 otherwise ─────────────────
+    // On "Something else" requests, filter out currently-shown recs so she
+    // always gets fresh suggestions. If the pool shrinks too far, fall back to
+    // the full candidate set (the scoring novelty penalty still applies).
+    const count = HARD_DAY_MOODS.has(mood.toLowerCase()) ? 2 : 3
+    const excludedSet     = new Set(excludedIds)
     const freshCandidates = candidates.filter(c => !excludedSet.has(c.rec_id))
-    const scoringPool    = freshCandidates.length >= 3 ? freshCandidates : candidates
+    const scoringPool     = freshCandidates.length >= count ? freshCandidates : candidates
 
-    // Merge excludedIds into recentlyUsedIds so the scoring engine penalises
-    // them even in the fallback path (they'll end up at the bottom of the sort)
     const mergedRecentIds = [
       ...excludedIds,
       ...recentlyUsedIds.filter(id => !excludedSet.has(id)),
@@ -163,82 +169,16 @@ export async function POST(req: NextRequest) {
       mood,
       timeAvailable as any,
       scoringPool,
-      3,
+      count,
       feedbackWeights,
       mergedRecentIds,
       userPrefs,
       { whatHelps: journalContext.what_helps, recurringTriggers: journalContext.recurring_triggers }
     )
 
-    // ── Step 4: Ask Claude for a warm acknowledgment ─────────────────────────
-    let message = defaultMessage(mood)
-
-    if (anthropic && recommendations.length > 0) {
-      const recList = recommendations
-        .map(r => `- ${r.title}: ${r.description} (${r.category}, ${r.effort_level} effort)`)
-        .join('\n')
-
-      const indicatorText = selectedIndicators.length > 0
-        ? `Right now she selected: ${selectedIndicators.join(', ')}.`
-        : ''
-
-      // Surface recurring patterns from past sessions if available
-      const recentIndicators = (userPrefs as any)?.recent_indicators as string[] | undefined
-      const patternText = recentIndicators?.length
-        ? `She commonly experiences: ${recentIndicators.slice(0, 5).join(', ')}.`
-        : ''
-
-      const prefText = userPrefs.preferred_categories?.length
-        ? `This user tends to respond well to: ${userPrefs.preferred_categories.join(', ')}.`
-        : ''
-
-      const supportText = supportPeople.length > 0
-        ? `Her support circle: ${supportPeople.map(p => `${p.name} (${p.relationship})`).join(', ')}.`
-        : ''
-
-      // Surface journal patterns if she's written entries — gives Claude a
-      // fuller picture beyond just this single check-in
-      const journalText = journalContext.patterns_summary || journalContext.current_thread
-        ? `From her journal entries, you also know: ${[journalContext.patterns_summary, journalContext.current_thread].filter(Boolean).join(' ')}`
-        : ''
-
-      try {
-        const response = await anthropic.messages.create({
-          model: 'claude-haiku-4-5-20251001',
-          max_tokens: 120,
-          system: `You are Kindrest — a warm, grounded wellness companion for mothers.
-Your tone is like a trusted friend: honest, non-clinical, never preachy.
-You speak in short, human sentences. No bullet points, no headers.
-Mothers using this app are often exhausted and time-short — every word must count.`,
-          messages: [{
-            role: 'user',
-            content: `A mother just completed a check-in. She feels: ${mood}.
-${indicatorText}
-${patternText}
-Her regulation phase is: ${regulationPhase}.
-She has ${timeAvailable.replace('_', ' ')} available.
-${prefText}
-${supportText}
-${journalText}
-
-These are the care suggestions prepared for her:
-${recList}
-
-Write exactly 2 warm sentences (55–70 words total):
-1. Acknowledge where she is right now — name it gently without minimising.
-2. Invite her into the care kit — one sentence that makes it feel approachable, not prescriptive.
-If any recommendation involves actively reaching out to or connecting with a specific person (texting, calling, making plans, expressing appreciation to someone), you may naturally reference a person from her support circle by name. For reflective or internal recs (like "remember someone who survived this"), keep the message general.
-Do not list the recommendations. Do not use quotes.`,
-          }],
-        })
-
-        const text = response.content[0]
-        if (text.type === 'text') message = text.text.trim()
-      } catch (err) {
-        console.error('[care-kit] Claude error:', err)
-        // Fall back to default message silently
-      }
-    }
+    // ── Step 4: The line at the top, and who to reach out to ─────────────────
+    const header = await chooseHeader(mood, emotionalIndicators)
+    const people = peopleLines(recommendations, supportPeople, userPrefs.total_checkins ?? 0)
 
     // ── Step 5: Increment check-in count ────────────────────────────────────
     // A check-in = a care kit being generated, regardless of whether the user
@@ -279,10 +219,6 @@ Do not list the recommendations. Do not use quotes.`,
     }
 
     // ── Step 6: Store selected indicators for pattern tracking ──────────────
-    // Persists the indicators this mom selected so future sessions and the
-    // patterns card can reference what she commonly experiences.
-    // Requires: ALTER TABLE user_preference_profile ADD COLUMN IF NOT EXISTS
-    //           recent_indicators TEXT[] DEFAULT '{}';
     if (userId && supabaseAdmin && selectedIndicators.length > 0) {
       try {
         await supabaseAdmin
@@ -296,20 +232,67 @@ Do not list the recommendations. Do not use quotes.`,
       }
     }
 
-    return NextResponse.json({ recommendations, message })
+    return NextResponse.json({ recommendations, header, people })
   } catch (err) {
     console.error('[care-kit] Error:', err)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
 
-function defaultMessage(mood: string): string {
-  const messages: Record<string, string> = {
-    overwhelmed: "You're carrying a lot right now, and that deserves acknowledgment. Here's something small you can do just for you.",
-    struggling: "It makes sense that things feel heavy right now. These suggestions are gentle, start with just one.",
-    okay: "You're holding it together, even when it's a stretch. Take a moment to give something back to yourself.",
-    good: "You're in a good place today. A great time to build on that. Here's what might feel nourishing right now.",
-    thriving: "You're showing up fully and it shows. Take a moment to anchor this feeling so you can return to it.",
+/**
+ * The line at the top of her kit.
+ *
+ * If she tapped something on the heart screen, respond to that, taking the
+ * first heart option she tapped that has an active row. Otherwise rotate
+ * through the lines for her mood.
+ *
+ * Responds to what she's feeling rather than repeating what she selected.
+ * Returns '' if the table is unreachable or has nothing active for her mood:
+ * the page then shows "Your care kit" with no line under it, which reads fine,
+ * and the error is logged so a missing line never goes unnoticed.
+ */
+async function chooseHeader(mood: string, heartTaps: string[]): Promise<string> {
+  try {
+    const lines = (await getCareKitLines())
+      .filter(l => l.active && l.mood.toLowerCase() === mood.toLowerCase())
+
+    for (const tap of heartTaps) {
+      const hit = lines.find(l => l.type === 'heart' && l.option === tap)
+      if (hit) return hit.text
+    }
+
+    const moodLines = lines.filter(l => l.type === 'mood')
+    if (moodLines.length > 0) return moodLines[Math.floor(Math.random() * moodLines.length)].text
+
+    console.error(`[care-kit] no active header lines for mood "${mood}"`)
+  } catch (err) {
+    console.error('[care-kit] header lines unavailable:', err instanceof Error ? err.message : err)
   }
-  return messages[mood] ?? "Here's your personalised care kit for this moment."
+  return ''
+}
+
+/**
+ * "Maya or Tasha might be good for this." on every card that involves reaching
+ * out to someone.
+ *
+ * Two names, rotating with each check-in, so it doesn't settle on one person.
+ * Relationship can't be used to choose: nobody has filled in "best for", and
+ * choosing by label alone picked the husband 4 times out of 5, which could land
+ * badly for a mother whose partner is part of what's heavy.
+ */
+function peopleLines(
+  recs: Recommendation[],
+  circle: { name: string }[],
+  rotation: number,
+): Record<number, string> {
+  const names = circle.map(p => p.name.trim()).filter(Boolean)
+  if (names.length === 0) return {}
+
+  const line = names.length === 1
+    ? `${names[0]} might be good for this.`
+    : `${names[rotation % names.length]} or ${names[(rotation + 1) % names.length]} might be good for this.`
+
+  return Object.fromEntries(
+    recs.filter(r => r.category === 'Connection').map(r => [r.rec_id, line])
+  )
 }

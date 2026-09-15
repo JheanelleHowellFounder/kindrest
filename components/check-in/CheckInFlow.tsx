@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { X, ChevronRight, ChevronLeft, ThumbsDown, Bookmark, CheckCircle2, ChevronDown } from 'lucide-react'
+import { X, ChevronRight, ChevronLeft, Bookmark, CheckCircle2, ChevronDown } from 'lucide-react'
 import { MOODS, MENTAL_INDICATORS, PHYSICAL_INDICATORS, EMOTIONAL_INDICATORS } from '@/lib/mock-data'
 import type { MoodLabel, TimeAvailable, Recommendation, RegulationType } from '@/lib/types'
 import { useAuth } from '@/lib/auth-context'
@@ -89,7 +89,11 @@ export function CheckInFlow() {
 
   // Care kit state
   const [careKit, setCareKit]             = useState<Recommendation[]>([])
-  const [claudeMessage, setClaudeMessage] = useState<string>('')
+  // The line at the top of the kit, from the founder's "Care Kit Lines" table.
+  // Set once per check-in, so "Something else" swaps the cards, not the words above them.
+  const [careKitHeader, setCareKitHeader] = useState<string>('')
+  // rec_id → "Maya or Tasha might be good for this." on cards about reaching out.
+  const [people, setPeople]               = useState<Record<number, string>>({})
   const [isLoading, setIsLoading]         = useState(false)
   const [feedbackSent, setFeedbackSent]   = useState<Record<number, FeedbackRating>>({})
   const [expandedRecs, setExpandedRecs]   = useState<Set<number>>(new Set())
@@ -148,6 +152,8 @@ export function CheckInFlow() {
           mood,
           timeAvailable,
           selectedIndicators: [...mentalIndicators, ...physicalIndicators, ...emotionalIndicators],
+          // Heart-screen taps on their own, in tap order — the header responds to these.
+          emotionalIndicators,
           // On retry, skip the regulation-type pre-filter so the pool widens
           // to all recs for the current phase — avoids the same 3 coming back.
           regulationTypes: broaden ? [] : getRegulationTypes(),
@@ -178,7 +184,8 @@ export function CheckInFlow() {
           return next
         })
       }
-      if (data.message) setClaudeMessage(data.message)
+      if (data.header) setCareKitHeader(prev => prev || data.header)
+      setPeople(data.people ?? {})
 
       // First check-in complete: add to MailerLite Active Users (fire-and-forget)
       if (!mailingSubscribed && userId && userId !== 'demo-user-001') {
@@ -540,43 +547,26 @@ export function CheckInFlow() {
         {/* ── CARE KIT ─────────────────────────────────────────────────────── */}
         {step === 'carekit' && (
           <div className="space-y-5 pt-4">
+            {/*
+              Kept deliberately short. This page used to carry ~190 words and 9
+              buttons: a 65-word AI paragraph, mood and time pills, database labels
+              on every card, and "Did this help?" before she'd done anything. The
+              substance — titles and the lead description — is untouched.
+            */}
             <div>
-              <p className="text-xs font-display font-semibold text-mustard uppercase tracking-widest mb-1">
+              <p className="text-xs font-display font-semibold text-mustard uppercase tracking-widest mb-2">
                 Your Care Kit
               </p>
-              <h1 className="font-serif text-2xl text-chocolate leading-tight">
-                Take a moment
-              </h1>
-
-              {/* Mood + time context pill */}
-              {mood && timeAvailable && !isLoading && (
-                <div className="flex items-center gap-2 mt-2">
-                  <span className="inline-flex items-center gap-1.5 bg-beige/40 rounded-full px-3 py-1 text-xs font-display font-semibold text-chocolate/70 capitalize">
-                    {mood === 'overwhelmed' ? '😢' : mood === 'struggling' ? '😔' : mood === 'okay' ? '😐' : mood === 'good' ? '😊' : '✨'}
-                    {mood}
-                  </span>
-                  <span className="text-chocolate/30 text-xs">·</span>
-                  <span className="inline-flex items-center gap-1.5 bg-beige/40 rounded-full px-3 py-1 text-xs font-display font-semibold text-chocolate/70">
-                    {timeAvailable.replace('_', ' ').replace('plus', '+')}
-                  </span>
-                </div>
-              )}
-
-              {/* Claude's warm message */}
-              {isLoading ? (
-                <div className="mt-3 flex items-center gap-2">
+              {isLoading && !careKitHeader ? (
+                <div className="flex items-center gap-2">
                   <div className="w-4 h-4 border-2 border-mustard border-t-transparent rounded-full animate-spin" />
                   <p className="text-sm text-chocolate/50 font-sans">Building your care kit…</p>
                 </div>
-              ) : claudeMessage ? (
-                <p className="font-sans text-sm text-chocolate/70 mt-2 leading-relaxed">
-                  {claudeMessage}
-                </p>
-              ) : (
-                <p className="font-sans text-sm text-chocolate/50 mt-1">
-                  Give yourself permission to pause.
-                </p>
-              )}
+              ) : careKitHeader ? (
+                <h1 className="font-serif text-[24px] text-chocolate leading-snug">
+                  {careKitHeader}
+                </h1>
+              ) : null}
             </div>
 
             {/* Recommendations with feedback */}
@@ -613,19 +603,11 @@ export function CheckInFlow() {
                         }}
                       >
                         <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-1">
-                            <span className="text-xs font-display font-semibold text-mustard">
-                              {rec.category}
-                            </span>
-                            <span className={`text-xs font-sans ${isPrimary ? 'text-white/40' : 'text-chocolate/40'}`}>
-                              · {rec.effort_level} effort · {rec.time_suggestion}
-                            </span>
-                          </div>
                           <h3 className={`font-display font-semibold text-base ${isPrimary ? 'text-white' : 'text-chocolate'}`}>
                             {rec.title}
                           </h3>
                           {isPrimary && (
-                            <p className="text-sm mt-1 font-sans text-white/70">
+                            <p className="text-sm mt-1.5 font-sans text-white/70 leading-relaxed">
                               {rec.description}
                             </p>
                           )}
@@ -635,12 +617,14 @@ export function CheckInFlow() {
                               {rec.description}
                             </p>
                           )}
+                          {/* Who from her circle, on the card it's actually about */}
+                          {people[rec.rec_id] && (
+                            <p className={`text-[12.5px] mt-2 font-sans ${isPrimary ? 'text-mustard' : 'text-chocolate/55'}`}>
+                              {people[rec.rec_id]}
+                            </p>
+                          )}
                         </div>
-                        {isPrimary ? (
-                          <span className="text-xs bg-mustard text-white px-2 py-0.5 rounded-full font-display font-semibold whitespace-nowrap">
-                            Primary
-                          </span>
-                        ) : (
+                        {!isPrimary && (
                           <ChevronDown
                             size={16}
                             className={`text-chocolate/30 flex-shrink-0 mt-0.5 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`}
@@ -660,7 +644,7 @@ export function CheckInFlow() {
                           </p>
                         ) : fb ? (
                           <p className={`text-xs font-sans ${isPrimary ? 'text-white/50' : 'text-chocolate/40'}`}>
-                            {fb === 1 ? 'Not for me' : fb === 2 ? '✓ Saved for later' : '✓ I did this!'}
+                            {fb === 2 ? '✓ Saved for later' : '✓ Done'}
                           </p>
                         ) : rec.category === 'Reflection' && reflectingRecId === rec.rec_id ? (
                           <div className="space-y-2">
@@ -695,51 +679,39 @@ export function CheckInFlow() {
                             </div>
                           </div>
                         ) : rec.category === 'Reflection' ? (
-                          <div>
-                            <p className={`text-xs font-sans mb-2 ${isPrimary ? 'text-white/50' : 'text-chocolate/40'}`}>
-                              Want to reflect on this right here?
-                            </p>
-                            <div className="flex gap-1.5">
-                              <button
-                                onClick={() => setReflectingRecId(rec.rec_id)}
-                                className={`flex-1 flex items-center justify-center gap-1 px-1.5 py-1.5 rounded-full text-[11px] font-display font-semibold transition-all active:scale-95 bg-mustard text-white`}
-                              >
-                                Do this here
-                              </button>
-                              <FeedbackButton
-                                icon={<ThumbsDown size={12} />}
-                                label="Not for me"
-                                onClick={() => sendFeedback(rec, 1)}
-                                isPrimary={isPrimary}
-                              />
-                            </div>
+                          // Reflecting here records "did it" (see saveReflection).
+                          <div className="flex gap-1.5">
+                            <button
+                              onClick={() => setReflectingRecId(rec.rec_id)}
+                              className="flex-1 flex items-center justify-center gap-1 px-1.5 py-1.5 rounded-full text-[11px] font-display font-semibold transition-all active:scale-95 bg-mustard text-white"
+                            >
+                              Do this here
+                            </button>
+                            <FeedbackButton
+                              icon={<Bookmark size={12} />}
+                              label="Save"
+                              onClick={() => sendFeedback(rec, 2)}
+                              isPrimary={isPrimary}
+                            />
                           </div>
                         ) : (
-                          <div>
-                            <p className={`text-xs font-sans mb-2 ${isPrimary ? 'text-white/50' : 'text-chocolate/40'}`}>
-                              Did this help?
-                            </p>
-                            <div className="flex gap-1.5">
-                              <FeedbackButton
-                                icon={<ThumbsDown size={12} />}
-                                label="Not for me"
-                                onClick={() => sendFeedback(rec, 1)}
-                                isPrimary={isPrimary}
-                              />
-                              <FeedbackButton
-                                icon={<Bookmark size={12} />}
-                                label="Save for later"
-                                onClick={() => sendFeedback(rec, 2)}
-                                isPrimary={isPrimary}
-                              />
-                              <FeedbackButton
-                                icon={<CheckCircle2 size={12} />}
-                                label="I did this"
-                                onClick={() => sendFeedback(rec, 3)}
-                                isPrimary={isPrimary}
-                                highlight
-                              />
-                            </div>
+                          // Two actions, both used. "Not for me" is gone: 14% of real
+                          // ratings, and it asked her to reject something on a hard day.
+                          // "Something else" below swaps suggestions and records nothing.
+                          <div className="flex gap-1.5">
+                            <FeedbackButton
+                              icon={<CheckCircle2 size={12} />}
+                              label="Done"
+                              onClick={() => sendFeedback(rec, 3)}
+                              isPrimary={isPrimary}
+                              highlight
+                            />
+                            <FeedbackButton
+                              icon={<Bookmark size={12} />}
+                              label="Save"
+                              onClick={() => sendFeedback(rec, 2)}
+                              isPrimary={isPrimary}
+                            />
                           </div>
                         )}
                       </div>
@@ -767,7 +739,7 @@ export function CheckInFlow() {
                   }}
                   className="w-full text-center text-sm text-chocolate/40 font-sans py-2 hover:text-chocolate/60 transition-colors"
                 >
-                  {retryCount === 0 ? 'Try different suggestions' : 'Show me something else'}
+                  Something else
                 </button>
               )}
 
