@@ -94,6 +94,11 @@ export function CheckInFlow() {
   const [careKitHeader, setCareKitHeader] = useState<string>('')
   // rec_id → "Maya or Tasha might be good for this." on cards about reaching out.
   const [people, setPeople]               = useState<Record<number, string>>({})
+  // Hard days only: the words for when she taps Done, and for when she heads home.
+  const [showedUp, setShowedUp]           = useState<{ done: string; leaving: string } | null>(null)
+  // The one card whose Done gets the acknowledgment, so it appears once, not on every card.
+  const [doneMomentRecId, setDoneMomentRecId] = useState<number | null>(null)
+  const [leavingLine, setLeavingLine]     = useState<string | null>(null)
   const [isLoading, setIsLoading]         = useState(false)
   const [feedbackSent, setFeedbackSent]   = useState<Record<number, FeedbackRating>>({})
   const [expandedRecs, setExpandedRecs]   = useState<Set<number>>(new Set())
@@ -186,6 +191,8 @@ export function CheckInFlow() {
       }
       if (data.header) setCareKitHeader(prev => prev || data.header)
       setPeople(data.people ?? {})
+      // Kept from the first load, like the header, so "Something else" doesn't reshuffle it.
+      if (data.showedUp) setShowedUp(prev => prev ?? data.showedUp)
 
       // First check-in complete: add to MailerLite Active Users (fire-and-forget)
       if (!mailingSubscribed && userId && userId !== 'demo-user-001') {
@@ -308,6 +315,9 @@ export function CheckInFlow() {
     const hit = list.filter(i => i.mood_label === moodLabel)
     return hit.length > 0 ? hit : list.filter(i => i.mood_label === 'Okay')
   }
+  // Overwhelmed and Struggling: two cards, and the "showed up" moments.
+  const isHardDay = mood === 'overwhelmed' || mood === 'struggling'
+
   const filteredMental    = forMood(MENTAL_INDICATORS)
   const filteredPhysical  = forMood(PHYSICAL_INDICATORS)
   const filteredEmotional = forMood(EMOTIONAL_INDICATORS)
@@ -553,6 +563,20 @@ export function CheckInFlow() {
               on every card, and "Did this help?" before she'd done anything. The
               substance — titles and the lead description — is untouched.
             */}
+
+            {/* Heading home from a hard day. A moment, not a toast: tap anywhere to go now. */}
+            {leavingLine && (
+              <button
+                onClick={() => router.push('/')}
+                className="fixed inset-0 z-50 flex items-center justify-center px-8 bg-chocolate/45 backdrop-blur-[2px] w-full"
+                aria-label="Back to Home"
+              >
+                <div className="bg-cream rounded-[26px] px-7 py-9 text-center max-w-[360px] w-full">
+                  <p className="text-3xl mb-4" aria-hidden>🤎</p>
+                  <p className="font-serif text-[23px] leading-[1.3] text-chocolate">{leavingLine}</p>
+                </div>
+              </button>
+            )}
             <div>
               <p className="text-xs font-display font-semibold text-mustard uppercase tracking-widest mb-2">
                 Your Care Kit
@@ -643,9 +667,15 @@ export function CheckInFlow() {
                             🤎 {reflectionAffirmations[rec.rec_id] ?? 'You reflected on this. That matters.'}
                           </p>
                         ) : fb ? (
-                          <p className={`text-xs font-sans ${isPrimary ? 'text-white/50' : 'text-chocolate/40'}`}>
-                            {fb === 2 ? '✓ Saved for later' : '✓ Done'}
-                          </p>
+                          fb === 3 && doneMomentRecId === rec.rec_id && showedUp?.done ? (
+                            <p className={`font-serif text-[16px] leading-snug ${isPrimary ? 'text-cream' : 'text-chocolate'}`}>
+                              🤎 {showedUp.done}
+                            </p>
+                          ) : (
+                            <p className={`text-xs font-sans ${isPrimary ? 'text-white/50' : 'text-chocolate/40'}`}>
+                              {fb === 2 ? '✓ Saved for later' : '✓ Done'}
+                            </p>
+                          )
                         ) : rec.category === 'Reflection' && reflectingRecId === rec.rec_id ? (
                           <div className="space-y-2">
                             <textarea
@@ -702,7 +732,11 @@ export function CheckInFlow() {
                             <FeedbackButton
                               icon={<CheckCircle2 size={12} />}
                               label="Done"
-                              onClick={() => sendFeedback(rec, 3)}
+                              onClick={() => {
+                                // First Done on a hard day gets the acknowledgment; later ones don't.
+                                if (isHardDay && doneMomentRecId === null) setDoneMomentRecId(rec.rec_id)
+                                sendFeedback(rec, 3)
+                              }}
                               isPrimary={isPrimary}
                               highlight
                             />
@@ -723,7 +757,19 @@ export function CheckInFlow() {
 
             {/* Footer actions */}
             <div className="space-y-2">
-              <button onClick={() => router.push('/')} className="btn-primary">
+              <button
+                onClick={() => {
+                  // Hard day: a short moment first, even if she did nothing on this page.
+                  // Checking in at all was the choice. Otherwise, straight home.
+                  if (isHardDay && showedUp?.leaving && !leavingLine) {
+                    setLeavingLine(showedUp.leaving)
+                    setTimeout(() => router.push('/'), 3200)
+                    return
+                  }
+                  router.push('/')
+                }}
+                className="btn-primary"
+              >
                 Back to Home
               </button>
               {!isLoading && careKit.length > 0 && (

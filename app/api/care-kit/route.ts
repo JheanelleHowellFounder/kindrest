@@ -179,6 +179,7 @@ export async function POST(req: NextRequest) {
     // ── Step 4: The line at the top, and who to reach out to ─────────────────
     const header = await chooseHeader(mood, emotionalIndicators)
     const people = peopleLines(recommendations, supportPeople, userPrefs.total_checkins ?? 0)
+    const showedUp = HARD_DAY_MOODS.has(mood.toLowerCase()) ? await chooseShowedUp() : null
 
     // ── Step 5: Increment check-in count ────────────────────────────────────
     // A check-in = a care kit being generated, regardless of whether the user
@@ -232,7 +233,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    return NextResponse.json({ recommendations, header, people })
+    return NextResponse.json({ recommendations, header, people, showedUp })
   } catch (err) {
     console.error('[care-kit] Error:', err)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
@@ -269,6 +270,32 @@ async function chooseHeader(mood: string, heartTaps: string[]): Promise<string> 
     console.error('[care-kit] header lines unavailable:', err instanceof Error ? err.message : err)
   }
   return ''
+}
+
+/**
+ * On a hard day, the words for two moments: when she taps Done, and when she
+ * heads home. One line of each, rotating.
+ *
+ * Hard days only. Checking in while overwhelmed is itself her choosing herself,
+ * and saying so on a good day would ring hollow. No counts, no streaks: the
+ * product removed points on purpose, and this must not turn into them.
+ *
+ * Returns null if neither is available, and the page simply skips the moments.
+ */
+async function chooseShowedUp(): Promise<{ done: string; leaving: string } | null> {
+  try {
+    const lines = (await getCareKitLines()).filter(l => l.active)
+    const pick = (type: 'done' | 'leaving') => {
+      const pool = lines.filter(l => l.type === type)
+      return pool.length ? pool[Math.floor(Math.random() * pool.length)].text : ''
+    }
+    const done = pick('done')
+    const leaving = pick('leaving')
+    return done || leaving ? { done, leaving } : null
+  } catch (err) {
+    console.error('[care-kit] hard-day lines unavailable:', err instanceof Error ? err.message : err)
+    return null
+  }
 }
 
 /**

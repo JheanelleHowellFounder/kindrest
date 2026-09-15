@@ -69,6 +69,22 @@ interface AirtableRecFields {
  * `offset`. This used to read only the first page, which is silent truncation:
  * no error, no warning, just content that stops existing at row 101.
  */
+/**
+ * How long a table's rows are reused before Airtable is asked again, in seconds.
+ *
+ * Tables the founder edits by hand as live copy get a short window, so a change
+ * shows up within a minute. Everything else keeps 10 minutes.
+ *
+ * ⚠️ On Vercel this cache outlives deployments: redeploying does NOT clear it.
+ * With a 10-minute window, six new lines added to Care Kit Lines stayed invisible
+ * through a fresh preview build, and it looked exactly like broken code.
+ */
+const REVALIDATE_SECONDS: Record<string, number> = {
+  'Care Kit Lines': 60,
+  'Rest Card Squares': 60,
+}
+const DEFAULT_REVALIDATE_SECONDS = 600
+
 async function fetchTable<T>(tableName: string): Promise<AirtableRecord<T>[]> {
   if (!TOKEN) {
     console.warn('[airtable] AIRTABLE_TOKEN not set — using empty data')
@@ -84,7 +100,7 @@ async function fetchTable<T>(tableName: string): Promise<AirtableRecord<T>[]> {
 
     const res = await fetch(url.toString(), {
       headers: { Authorization: `Bearer ${TOKEN}` },
-      next: { revalidate: 600 }, // cache 10 minutes
+      next: { revalidate: REVALIDATE_SECONDS[tableName] ?? DEFAULT_REVALIDATE_SECONDS },
     })
 
     if (!res.ok) {
@@ -160,15 +176,17 @@ export const getRestCardSquares = cache(async (): Promise<RestCardSquare[]> => {
 })
 
 interface AirtableCareKitLineFields {
-  type?: string              // 'mood' | 'heart'
+  type?: string              // 'mood' | 'heart' | 'hard day done' | 'hard day leaving'
   mood?: string              // 'Overwhelmed' | 'Struggling' | 'Okay' | 'Good' | 'Thriving'
   'option she taps'?: string // heart rows only: the exact heart-screen option label
   text?: string
   active?: boolean
 }
 
+export type CareKitLineType = 'mood' | 'heart' | 'done' | 'leaving'
+
 export interface CareKitLine {
-  type: 'mood' | 'heart'
+  type: CareKitLineType
   mood: string
   option: string
   text: string
@@ -176,14 +194,33 @@ export interface CareKitLine {
 }
 
 /**
+ * Airtable `type` → line type. Anything unrecognised is dropped, never guessed.
+ *
+ * ⚠️ This used to treat every non-"heart" row as a mood line, so adding a new
+ * kind of row to the table would have shown it as the header. Unknown types
+ * must stay invisible until the code knows what they're for.
+ */
+function lineType(raw: string | undefined): CareKitLineType | null {
+  const t = (raw ?? '').trim().toLowerCase()
+  if (t === 'mood') return 'mood'
+  if (t === 'heart') return 'heart'
+  if (t === 'hard day done') return 'done'
+  if (t === 'hard day leaving') return 'leaving'
+  return null
+}
+
+/**
  * The one line at the top of the care kit, written by the founder in the
  * "Care Kit Lines" table. Rendered exactly as stored; nothing generates or
  * rewrites it.
  *
- * Two kinds of row:
- *   mood   a few lines per mood that rotate
- *   heart  a response to one specific heart-screen option ("I feel alone in
- *          this" → "You're not as alone as it feels.")
+ * Four kinds of row:
+ *   mood              a few lines per mood that rotate
+ *   heart             a response to one specific heart-screen option ("I feel
+ *                     alone in this" → "You're not as alone as it feels.")
+ *   hard day done     shown once when she taps Done on a hard day
+ *   hard day leaving  shown as she heads home from a hard-day check-in
+ * The two "hard day" types have no mood; they apply to Overwhelmed and Struggling.
  *
  * `active` uses the same rule as the Rest Card: Airtable omits an unticked
  * checkbox entirely, so if no row carries the field the column doesn't exist
@@ -194,13 +231,16 @@ export const getCareKitLines = cache(async (): Promise<CareKitLine[]> => {
   const columnExists = records.some(r => r.fields.active !== undefined)
   return records
     .map(r => ({
-      type: (r.fields.type ?? '').trim().toLowerCase() === 'heart' ? 'heart' as const : 'mood' as const,
+      type: lineType(r.fields.type),
       mood: (r.fields.mood ?? '').trim(),
       option: (r.fields['option she taps'] ?? '').trim(),
       text: (r.fields.text ?? '').trim(),
       active: columnExists ? r.fields.active === true : true,
     }))
-    .filter(l => l.text && l.mood)
+    .filter((l): l is CareKitLine =>
+      l.type !== null && !!l.text &&
+      // mood and heart lines belong to a mood; hard-day lines don't
+      (l.type === 'done' || l.type === 'leaving' || !!l.mood))
 })
 
 export const getMoods = cache(async () => {
