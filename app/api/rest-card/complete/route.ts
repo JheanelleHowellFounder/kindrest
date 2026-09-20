@@ -9,7 +9,40 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { requireUser } from '@/lib/auth-server'
-import { completedLines } from '@/lib/restcard'
+import { completedLines, buildCelebration } from '@/lib/restcard'
+import { getRestCardSquares, getCareKitLines } from '@/lib/airtable'
+
+/**
+ * The bingo message: the founder's headline, plus what her card actually shows.
+ *
+ * Returns null if the Airtable lines can't be read, and the screen falls back to
+ * its built-in wording. A celebration must never fail because a table is slow.
+ */
+async function celebrationFor(
+  squares: { status: string; label: string | null; source: string }[],
+): Promise<{ headline: string; detail: string } | null> {
+  try {
+    const [lines, catalogue] = await Promise.all([getCareKitLines(), getRestCardSquares()])
+    const active = lines.filter(l => l.active)
+    const headlines = active.filter(l => l.type === 'bingo_headline').map(l => l.text)
+    const detailPhrases = new Map(
+      active.filter(l => l.type === 'bingo_detail' && l.option).map(l => [l.option, l.text])
+    )
+    if (!headlines.length && !detailPhrases.size) return null
+
+    return buildCelebration({
+      markedLabels: squares
+        .filter(s => s.status === 'done' && s.source !== 'free' && s.label)
+        .map(s => s.label as string),
+      themeOf: new Map(catalogue.map(s => [s.label, s.theme])),
+      headlines,
+      detailPhrases,
+    })
+  } catch (err) {
+    console.error('[rest-card/complete] celebration unavailable:', err instanceof Error ? err.message : err)
+    return null
+  }
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -46,7 +79,7 @@ export async function POST(req: NextRequest) {
 
     const { data: squares } = await supabaseAdmin
       .from('rest_card_squares')
-      .select('position, status')
+      .select('position, status, label, source')
       .eq('card_id', square.card_id)
 
     const done = new Set((squares ?? []).filter(s => s.status === 'done').map(s => s.position))
@@ -66,6 +99,9 @@ export async function POST(req: NextRequest) {
       bingo = (retired?.length ?? 0) > 0
     }
 
+    // Her words plus her data. Only built when a line actually lands.
+    const celebration = bingo ? await celebrationFor(squares ?? []) : null
+
     return NextResponse.json({
       ok: true,
       done: nowDone,
@@ -73,6 +109,7 @@ export async function POST(req: NextRequest) {
       bingo,
       // Squares she marked herself — the free centre isn't hers to claim.
       marked: (squares ?? []).filter(s => s.status === 'done').length - 1,
+      celebration,
     })
   } catch (err) {
     console.error('[rest-card/complete] error:', err instanceof Error ? err.message : err)

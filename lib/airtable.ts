@@ -183,7 +183,8 @@ interface AirtableCareKitLineFields {
   active?: boolean
 }
 
-export type CareKitLineType = 'mood' | 'heart' | 'done' | 'leaving'
+export type CareKitLineType =
+  | 'mood' | 'heart' | 'done' | 'leaving' | 'bingo_headline' | 'bingo_detail'
 
 export interface CareKitLine {
   type: CareKitLineType
@@ -206,6 +207,9 @@ function lineType(raw: string | undefined): CareKitLineType | null {
   if (t === 'heart') return 'heart'
   if (t === 'hard day done') return 'done'
   if (t === 'hard day leaving') return 'leaving'
+  // Rest Card bingo. 'bingo detail' rows key a theme in "option she taps".
+  if (t === 'bingo headline') return 'bingo_headline'
+  if (t === 'bingo detail') return 'bingo_detail'
   return null
 }
 
@@ -239,8 +243,9 @@ export const getCareKitLines = cache(async (): Promise<CareKitLine[]> => {
     }))
     .filter((l): l is CareKitLine =>
       l.type !== null && !!l.text &&
-      // mood and heart lines belong to a mood; hard-day lines don't
-      (l.type === 'done' || l.type === 'leaving' || !!l.mood))
+      // mood and heart lines belong to a mood; hard-day and bingo lines don't
+      (l.type === 'done' || l.type === 'leaving' ||
+       l.type === 'bingo_headline' || l.type === 'bingo_detail' || !!l.mood))
 })
 
 export const getMoods = cache(async () => {

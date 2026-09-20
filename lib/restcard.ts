@@ -170,3 +170,72 @@ export const LINES: number[][] = [
 export function completedLines(done: Set<number>): number[][] {
   return LINES.filter(line => line.every(pos => done.has(pos)))
 }
+
+// ─── The bingo moment ────────────────────────────────────────────────────────
+
+const SPELLED = ['no', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight']
+
+/**
+ * What she's told when a line lands.
+ *
+ * ⚠️ This used to say "in a season where that's genuinely hard" — a sympathy
+ * line arriving at the exact moment she had done something good. It assumed she
+ * was struggling instead of using what the card already knows. Congratulate her
+ * for choosing herself; never presume the day was hard.
+ *
+ * Assembled, not generated: headlines and theme phrases are the founder's own
+ * rows in the Airtable table "Care Kit Lines". The only thing added here is her
+ * own data — how many squares she marked, and which kind of care most of them
+ * were.
+ *
+ * `{name}` is left in the headline for the caller to fill, since the name lives
+ * in the browser session.
+ */
+export function buildCelebration(opts: {
+  /** Labels of the squares she marked herself (not the free centre). */
+  markedLabels: string[]
+  /** label → theme, from the Rest Card Squares table. Older cards won't match. */
+  themeOf: Map<string, string>
+  /** Active "bingo headline" rows. */
+  headlines: string[]
+  /** theme → phrase, from active "bingo detail" rows. */
+  detailPhrases: Map<string, string>
+}): { headline: string; detail: string } {
+  const { markedLabels, themeOf, headlines, detailPhrases } = opts
+  const count = markedLabels.length
+
+  const headline = headlines.length
+    ? headlines[Math.floor(Math.random() * headlines.length)]
+    : ''
+
+  if (count === 0) {
+    return { headline, detail: 'A whole line, care all the way across.' }
+  }
+
+  // Which kind of care most of it was. Ties break alphabetically so the same
+  // card always says the same thing.
+  const tally = new Map<string, number>()
+  for (const label of markedLabels) {
+    const theme = themeOf.get(label.trim())
+    if (theme) tally.set(theme, (tally.get(theme) ?? 0) + 1)
+  }
+  const top = Array.from(tally.entries())
+    .filter(([theme]) => detailPhrases.has(theme))
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))[0]
+
+  const things = `${SPELLED[count] ?? count} ${count === 1 ? 'thing' : 'things'} you gave yourself`
+  const plain = { headline, detail: `${things}. A whole line of them.` }
+  if (!top) return plain
+
+  const [theme, n] = top
+
+  // Only name a kind of care when it genuinely dominates. "Eight things, and two
+  // of them were rest for your body" reads like a stretch, because it is one.
+  if (n < 3 && n / count < 0.5) return plain
+
+  const phrase = detailPhrases.get(theme)
+  if (count === 1) return { headline, detail: `${things}, and it was ${phrase}.` }
+
+  const were = n === 1 ? 'one of them was' : `${SPELLED[n]?.toLowerCase() ?? n} of them were`
+  return { headline, detail: `${things}, and ${were} ${phrase}.` }
+}

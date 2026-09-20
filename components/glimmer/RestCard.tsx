@@ -35,6 +35,19 @@ function kindOf(source: string): 'free' | 'self' {
 }
 
 /**
+ * Put her name into a headline written with a `{name}` slot.
+ *
+ * The slot lives in the founder's Airtable row so she controls where the name
+ * sits. If we don't know the name, the slot and the comma before it come out
+ * cleanly: "A whole line of choosing you, {name}." → "A whole line of choosing you."
+ */
+function withName(line: string | undefined, name: string | null): string {
+  if (!line) return ''
+  if (!name) return line.replace(/,?\s*\{name\}/g, '').replace(/\s+([.!?])/g, '$1').trim()
+  return line.replace(/\{name\}/g, name)
+}
+
+/**
  * The Rest Card — a 3×3 record of what already happened. The centre is free; the
  * other eight are dealt from the "Rest Card Squares" Airtable table, one per
  * theme across the six themes plus two more, and rendered exactly as written.
@@ -47,13 +60,19 @@ function kindOf(source: string): 'free' | 'self' {
  */
 export function RestCard() {
   const { user, loading } = useAuth()
+  // For the bingo headline's {name} slot. Null is handled: the slot is removed.
+  const firstName = (user?.user_metadata?.name as string | undefined)?.trim().split(' ')[0] || null
   const router = useRouter()
 
   const [squares, setSquares] = useState<Square[]>([])
   const [fetching, setFetching] = useState(true)
   const [saving, setSaving] = useState<string | null>(null)
   const [celebrate, setCelebrate] = useState<string | null>(null)
-  const [bingo, setBingo] = useState<{ marked: number } | null>(null)
+  const [bingo, setBingo] = useState<{
+    marked: number
+    headline?: string
+    detail?: string
+  } | null>(null)
   const [dealing, setDealing] = useState(false)
   const prevLines = useRef(0)
 
@@ -112,7 +131,11 @@ export function RestCard() {
       const data = await res.json().catch(() => null)
       if (data?.bingo) {
         setCelebrate(null)
-        setBingo({ marked: typeof data.marked === 'number' ? data.marked : 0 })
+        setBingo({
+          marked: typeof data.marked === 'number' ? data.marked : 0,
+          headline: data.celebration?.headline,
+          detail: data.celebration?.detail,
+        })
         prevLines.current = data.completedLineCount ?? 1
       } else {
         maybeCelebrate(data?.completedLineCount)
@@ -178,12 +201,13 @@ export function RestCard() {
                 Bingo
               </p>
               <h2 className="font-serif text-[27px] leading-[1.22] text-chocolate mb-3.5">
-                You showed up for yourself.
+                {withName(bingo.headline, firstName) || 'You showed up for yourself.'}
               </h2>
               <p className="font-sans text-[14.5px] leading-[1.65] text-chocolate/65 mb-1.5">
-                {bingo.marked > 0
-                  ? <>That’s {bingo.marked} {bingo.marked === 1 ? 'thing' : 'things'} you gave yourself, in a season where that’s genuinely hard. A whole line of it.</>
-                  : <>A whole line — care, all the way across.</>}
+                {bingo.detail
+                  || (bingo.marked > 0
+                    ? `${bingo.marked} ${bingo.marked === 1 ? 'thing' : 'things'} you gave yourself. A whole line of them.`
+                    : 'A whole line, care all the way across.')}
               </p>
               <p className="font-sans text-[14.5px] leading-[1.65] text-chocolate/65 mb-7">
                 There’s a fresh card ready when you want it. No rush, and nothing lost if you don’t.
