@@ -15,6 +15,7 @@ import { CareNudge } from '@/components/glimmer/CareNudge'
 import { trackEvent } from '@/lib/analytics'
 import { InviteCard } from '@/components/glimmer/InviteCard'
 import { VillageCard } from '@/components/glimmer/VillageCard'
+import { PlanCard } from '@/components/plan/PlanCard'
 
 function timeGreeting(): string {
   const h = new Date().getHours()
@@ -401,6 +402,9 @@ export function GlimmerHome() {
             The invite still waits until today's behind her: that one asks her
             to give something. */}
         <div className="flex flex-col gap-3">
+          {/* Her plan shows from day one — a new mother's History is empty, and
+              this is what turns her four onboarding answers into something to do. */}
+          <PlanCard />
           <VillageCard noteCount={noteCount} />
           {phase === 'done' && <InviteCard />}
         </div>

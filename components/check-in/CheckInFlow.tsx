@@ -128,8 +128,13 @@ export function CheckInFlow() {
       .eq('user_id', user.id)
       .single()
       .then(({ data }) => {
-        if (data?.preferred_time_window && !timeAvailable) {
-          setTimeAvailable(data.preferred_time_window as TimeAvailable)
+        // Only preselect a value the scoring engine actually understands. One
+        // profile held "morning" — a time of day, from an older version of this
+        // field — which matches nothing and quietly degrades her suggestions.
+        const stored = data?.preferred_time_window
+        const known = TIME_OPTIONS.some(o => o.value === stored)
+        if (stored && known && !timeAvailable) {
+          setTimeAvailable(stored as TimeAvailable)
         }
       })
   // eslint-disable-next-line react-hooks/exhaustive-deps
