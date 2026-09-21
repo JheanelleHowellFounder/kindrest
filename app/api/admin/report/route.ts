@@ -105,9 +105,15 @@ export async function GET(req: NextRequest) {
   // ── Auth lookup maps ───────────────────────────────────────────────────────
   const emailMap: Record<string, string>   = {}
   const lastSeenMap: Record<string, string> = {}
+  // Her name is captured at signup and kept on the auth user; user_profiles.name
+  // is only written when she finishes the profile questions. Without this, every
+  // mother who stopped partway showed as "Anonymous" in the report — five of them.
+  const nameMap: Record<string, string>    = {}
   for (const u of authUsers) {
     emailMap[u.id]   = u.email ?? '—'
     lastSeenMap[u.id] = u.last_sign_in_at ?? u.created_at
+    const signupName = (u.user_metadata?.name as string | undefined)?.trim()
+    if (signupName) nameMap[u.id] = signupName
   }
 
   // ── Per-user activity ─────────────────────────────────────────────────────
@@ -136,7 +142,7 @@ export async function GET(req: NextRequest) {
 
   // ── Build user rows ────────────────────────────────────────────────────────
   const profileUsers = allProfiles.map(p => ({
-    name:          p.name ?? 'Anonymous',
+    name:          p.name ?? nameMap[p.user_id] ?? 'Anonymous',
     email:         emailMap[p.user_id] ?? '—',
     stage:         p.motherhood_stage ?? '—',
     joined:        p.created_at,
