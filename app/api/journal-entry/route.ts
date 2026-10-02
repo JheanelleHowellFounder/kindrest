@@ -22,10 +22,12 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const { content, userId, source = 'journal' } = await req.json() as {
+    const { content, userId, source = 'journal', prompt } = await req.json() as {
       content: string
       userId: string
       source?: string
+      /** The starter she tapped, if she used one. Her words stay in `content`. */
+      prompt?: string | null
     }
 
     if (!content || !userId) {
@@ -46,6 +48,7 @@ export async function POST(req: NextRequest) {
       content:      trimmed,
       input_method: 'text',
       source,
+      prompt:       prompt?.trim() || null,
       entry_date:   new Date().toISOString().split('T')[0],
     })
 

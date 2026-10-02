@@ -1,28 +1,26 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+/**
+ * The journal — the place she writes. Not the place she reads.
+ *
+ * Her past entries used to be listed here as well, which duplicated the
+ * Journal tab in History exactly: same table, same query, same rows. History
+ * is the right home for them, so this page now does one thing. The page opens
+ * straight into the box with the cursor in it — the "New Journal Entry" button
+ * that used to guard it was guarding an empty room.
+ */
+
+import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
-import { BookOpen, Plus, X, ChevronRight } from 'lucide-react'
+import Link from 'next/link'
+import { BookOpen, X, Shuffle, ArrowRight } from 'lucide-react'
 import { useAuth } from '@/lib/auth-context'
 import { supabase } from '@/lib/supabase'
 import { authedFetch } from '@/lib/api-client'
 import { assessSafety, type SafetyLevel } from '@/lib/safety'
 import { CrisisCard } from '@/components/shared/CrisisCard'
 import { GentleCard } from '@/components/shared/GentleCard'
-
-interface JournalEntryRow {
-  id: string
-  content: string
-  source: string | null
-  entry_date: string
-  created_at: string
-}
-
-const SOURCE_LABEL: Record<string, string> = {
-  unknown_door:   'From a check-in',
-  reflective_rec: 'From a reflection',
-  journal:        'Free write',
-}
+import { shuffledPrompts, type JournalPrompt } from '@/lib/journal-prompts'
 
 const JOURNAL_AFFIRMATIONS = [
   "Getting it out of your head is one of the most powerful things you can do for yourself.",
@@ -40,31 +38,51 @@ const JOURNAL_AFFIRMATIONS = [
 export function JournalScreen() {
   const router = useRouter()
   const { user, loading: authLoading } = useAuth()
-  const [entries, setEntries] = useState<JournalEntryRow[]>([])
-  const [loading, setLoading] = useState(true)
-  const [isWriting, setIsWriting] = useState(false)
+
   const [newContent, setNewContent] = useState('')
   const [saving, setSaving] = useState(false)
   const [affirmation, setAffirmation] = useState<string | null>(null)
   const [safety, setSafety] = useState<SafetyLevel>('none')
-  const [expandedId, setExpandedId] = useState<string | null>(null)
+
+  /** Only to decide whether this is her first time writing — the entries
+   *  themselves are not shown here any more, so we count rather than fetch. */
+  const [hasWritten, setHasWritten] = useState<boolean | null>(null)
+
+  /** One starter for the blank box, with the rest held back for "Another".
+   *  Picked on the client only, so server and first paint never disagree. */
+  const [queue, setQueue] = useState<JournalPrompt[]>([])
+  const suggestion = queue[0] ?? null
+  const [chosenPrompt, setChosenPrompt] = useState<string | null>(null)
+  const boxRef = useRef<HTMLTextAreaElement>(null)
+
+  /** Picking a starter takes focus with it, which on a phone drops the
+   *  keyboard and makes her tap the box a second time. Hand focus straight
+   *  back so she can start typing the moment she has chosen. */
+  function chooseStarter(text: string) {
+    setChosenPrompt(text)
+    requestAnimationFrame(() => boxRef.current?.focus())
+  }
+
+  /** Next question. Refills from the full set once the queue runs dry, so
+   *  "Another" never stops working however long she taps it. */
+  function nextSuggestion() {
+    setQueue(prev => (prev.length > 1 ? prev.slice(1) : shuffledPrompts()))
+  }
 
   // Redirect unauthenticated users to sign in, then bring them right back here
   useEffect(() => {
     if (!authLoading && !user) router.push('/signin?redirect=/journal')
   }, [authLoading, user, router])
 
+  useEffect(() => { setQueue(shuffledPrompts()) }, [])
+
   useEffect(() => {
-    if (!user || !supabase) { setLoading(false); return }
+    if (!user || !supabase) return
     supabase
       .from('journal_entries')
-      .select('id, content, source, entry_date, created_at')
+      .select('id', { count: 'exact', head: true })
       .eq('user_id', user.id)
-      .order('created_at', { ascending: false })
-      .then(({ data }) => {
-        setEntries(data ?? [])
-        setLoading(false)
-      })
+      .then(({ count }) => setHasWritten((count ?? 0) > 0))
   }, [user])
 
   async function handleSaveEntry() {
@@ -74,30 +92,24 @@ export function JournalScreen() {
       await authedFetch('/api/journal-entry', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content: newContent.trim(), userId: user.id, source: 'journal' }),
+        body: JSON.stringify({
+          content: newContent.trim(),
+          userId: user.id,
+          source: chosenPrompt ? 'journal_prompted' : 'journal',
+          prompt: chosenPrompt,
+        }),
       })
-      const optimistic: JournalEntryRow = {
-        id: `temp-${Date.now()}`,
-        content: newContent.trim(),
-        source: 'journal',
-        entry_date: new Date().toISOString().split('T')[0],
-        created_at: new Date().toISOString(),
-      }
-      setEntries(prev => [optimistic, ...prev])
       setSafety(assessSafety(newContent))
       setAffirmation(JOURNAL_AFFIRMATIONS[Math.floor(Math.random() * JOURNAL_AFFIRMATIONS.length)])
       setNewContent('')
-      setIsWriting(false)
+      setChosenPrompt(null)
+      setHasWritten(true)
+      setQueue(shuffledPrompts())
     } catch (err) {
       console.error('[JournalScreen] Save failed:', err)
     } finally {
       setSaving(false)
     }
-  }
-
-  function formatDate(dateStr: string) {
-    const d = new Date(dateStr)
-    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
   }
 
   if (authLoading || !user) {
@@ -126,69 +138,21 @@ export function JournalScreen() {
       <div className="px-5 space-y-4">
 
         {/* Crisis card takes priority over the ordinary affirmation */}
-        {safety === 'danger'   && !isWriting && <CrisisCard />}
-        {safety === 'distress' && !isWriting && <GentleCard />}
+        {safety === 'danger'   && <CrisisCard />}
+        {safety === 'distress' && <GentleCard />}
 
         {/* Affirmation after saving */}
-        {affirmation && !isWriting && safety === 'none' && (
+        {affirmation && safety === 'none' && (
           <div className="bg-mustard/5 border border-mustard/15 rounded-2xl p-4 flex items-start gap-2.5">
             <span className="text-lg flex-shrink-0">🤎</span>
             <p className="font-sans text-sm text-chocolate/70 leading-relaxed">{affirmation}</p>
           </div>
         )}
 
-        {/* New Entry Button */}
-        {!isWriting ? (
-          <button
-            onClick={() => { setIsWriting(true); setAffirmation(null); setSafety('none') }}
-            className="w-full bg-chocolate text-white font-display font-semibold rounded-[15px] py-3.5 flex items-center justify-center gap-2"
-          >
-            <Plus size={18} />
-            New Journal Entry
-          </button>
-        ) : (
-          /* Writing Mode */
-          <div className="bg-white rounded-2xl p-4 border border-beige/30 space-y-3">
-            <div className="flex items-center justify-between">
-              <p className="font-display font-semibold text-chocolate text-sm">
-                {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
-              </p>
-              <button onClick={() => { setIsWriting(false); setNewContent('') }}>
-                <X size={16} className="text-chocolate/40" />
-              </button>
-            </div>
-            <textarea
-              value={newContent}
-              onChange={e => setNewContent(e.target.value)}
-              placeholder="What's going on? How are you feeling? What do you need right now?"
-              className="w-full min-h-[140px] font-sans text-base text-chocolate bg-transparent resize-none outline-none placeholder:text-chocolate/30 leading-relaxed"
-              autoFocus
-            />
-            <div className="flex items-center justify-between pt-2 border-t border-beige/20">
-              <p className="text-xs text-chocolate/40 font-sans">{newContent.length} characters</p>
-              <button
-                onClick={handleSaveEntry}
-                disabled={!newContent.trim() || saving}
-                className="bg-mustard text-white font-display font-semibold text-sm rounded-[15px] px-4 py-2 disabled:opacity-40"
-              >
-                {saving ? 'Saving...' : 'Save Entry'}
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Entry List */}
-        {loading ? (
-          <div className="space-y-3">
-            {[0, 1, 2].map(i => (
-              <div key={i} className="bg-beige/20 rounded-2xl h-20 animate-pulse" />
-            ))}
-          </div>
-        ) : entries.length === 0 ? (
-          <div className="bg-[#faf6f0] border border-mustard/15 rounded-[24px] px-6 py-10 text-center">
-            <div className="w-12 h-12 bg-mustard/10 rounded-[14px] flex items-center justify-center mx-auto mb-4">
-              <BookOpen size={22} className="text-mustard" />
-            </div>
+        {/* First time only — the warmest thing on the page, and it is doing
+            real work for a mother who has never written here before. */}
+        {hasWritten === false && !affirmation && (
+          <div className="bg-[#faf6f0] border border-mustard/15 rounded-[24px] px-6 py-7 text-center">
             <h3 className="font-serif text-[20px] text-chocolate leading-snug mb-2">
               This space is yours.
             </h3>
@@ -196,40 +160,78 @@ export function JournalScreen() {
               No right way to use it. Write what you are carrying, what went well, what you wish someone knew. It stays private.
             </p>
           </div>
-        ) : (
-          <div className="space-y-3">
-            <p className="text-xs text-chocolate/40 font-sans px-1">
-              {entries.length} entr{entries.length !== 1 ? 'ies' : 'y'}
-            </p>
-            {entries.map((entry) => (
-              <div key={entry.id} className="bg-white rounded-2xl border border-beige/20 overflow-hidden">
+        )}
+
+        {/* The box — always open, never behind a button */}
+        <div className="bg-white rounded-2xl p-4 border border-beige/30 space-y-3">
+          <p className="font-display font-semibold text-chocolate text-sm">
+            {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
+          </p>
+
+          {/* The starter she picked, sitting above her entry as a heading.
+              Deliberately not typed into the box — her saved journal should
+              be her words, not Kindrest's. */}
+          {chosenPrompt && (
+            <div className="flex items-start justify-between gap-2 bg-mustard/5 rounded-xl px-3 py-2.5">
+              <p className="font-serif text-[15px] leading-snug text-chocolate/80">{chosenPrompt}</p>
+              <button onClick={() => setChosenPrompt(null)} aria-label="Remove prompt">
+                <X size={13} className="text-chocolate/35 mt-1" />
+              </button>
+            </div>
+          )}
+
+          {/* One starter at a time, in the same panel it becomes once she
+              takes it — so accepting it barely moves the page. */}
+          {!chosenPrompt && !newContent.trim() && suggestion && (
+            <div className="bg-mustard/5 border border-mustard/15 rounded-xl px-3.5 py-3 flex flex-col gap-2.5">
+              <p className="font-serif text-[15.5px] leading-snug text-chocolate/80">{suggestion.text}</p>
+              <div className="flex items-center gap-2">
                 <button
-                  className="w-full text-left p-4"
-                  onClick={() => setExpandedId(expandedId === entry.id ? null : entry.id)}
+                  onClick={() => chooseStarter(suggestion.text)}
+                  className="bg-chocolate text-cream font-display font-semibold text-[12.5px] rounded-full px-3.5 py-1.5"
                 >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1.5">
-                        {entry.source && (
-                          <span className="text-[10px] font-display font-semibold px-2 py-0.5 rounded-full bg-beige/40 text-chocolate/60">
-                            {SOURCE_LABEL[entry.source] ?? 'Journal'}
-                          </span>
-                        )}
-                        <span className="text-xs text-chocolate/40 font-sans">{formatDate(entry.entry_date)}</span>
-                      </div>
-                      <p className={`font-sans text-sm text-chocolate/80 leading-relaxed ${expandedId !== entry.id ? 'line-clamp-2' : ''}`}>
-                        {entry.content}
-                      </p>
-                    </div>
-                    <ChevronRight
-                      size={16}
-                      className={`text-chocolate/30 flex-shrink-0 mt-1 transition-transform ${expandedId === entry.id ? 'rotate-90' : ''}`}
-                    />
-                  </div>
+                  Use this
+                </button>
+                <button
+                  onClick={nextSuggestion}
+                  className="flex items-center gap-1.5 font-sans text-[12.5px] text-chocolate/45 px-1.5 py-1.5"
+                >
+                  <Shuffle size={12} /> Another
                 </button>
               </div>
-            ))}
+            </div>
+          )}
+
+          <textarea
+            ref={boxRef}
+            value={newContent}
+            onChange={e => setNewContent(e.target.value)}
+            placeholder={chosenPrompt ? 'Start anywhere.' : 'Write whatever you like. No one else sees this.'}
+            className="w-full min-h-[140px] font-sans text-base text-chocolate bg-transparent resize-none outline-none placeholder:text-chocolate/30 leading-relaxed"
+          />
+
+          <div className="flex items-center justify-between pt-2 border-t border-beige/20">
+            <p className="text-xs text-chocolate/40 font-sans">{newContent.length} characters</p>
+            <button
+              onClick={handleSaveEntry}
+              disabled={!newContent.trim() || saving}
+              className="bg-mustard text-white font-display font-semibold text-sm rounded-[15px] px-4 py-2 disabled:opacity-40"
+            >
+              {saving ? 'Saving...' : 'Save Entry'}
+            </button>
           </div>
+        </div>
+
+        {/* Without this, a mother who wrote yesterday opens the page, sees
+            nothing, and reasonably concludes it was lost. */}
+        {hasWritten && (
+          <Link
+            href="/history"
+            className="flex items-center justify-center gap-1.5 font-sans text-[13px] text-chocolate/45 py-2"
+          >
+            Your past entries live in History
+            <ArrowRight size={13} className="text-mustard" />
+          </Link>
         )}
       </div>
     </div>

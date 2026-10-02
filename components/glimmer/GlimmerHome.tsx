@@ -200,10 +200,14 @@ export function GlimmerHome() {
         {/* Gentle care nudge — only after a stretch of hard days */}
         <CareNudge />
 
-        {/* ── 2. Today's glimmer — the hero ──────────────────────────────── */}
+        {/* ── 2. The daily glimmer — the hero ────────────────────────────────
+            Labelled "Something to notice" in the app: "glimmer" is a term from
+            polyvagal work, and a mother seeing it for the first time has to
+            guess. The word still carries the feature on the landing page,
+            where being unfamiliar is part of what makes it catch. */}
         <div className="bg-white rounded-[26px] px-[22px] pt-[26px] pb-[22px] shadow-[0_6px_20px_-10px_rgba(48,33,26,0.18)] flex flex-col gap-3.5">
           <p className="font-display font-semibold text-[12px] tracking-[0.16em] uppercase text-mustard">
-            Today’s glimmer
+            Something to notice
           </p>
 
           {/* Writing */}

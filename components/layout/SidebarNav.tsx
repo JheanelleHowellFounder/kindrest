@@ -2,16 +2,19 @@
 
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { Home, Clock, BookOpen, User, MessageCircle, PanelLeftClose, PanelLeftOpen } from 'lucide-react'
+import { Home, HeartPulse, Clock, BookOpen, User, MessageCircle, PanelLeftClose, PanelLeftOpen } from 'lucide-react'
 import { useAuth } from '@/lib/auth-context'
 import { useState } from 'react'
 import { FeedbackSheet } from '@/components/shared/FeedbackSheet'
 
 const NAV_ITEMS = [
-  { href: '/',         label: 'Home',    icon: Home,     num: '01' },
-  { href: '/history',  label: 'History', icon: Clock,    num: '02' },
-  { href: '/journal',  label: 'Journal', icon: BookOpen, num: '03' },
-  { href: '/profile',  label: 'Profile', icon: User,     num: '04' },
+  { href: '/',         label: 'Home',     icon: Home,       num: '01' },
+  // Check-in sits second here for the same reason it does on mobile: it is the
+  // thing she came to do, and on desktop it was missing altogether.
+  { href: '/check-in', label: 'Check-in', icon: HeartPulse, num: '02' },
+  { href: '/history',  label: 'History',  icon: Clock,      num: '03' },
+  { href: '/journal',  label: 'Journal',  icon: BookOpen,   num: '04' },
+  { href: '/profile',  label: 'Profile',  icon: User,       num: '05' },
 ]
 
 interface SidebarNavProps {

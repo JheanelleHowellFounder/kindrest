@@ -65,6 +65,7 @@ interface JournalRow {
   id: string
   content: string
   source: string
+  prompt: string | null
   entry_date: string
   created_at: string
 }
@@ -74,6 +75,9 @@ const JOURNAL_SOURCE_LABEL: Record<string, string> = {
   unknown_door:  'From a check-in',
   reflective_rec:'From a reflection',
   journal:       'Free write',
+  // Kept apart from a plain free write: it is the only way to tell whether
+  // offering her a starter is what got her writing.
+  journal_prompted: 'From a prompt',
 }
 
 interface DaySheet {
@@ -467,7 +471,7 @@ export function HistoryScreen() {
     if (!user || !supabase) { setJournalLoaded(true); return }
     supabase
       .from('journal_entries')
-      .select('id, content, source, entry_date, created_at')
+      .select('id, content, source, prompt, entry_date, created_at')
       .eq('user_id', user.id)
       .order('created_at', { ascending: false })
       .then(({ data }) => { setJournalEntries(data ?? []); setJournalLoaded(true) })
@@ -938,6 +942,13 @@ export function HistoryScreen() {
                   {new Date(e.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                 </span>
               </div>
+              {/* The question she answered, so a short entry still makes
+                  sense months later. */}
+              {e.prompt && (
+                <p className="font-serif text-[13.5px] leading-snug text-chocolate/45 mb-1">
+                  {e.prompt}
+                </p>
+              )}
               <p className={`font-sans text-[14px] text-chocolate/80 leading-relaxed whitespace-pre-wrap ${open ? '' : 'line-clamp-3'}`}>
                 {e.content}
               </p>
