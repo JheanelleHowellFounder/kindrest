@@ -2,19 +2,26 @@
 
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { Home, HeartPulse, Clock, BookOpen, User, MessageCircle, PanelLeftClose, PanelLeftOpen } from 'lucide-react'
+import { Home, HeartPulse, Clock, User, MessageCircle, PanelLeftClose, PanelLeftOpen } from 'lucide-react'
 import { useAuth } from '@/lib/auth-context'
 import { useState } from 'react'
 import { FeedbackSheet } from '@/components/shared/FeedbackSheet'
 
+// Identical to BottomNav, deliberately. The two used to disagree in both
+// directions — desktop had Journal and no Check-in, mobile the reverse — which
+// is how Check-in stayed missing from the sidebar for months without anyone
+// noticing. One list to reason about, and one free slot on mobile, where four
+// is comfortable and five is the ceiling.
+//
+// Journal is not here because it does not need to be: Home's "Reflect" tile
+// goes straight to it on every platform, and that is where mothers actually
+// arrive at it — 14 of the first 16 entries came from being prompted somewhere
+// rather than from navigating.
 const NAV_ITEMS = [
   { href: '/',         label: 'Home',     icon: Home,       num: '01' },
-  // Check-in sits second here for the same reason it does on mobile: it is the
-  // thing she came to do, and on desktop it was missing altogether.
   { href: '/check-in', label: 'Check-in', icon: HeartPulse, num: '02' },
   { href: '/history',  label: 'History',  icon: Clock,      num: '03' },
-  { href: '/journal',  label: 'Journal',  icon: BookOpen,   num: '04' },
-  { href: '/profile',  label: 'Profile',  icon: User,       num: '05' },
+  { href: '/profile',  label: 'Profile',  icon: User,       num: '04' },
 ]
 
 interface SidebarNavProps {
