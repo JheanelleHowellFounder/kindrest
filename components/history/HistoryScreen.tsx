@@ -55,6 +55,8 @@ interface LiveStats {
   recentHistory: { rec_id: number; title: string; rating: number; mood: string; category: string; created_at: string }[]
   /** One point per day she told us how she was — from check-ins, not ratings. */
   moodSeries?: MoodPoint[]
+  /** Every time she marked something done, with the mood she was in. */
+  doneEvents?: DoneEvent[]
   commonMood: string | null
   activeDays: string[]
   preferredCategories: string[]
@@ -91,6 +93,31 @@ interface SessionEntry {
   mood: string
   date: Date
   recs: HistoryItem[]
+}
+
+/** One time she marked something done. */
+interface DoneEvent {
+  rec_id:     number
+  title:      string
+  category:   string
+  effort:     string | null
+  created_at: string
+}
+
+/**
+ * A strategy as the card shows it.
+ *
+ * `times` and `lastDone` rank it but are no longer displayed: a count and a
+ * date are a receipt, and tell her nothing she can act on. What shows is what
+ * kind of thing it is and what it will cost her, so she can pick one now.
+ */
+interface TopTechnique {
+  rec_id:   number
+  title:    string
+  category: string
+  effort:   string | null
+  times:    number
+  lastDone: string
 }
 
 /** One day she told us how she was. `day` is her own day key, YYYY-MM-DD. */
@@ -288,6 +315,50 @@ function checkConsecutiveStruggle(history: HistoryItem[]): boolean {
 
   if (sessions.length < 3) return false
   return sessions.slice(0, 3).every(m => m === 'struggling' || m === 'overwhelmed')
+}
+
+
+/**
+ * What she has actually done lately.
+ *
+ * Ranked inside the chosen window, not over all time. The old card counted
+ * every like since she joined, so a technique last touched months ago sat at
+ * the top permanently and nothing new could accumulate enough to displace it.
+ *
+ * Ties break on recency: if two things were done twice, the one she did more
+ * recently is the more useful to show her.
+ */
+function buildTopTechniques(events: DoneEvent[], range: TimeRange): TopTechnique[] {
+  const cutoff = Date.now() - RANGE_DAYS[range] * 86400000
+  const within = events.filter(e => new Date(e.created_at).getTime() >= cutoff)
+
+  const byTitle = new Map<string, TopTechnique>()
+  // Newest first, so the first time we meet a title carries its latest date.
+  for (const e of [...within].sort((a, b) => b.created_at.localeCompare(a.created_at))) {
+    const found = byTitle.get(e.title)
+    if (found) { found.times++; continue }
+    byTitle.set(e.title, {
+      rec_id: e.rec_id, title: e.title, category: e.category,
+      effort: e.effort, times: 1, lastDone: e.created_at,
+    })
+  }
+
+  return Array.from(byTitle.values())
+    .sort((a, b) => b.times - a.times || b.lastDone.localeCompare(a.lastDone))
+    .slice(0, 3)
+}
+
+/**
+ * When she last did it. Recent days read as days; past a week it gives the
+ * date, which is more use than "23 days ago" when she is trying to place it.
+ */
+function whenDone(iso: string): string {
+  const then = new Date(iso)
+  const days = Math.floor((Date.now() - then.getTime()) / 86400000)
+  if (days <= 0) return 'Today'
+  if (days === 1) return 'Yesterday'
+  if (days < 7) return `${days} days ago`
+  return then.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
 }
 
 // ─── Mood chart ───────────────────────────────────────────────────────────────
@@ -498,6 +569,8 @@ export function HistoryScreen() {
   const [libItems, setLibItems]   = useState<LibraryItem[]>([])
   const [libLoaded, setLibLoaded] = useState(false)
   const [ratingFilter, setRatingFilter]     = useState<RatingFilter>('all')
+  /** Strategies she has re-marked done this visit, so the row can confirm it. */
+  const [doneAgain, setDoneAgain] = useState<Record<number, boolean>>({})
   const [categoryFilter, setCategoryFilter] = useState<string>('All')
 
   useEffect(() => {
@@ -547,6 +620,35 @@ export function HistoryScreen() {
 
   const history        = stats?.recentHistory ?? []
   const chartData      = buildMoodChartData(stats?.moodSeries ?? [], range)
+  const topTechniques  = buildTopTechniques(stats?.doneEvents ?? [], range)
+
+  /**
+   * Doing it again, from the card that says it works.
+   *
+   * The same /api/feedback write the care kit makes, so it teaches her profile
+   * exactly as marking it done there would. Optimistic: the row says so
+   * immediately, because a mother who taps and sees nothing happen assumes it
+   * is broken. A failed write leaves the row as it is rather than lying.
+   */
+  async function markDoneAgain(t: TopTechnique) {
+    setDoneAgain(prev => ({ ...prev, [t.rec_id]: true }))
+    try {
+      await authedFetch('/api/feedback', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: user?.id,
+          rec_id: t.rec_id,
+          rec_title: t.title,
+          rating: 3,
+          category: t.category,
+          effortLevel: t.effort,
+        }),
+      })
+    } catch {
+      setDoneAgain(prev => ({ ...prev, [t.rec_id]: false }))
+    }
+  }
   const sessionLog     = buildSessionLog(history)
   const trend          = buildTrendAnalysis(history, stats?.activeDays ?? [])
   const showSupportCard = !loading && checkConsecutiveStruggle(history)
@@ -682,40 +784,56 @@ export function HistoryScreen() {
             )}
           </>
         )}
-      </div>
 
-      {/* Top techniques */}
-      {stats?.topTechniques && stats.topTechniques.length > 0 && (
-        <div className="bg-white rounded-2xl shadow-[0_6px_18px_-8px_rgba(48,33,26,0.18)] p-5">
+        {/* ── Top strategies ────────────────────────────────────────────────
+            Inside the same card as the chart, governed by the same range
+            toggle above, so there is one window on this screen named once. */}
+        <div className="mt-6 pt-5 border-t border-beige/40">
           <p className="font-display font-semibold text-[11px] uppercase tracking-[0.16em] text-mustard mb-1">
             What&apos;s working for you
           </p>
-          <h3 className="font-serif text-[19px] text-chocolate mb-3">Top techniques</h3>
-          <div>
-            {stats.topTechniques.slice(0, 3).map((t, i) => {
-              const maxLiked = stats.topTechniques[0]?.likedCount || 1
-              const barPct   = Math.round((t.likedCount / maxLiked) * 100)
-              return (
-                <div key={i} className={`flex items-center gap-3.5 py-3 ${i > 0 ? 'border-t border-beige/30' : ''}`}>
-                  <div className="w-10 h-10 rounded-[12px] bg-[#f0e9e2] flex items-center justify-center text-xl flex-shrink-0">
-                    {CATEGORY_EMOJI[t.category] ?? '✨'}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-display font-semibold text-[14.5px] text-chocolate truncate">{t.title}</p>
-                    <div className="mt-1.5 h-[5px] rounded-full bg-beige/40 overflow-hidden">
-                      <div className="h-full bg-mustard rounded-full" style={{ width: `${barPct}%` }} />
+          <h3 className="font-serif text-[19px] text-chocolate mb-3.5">Top strategies</h3>
+
+          {topTechniques.length === 0 ? (
+            <p className="font-sans text-[13px] text-chocolate/45 leading-relaxed">
+              Nothing marked done in these days. Whatever you do next will show up here.
+            </p>
+          ) : (
+            <div className="flex flex-col">
+              {topTechniques.map((t, i) => {
+                const again = doneAgain[t.rec_id]
+                return (
+                  <button
+                    key={t.title}
+                    onClick={() => markDoneAgain(t)}
+                    disabled={Boolean(again)}
+                    className={`w-full text-left flex items-start gap-3.5 py-3 ${i > 0 ? 'border-t border-beige/30' : ''}`}
+                  >
+                    {/* The numeral carries the ranking the use-count used to,
+                        and gives the rows a left edge to sit against. */}
+                    <span className="font-serif text-[22px] leading-none text-mustard/50 w-5 flex-shrink-0 pt-0.5">
+                      {i + 1}
+                    </span>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-sans text-[14px] text-chocolate leading-snug">{t.title}</p>
+                      <p className="font-sans text-[12px] text-chocolate/40 mt-1">
+                        {again
+                          ? 'Marked done'
+                          : [t.category, t.effort && `${t.effort} effort`].filter(Boolean).join(' · ')}
+                      </p>
                     </div>
-                  </div>
-                  <div className="text-right flex-shrink-0 pl-2">
-                    <span className="font-serif text-[17px] text-chocolate">{t.likedCount}</span>
-                    <span className="font-sans text-[11.5px] text-chocolate/40 ml-1">uses</span>
-                  </div>
-                </div>
-              )
-            })}
-          </div>
+                    {!again && (
+                      <span className="font-display font-semibold text-[11.5px] text-mustard flex-shrink-0 pt-1">
+                        Do again
+                      </span>
+                    )}
+                  </button>
+                )
+              })}
+            </div>
+          )}
         </div>
-      )}
+      </div>
 
     </div>
   )

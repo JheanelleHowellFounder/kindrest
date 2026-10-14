@@ -187,6 +187,29 @@ export async function GET(req: NextRequest) {
     .map(([day, score]) => ({ day, score }))
     .sort((a, b) => a.day.localeCompare(b.day))
 
+
+  // ── Done events: the raw record behind "what's been working" ─────────────
+  //
+  // Sent as events rather than a ranked list so the History range toggle can
+  // drive this card and the mood chart from one source. The old ranking was a
+  // lifetime cumulative count with no window at all, which froze: a technique
+  // last touched in June outranked things done last week, and nothing new
+  // could ever accumulate enough to displace it.
+  //
+  // Rating 3 only. Rating 2 is "saved for later", and a card headed "what's
+  // been working" should mean she actually did it.
+  const doneEvents = (feedback ?? [])
+    .filter(f => f.rating === 3 && f.rec_title)
+    .map(f => ({
+      rec_id:     f.rec_id,
+      title:      f.rec_title,
+      category:   f.category ?? '',
+      // What kind of thing it is and what it costs her — the two facts that
+      // help her choose one now. A count and a date only say what she did.
+      effort:     (f.effort_level as string | null) ?? null,
+      created_at: f.created_at,
+    }))
+
   const totalCheckins = haveCheckinTable
     ? checkinsTotal
     : (profile?.total_checkins ?? Math.ceil((feedback ?? []).length / 3))
@@ -203,6 +226,7 @@ export async function GET(req: NextRequest) {
       commonMood: null,
       activeDays,
       moodSeries,
+      doneEvents,
       preferredCategories: profile?.preferred_categories ?? [],
       motherhoodStage: profile?.motherhood_stage ?? null,
       streakDays,
@@ -280,6 +304,7 @@ export async function GET(req: NextRequest) {
     commonMood,
     activeDays,
     moodSeries,
+    doneEvents,
     preferredCategories: profile?.preferred_categories ?? [],
     motherhoodStage: profile?.motherhood_stage ?? null,
     streakDays,
