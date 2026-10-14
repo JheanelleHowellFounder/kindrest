@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { SidebarNav } from './SidebarNav'
+import { TimezoneSync } from '@/components/shared/TimezoneSync'
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const [collapsed, setCollapsed] = useState(false)
@@ -21,6 +22,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <>
+      {/* Renders nothing; teaches the server which day is her day. */}
+      <TimezoneSync />
       <SidebarNav collapsed={collapsed} onToggle={toggle} />
 
       {/*

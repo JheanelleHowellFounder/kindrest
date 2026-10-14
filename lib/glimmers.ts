@@ -76,6 +76,22 @@ export function getTodaysPrompt(date: Date = new Date()): GlimmerPrompt {
   return GLIMMER_PROMPTS[idx]
 }
 
+/**
+ * The prompt for a given YYYY-MM-DD.
+ *
+ * The home screen picks the prompt in the browser, on her day, while the
+ * server used to pick it on the server's day — so an answer written in the
+ * evening in the Americas could be stored against a different prompt than the
+ * one she was looking at. Deriving both from the same day key removes that.
+ */
+export function promptForDayKey(key: string): GlimmerPrompt {
+  const [y, m, d] = key.split('-').map(Number)
+  if (!y || !m || !d) return getTodaysPrompt()
+  const index = Math.floor(Date.UTC(y, m - 1, d) / 86_400_000)
+  const idx = ((index % GLIMMER_PROMPTS.length) + GLIMMER_PROMPTS.length) % GLIMMER_PROMPTS.length
+  return GLIMMER_PROMPTS[idx]
+}
+
 /** Local YYYY-MM-DD for the given date (matches how entry_date is stored). */
 export function localDateKey(date: Date = new Date()): string {
   const y = date.getFullYear()

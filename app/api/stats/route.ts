@@ -19,6 +19,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { requireUser } from '@/lib/auth-server'
+import { dayKey, daysAgoKey, type Zone } from '@/lib/days'
 
 export async function GET(req: NextRequest) {
   const userId = req.nextUrl.searchParams.get('userId')
@@ -38,6 +39,13 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
+  // ── Fetch user preference profile ─────────────────────────────────────────
+  const { data: profile } = await supabaseAdmin
+    .from('user_preference_profile')
+    .select('preferred_categories, avoided_categories, total_checkins, motherhood_stage, updated_at, timezone')
+    .eq('user_id', userId)
+    .single()
+
   // ── Fetch raw feedback history ────────────────────────────────────────────
   const { data: feedback } = await supabaseAdmin
     .from('recommendation_feedback')
@@ -51,7 +59,7 @@ export async function GET(req: NextRequest) {
   // old inference (days with a rating) so nothing goes blank.
   const { data: checkinRows, error: checkinErr } = await supabaseAdmin
     .from('checkins')
-    .select('created_at')
+    .select('created_at, mood')
     .eq('user_id', userId)
     .order('created_at', { ascending: false })
     .limit(2000)
@@ -75,8 +83,12 @@ export async function GET(req: NextRequest) {
     .order('entry_date', { ascending: false })
     .limit(400)
 
-  const dayOf = (iso: string) => iso.slice(0, 10)
-  const weekAgo = new Date(Date.now() - 7 * 86_400_000).toISOString().slice(0, 10)
+  // Her day, not the server's. Null timezone falls back to UTC, which is the
+  // old behaviour exactly — nothing changes for a mother we have not learned
+  // a zone for yet.
+  const zone: Zone = (profile?.timezone as string | null) ?? null
+  const dayOf = (iso: string) => dayKey(iso, zone)
+  const weekAgo = daysAgoKey(7, zone)
 
   // Every moment she checked in: the real records, plus any rating (a rating
   // always happens inside a check-in, so it can only add days, never inflate).
@@ -113,45 +125,67 @@ export async function GET(req: NextRequest) {
     ).size,
   }
 
-  // ── All check-in dates as ISO strings (for multi-month calendar) ──────────
-  const activeDays = Array.from(
-    new Set(checkinStamps.map(t => new Date(t).toDateString()))
-  ).map(d => new Date(d).toISOString())
+  // ── All check-in days (for the multi-month calendar) ─────────────────────
+  // Noon UTC, not midnight: a date rendered back in her timezone must not slip
+  // to the previous day, which midnight does for anyone west of Greenwich.
+  const activeDays = Array.from(new Set(checkinStamps.map(dayOf)))
+    .map(d => new Date(`${d}T12:00:00Z`).toISOString())
 
   // ── Streak: consecutive days with check-ins ending today/yesterday ────────
-  const distinctDates = Array.from(
-    new Set(checkinStamps.map(t => new Date(t).toDateString()))
-  ).map(d => new Date(d)).sort((a, b) => b.getTime() - a.getTime())
+  // Compared as day keys in her timezone, so a 9pm check-in counts for the
+  // evening she did it rather than for tomorrow.
+  const distinctDays = Array.from(new Set(checkinStamps.map(dayOf))).sort().reverse()
 
   let streakDays = 0
-  const todayStr        = new Date().toDateString()
-  const yesterdayStr    = new Date(Date.now() - 86400000).toDateString()
-  const twoDaysAgoStr   = new Date(Date.now() - 86400000 * 2).toDateString()
-  const mostRecent      = distinctDates[0]?.toDateString()
+  const todayStr      = daysAgoKey(0, zone)
+  const yesterdayStr  = daysAgoKey(1, zone)
+  const twoDaysAgoStr = daysAgoKey(2, zone)
+  const mostRecent    = distinctDays[0]
 
   // 2-day grace window: streak stays alive if last check-in was today, yesterday, or 2 days ago
   if (mostRecent === todayStr || mostRecent === yesterdayStr || mostRecent === twoDaysAgoStr) {
-    let cursor = mostRecent === todayStr
-      ? new Date()
-      : mostRecent === yesterdayStr
-      ? new Date(Date.now() - 86400000)
-      : new Date(Date.now() - 86400000 * 2)
-    for (const d of distinctDates) {
-      if (d.toDateString() === cursor.toDateString()) {
+    let offset = mostRecent === todayStr ? 0 : mostRecent === yesterdayStr ? 1 : 2
+    for (const d of distinctDays) {
+      if (d === daysAgoKey(offset, zone)) {
         streakDays++
-        cursor = new Date(cursor.getTime() - 86400000)
+        offset++
       } else {
         break
       }
     }
   }
 
-  // ── Fetch user preference profile ─────────────────────────────────────────
-  const { data: profile } = await supabaseAdmin
-    .from('user_preference_profile')
-    .select('preferred_categories, avoided_categories, total_checkins, motherhood_stage, updated_at')
-    .eq('user_id', userId)
-    .single()
+
+  // ── Mood series: one point per day she told us how she was ───────────────
+  //
+  // Built from `checkins.mood`, not from ratings. The chart used to plot
+  // `recommendation_feedback.check_in_mood`, a copy taken when she tapped Done
+  // or Save — so a mother who checked in Overwhelmed and could not manage
+  // anything else had no point on the graph of her own mood. She is exactly
+  // who it is for.
+  //
+  // Ratings still fill in days from before the checkins table existed, where
+  // they are the only record of a mood there is.
+  const MOOD_SCORE: Record<string, number> = {
+    overwhelmed: 1, struggling: 1.5, okay: 2.5, good: 3.5, thriving: 4,
+  }
+
+  const moodByDay = new Map<string, number>()
+  // Oldest first in each pass, so the last mood of a day is the one kept —
+  // if she checked in twice, the later one is the more current truth.
+  for (const f of [...(feedback ?? [])].reverse()) {
+    const m = (f.check_in_mood ?? '').toLowerCase()
+    if (m in MOOD_SCORE) moodByDay.set(dayOf(f.created_at), MOOD_SCORE[m])
+  }
+  // Check-ins last so they win wherever both exist.
+  for (const c of [...(checkinRows ?? [])].reverse()) {
+    const m = ((c as { mood?: string | null }).mood ?? '').toLowerCase()
+    if (m in MOOD_SCORE) moodByDay.set(dayOf(c.created_at), MOOD_SCORE[m])
+  }
+
+  const moodSeries = Array.from(moodByDay.entries())
+    .map(([day, score]) => ({ day, score }))
+    .sort((a, b) => a.day.localeCompare(b.day))
 
   const totalCheckins = haveCheckinTable
     ? checkinsTotal
@@ -168,6 +202,7 @@ export async function GET(req: NextRequest) {
       savedRecs: [],
       commonMood: null,
       activeDays,
+      moodSeries,
       preferredCategories: profile?.preferred_categories ?? [],
       motherhoodStage: profile?.motherhood_stage ?? null,
       streakDays,
@@ -244,6 +279,7 @@ export async function GET(req: NextRequest) {
     savedRecs,
     commonMood,
     activeDays,
+    moodSeries,
     preferredCategories: profile?.preferred_categories ?? [],
     motherhoodStage: profile?.motherhood_stage ?? null,
     streakDays,

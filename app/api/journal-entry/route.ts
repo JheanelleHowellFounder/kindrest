@@ -3,6 +3,8 @@ import Anthropic from '@anthropic-ai/sdk'
 import { supabaseAdmin } from '@/lib/supabase'
 import { requireUser } from '@/lib/auth-server'
 import { recordCheckin } from '@/lib/checkins'
+import { getUserZone } from '@/lib/user-timezone'
+import { todayKey } from '@/lib/days'
 
 const anthropic = process.env.ANTHROPIC_API_KEY
   ? new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
@@ -49,7 +51,9 @@ export async function POST(req: NextRequest) {
       input_method: 'text',
       source,
       prompt:       prompt?.trim() || null,
-      entry_date:   new Date().toISOString().split('T')[0],
+      // Her day, not the server's: an entry written at 8pm in New York used
+      // to be filed under tomorrow.
+      entry_date:   todayKey(await getUserZone(userId)),
     })
 
     if (error) {

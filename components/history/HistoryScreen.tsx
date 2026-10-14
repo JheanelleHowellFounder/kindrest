@@ -39,7 +39,7 @@ const Y_LEVELS = [
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type TimeRange = '30d' | '90d' | 'ytd' | 'all'
+type TimeRange = '14d' | '30d' | '60d'
 type RatingFilter = 'all' | 'done' | 'saved'
 const ALL_LIB_CATEGORIES = ['Rest', 'Micro Practice', 'Joy', 'Movement', 'Reflection', 'Connection']
 
@@ -53,6 +53,8 @@ interface LiveStats {
   streakDays: number
   topTechniques: { title: string; usedCount: number; likedCount: number; category: string }[]
   recentHistory: { rec_id: number; title: string; rating: number; mood: string; category: string; created_at: string }[]
+  /** One point per day she told us how she was — from check-ins, not ratings. */
+  moodSeries?: MoodPoint[]
   commonMood: string | null
   activeDays: string[]
   preferredCategories: string[]
@@ -91,49 +93,45 @@ interface SessionEntry {
   recs: HistoryItem[]
 }
 
+/** One day she told us how she was. `day` is her own day key, YYYY-MM-DD. */
+interface MoodPoint {
+  day:   string
+  score: number
+}
+
 interface MoodChartData {
-  data:      (number | null)[]
-  startDate: Date
-  endDate:   Date
+  data:       (number | null)[]
+  startDate:  Date
+  endDate:    Date
+  /** Real points in the window — decides whether a line is honest to draw. */
+  pointCount: number
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function getRangeStart(range: TimeRange, history: HistoryItem[]): Date {
-  const now = Date.now()
-  switch (range) {
-    case '30d': return new Date(now - 29 * 86400000)
-    case '90d': return new Date(now - 89 * 86400000)
-    case 'ytd': return new Date(new Date().getFullYear(), 0, 1)
-    case 'all': {
-      if (history.length === 0) return new Date(now - 29 * 86400000)
-      const oldest = Math.min(...history.map(h => new Date(h.created_at).getTime()))
-      return new Date(oldest)
-    }
-  }
-}
+function buildMoodChartData(series: MoodPoint[], range: TimeRange): MoodChartData {
+  const days = RANGE_DAYS[range]
+  const endDate = new Date()
+  const startDate = new Date(endDate.getTime() - (days - 1) * 86400000)
 
-function buildMoodChartData(history: HistoryItem[], range: TimeRange): MoodChartData {
-  const endDate   = new Date()
-  const startDate = getRangeStart(range, history)
+  // The series arrives keyed by her own day, resolved server-side. The browser
+  // is already in that timezone, so the window is built from local Y/M/D —
+  // toISOString() here would be UTC and could shift the window by a day for
+  // anyone looking in the evening.
+  const localKey = (d: Date) =>
+    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 
-  // Build day → score map for the range
-  const dayMap = new Map<string, number>()
-  for (const item of [...history].reverse()) {
-    const d = new Date(item.created_at)
-    if (d < startDate || d > endDate) continue
-    const key = d.toDateString()
-    if (item.mood in MOOD_SCORE) dayMap.set(key, MOOD_SCORE[item.mood])
-  }
+  const startKey = localKey(startDate)
+  const endKey   = localKey(endDate)
+  const within = series.filter(p => p.day >= startKey && p.day <= endKey)
 
-  // Build dense array from startDate to today
-  const numDays = Math.max(1, Math.floor((endDate.getTime() - startDate.getTime()) / 86400000) + 1)
-  const full: (number | null)[] = Array.from({ length: numDays }, (_, i) => {
-    const d = new Date(startDate.getTime() + i * 86400000)
-    return dayMap.get(d.toDateString()) ?? null
-  })
+  const dayMap = new Map(within.map(p => [p.day, p.score]))
 
-  // Trim leading nulls so chart starts at first real data point
+  const full: (number | null)[] = Array.from({ length: days }, (_, i) =>
+    dayMap.get(localKey(new Date(startDate.getTime() + i * 86400000))) ?? null
+  )
+
+  // Trim leading nulls so the chart starts at her first real point
   const firstIdx = full.findIndex(v => v !== null)
   const trimmed  = firstIdx > 0 ? full.slice(firstIdx) : full
 
@@ -141,7 +139,7 @@ function buildMoodChartData(history: HistoryItem[], range: TimeRange): MoodChart
     ? new Date(startDate.getTime() + firstIdx * 86400000)
     : startDate
 
-  return { data: trimmed, startDate: actualStart, endDate }
+  return { data: trimmed, startDate: actualStart, endDate, pointCount: within.length }
 }
 
 function buildSessionLog(history: HistoryItem[]): SessionEntry[] {
@@ -295,7 +293,13 @@ function checkConsecutiveStruggle(history: HistoryItem[]): boolean {
 // ─── Mood chart ───────────────────────────────────────────────────────────────
 
 function MoodChart({ chartData }: { chartData: MoodChartData }) {
-  const { data, startDate, endDate } = chartData
+  const { data, startDate, endDate, pointCount } = chartData
+
+  // Her points, not a direction through them. Below the threshold the dots are
+  // shown and the line is withheld — three points joined up read as "you are
+  // getting worse" when they are noise, and that is a picture claiming to know
+  // how she feels.
+  const drawLine = pointCount >= MIN_POINTS_FOR_LINE
 
   // SVG dimensions — left margin leaves room for Y labels
   const W = 320, H = 130
@@ -372,10 +376,10 @@ function MoodChart({ chartData }: { chartData: MoodChartData }) {
         })}
 
         {/* Area fill */}
-        {areaD && <path d={areaD} fill="rgba(201,152,31,0.10)" />}
+        {drawLine && areaD && <path d={areaD} fill="rgba(201,152,31,0.10)" />}
 
-        {/* Trend line */}
-        {pathD && (
+        {/* Trend line — only once there is enough to call it a trend */}
+        {drawLine && pathD && (
           <path d={pathD} fill="none" stroke="#c9981f"
             strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
         )}
@@ -426,12 +430,25 @@ function MoodChart({ chartData }: { chartData: MoodChartData }) {
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
+// The old toggles went up to "All time", but the chart was built from the
+// last 20 rated items, so widening the range past a few weeks added nothing.
+// These windows are real.
 const RANGE_LABELS: { value: TimeRange; label: string }[] = [
+  { value: '14d', label: '14 days' },
   { value: '30d', label: '30 days' },
-  { value: '90d', label: '3 months' },
-  { value: 'ytd', label: 'This year' },
-  { value: 'all', label: 'All time' },
+  { value: '60d', label: '60 days' },
 ]
+
+const RANGE_DAYS: Record<TimeRange, number> = { '14d': 14, '30d': 30, '60d': 60 }
+
+/**
+ * Below this many points, the chart shows dots and no line.
+ *
+ * A line drawn through three points reads as a direction — "you are getting
+ * worse" — when it is noise. That is a graphic claiming to know how she feels,
+ * which is the thing the deleted reserve vessel was deleted for.
+ */
+const MIN_POINTS_FOR_LINE = 5
 
 export function HistoryScreen() {
   const router = useRouter()
@@ -529,7 +546,7 @@ export function HistoryScreen() {
   }
 
   const history        = stats?.recentHistory ?? []
-  const chartData      = buildMoodChartData(history, range)
+  const chartData      = buildMoodChartData(stats?.moodSeries ?? [], range)
   const sessionLog     = buildSessionLog(history)
   const trend          = buildTrendAnalysis(history, stats?.activeDays ?? [])
   const showSupportCard = !loading && checkConsecutiveStruggle(history)
@@ -649,7 +666,22 @@ export function HistoryScreen() {
           ))}
         </div>
 
-        <MoodChart chartData={chartData} />
+        {chartData.pointCount === 0 ? (
+          <p className="font-sans text-[13px] text-chocolate/45 leading-relaxed py-6">
+            Nothing here yet for these days. Your mood shows up when you check in.
+          </p>
+        ) : (
+          <>
+            <MoodChart chartData={chartData} />
+            {/* Said plainly rather than drawn: a line through three points is a
+                claim about her direction that the points do not support. */}
+            {chartData.pointCount < MIN_POINTS_FOR_LINE && (
+              <p className="font-sans text-[12px] text-chocolate/40 leading-relaxed mt-1">
+                {chartData.pointCount} check-in{chartData.pointCount !== 1 ? 's' : ''} in these days — not enough yet to show a direction.
+              </p>
+            )}
+          </>
+        )}
       </div>
 
       {/* Top techniques */}

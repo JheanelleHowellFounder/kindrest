@@ -14,25 +14,30 @@ import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { requireUser } from '@/lib/auth-server'
 import { detectCrisisLanguage } from '@/lib/safety'
-import { getTodaysPrompt, localDateKey } from '@/lib/glimmers'
+import { getTodaysPrompt, promptForDayKey } from '@/lib/glimmers'
+import { getUserZone } from '@/lib/user-timezone'
+import { todayKey } from '@/lib/days'
 import { isMissingTable, isMissingColumn } from '@/lib/pg-errors'
 
 // Postgres error for "relation does not exist" — table not created yet.
 // "column does not exist" — the mood_signal ALTER hasn't been run yet.
 
 export async function GET(req: NextRequest) {
-  const prompt = getTodaysPrompt()
-
   const requester = await requireUser(req)
   if (!requester || !supabaseAdmin) {
-    return NextResponse.json({ prompt, respondedToday: false, today: null })
+    return NextResponse.json({ prompt: getTodaysPrompt(), respondedToday: false, today: null })
   }
+
+  // Her day decides both which prompt it is and which row it belongs to, so
+  // the two can never disagree.
+  const today = todayKey(await getUserZone(requester.id))
+  const prompt = promptForDayKey(today)
 
   const { data, error } = await supabaseAdmin
     .from('glimmers')
     .select('id, prompt_text, body, mood_signal, entry_date, created_at')
     .eq('user_id', requester.id)
-    .eq('entry_date', localDateKey())
+    .eq('entry_date', today)
     .maybeSingle()
 
   if (error && !isMissingTable(error)) {
@@ -65,8 +70,9 @@ export async function POST(req: NextRequest) {
     const moodSignal: 'answered' | 'quiet' | 'heavy' =
       answered ? 'answered' : signal === 'heavy' ? 'heavy' : 'quiet'
     const crisis = trimmed ? detectCrisisLanguage(trimmed) : false
-    const prompt = getTodaysPrompt()
-    const today = localDateKey()
+    // Her day, not the server's — an evening glimmer belongs to that evening.
+    const today = todayKey(await getUserZone(requester.id))
+    const prompt = promptForDayKey(today)
 
     if (!supabaseAdmin) {
       return NextResponse.json({ ok: true, persisted: false, crisis })
