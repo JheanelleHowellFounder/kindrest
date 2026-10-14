@@ -206,7 +206,7 @@ export function JournalScreen() {
             ref={boxRef}
             value={newContent}
             onChange={e => setNewContent(e.target.value)}
-            placeholder={chosenPrompt ? 'Start anywhere.' : 'Write whatever you like. No one else sees this.'}
+            placeholder={chosenPrompt ? 'Start anywhere.' : 'write whatever you like, this space is for you.'}
             className="w-full min-h-[140px] font-sans text-base text-chocolate bg-transparent resize-none outline-none placeholder:text-chocolate/30 leading-relaxed"
           />
 
