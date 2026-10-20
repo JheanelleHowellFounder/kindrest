@@ -39,12 +39,47 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  // ── Fetch user preference profile ─────────────────────────────────────────
-  const { data: profile } = await supabaseAdmin
-    .from('user_preference_profile')
-    .select('preferred_categories, avoided_categories, total_checkins, motherhood_stage, updated_at, timezone')
-    .eq('user_id', userId)
-    .single()
+  // ── Fetch her profile — from BOTH tables, because it lives in both ────────
+  //
+  // This query used to name motherhood_stage on user_preference_profile, where
+  // it does not exist. Postgres failed the whole select, `profile` came back
+  // null, and every field read from it silently became its fallback: her stage
+  // was always null on Home, and her timezone was always null here, so the
+  // timezone work shipped a week earlier never took effect at all.
+  //
+  // Errors are read here rather than discarded, so the next time a column
+  // moves it says so instead of quietly degrading.
+  const [prefs, userProfile] = await Promise.all([
+    supabaseAdmin
+      .from('user_preference_profile')
+      .select('preferred_categories, avoided_categories, total_checkins, updated_at, timezone')
+      .eq('user_id', userId)
+      .maybeSingle(),
+    supabaseAdmin
+      .from('user_profiles')
+      .select('motherhood_stage, preferred_categories')
+      .eq('user_id', userId)
+      .maybeSingle(),
+  ])
+
+  if (prefs.error) console.error('[stats] preference profile read failed:', prefs.error.message)
+  if (userProfile.error) console.error('[stats] user profile read failed:', userProfile.error.message)
+
+  const profile = {
+    ...(prefs.data ?? {}),
+    // Onboarding writes preferred_categories to both tables; user_profiles is
+    // the one she actually filled in, so it wins when present.
+    preferred_categories:
+      userProfile.data?.preferred_categories ?? prefs.data?.preferred_categories ?? [],
+    motherhood_stage: userProfile.data?.motherhood_stage ?? null,
+    timezone: prefs.data?.timezone ?? null,
+  } as {
+    preferred_categories: string[]
+    avoided_categories?: string[]
+    total_checkins?: number
+    motherhood_stage: string | null
+    timezone: string | null
+  }
 
   // ── Fetch raw feedback history ────────────────────────────────────────────
   const { data: feedback } = await supabaseAdmin
