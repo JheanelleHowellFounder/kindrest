@@ -98,13 +98,19 @@ export function CheckInFlow() {
   const [showedUp, setShowedUp]           = useState<{ done: string; leaving: string } | null>(null)
   // The one card whose Done gets the acknowledgment, so it appears once, not on every card.
   const [doneMomentRecId, setDoneMomentRecId] = useState<number | null>(null)
-  // The kit leads with one thing. A depleted mother reading three cards has to
-  // choose, and choosing is work. The rest are already here — revealing them
-  // costs no fetch — but they stay out of the way until she asks.
+  // The kit holds one card back. Choosing is work, and the less capacity she
+  // has the fewer options should be in front of her — so the count slides with
+  // her mood, inherited from the fetch rather than decided again here.
   //
-  // Collapses on every new result, so "Something else" always leads with one.
-  // Anything unrevealed is never rendered, so it can never record a rating:
-  // the only feedback we keep is about things she actually saw.
+  //   Overwhelmed / Struggling   fetches 2, shows 1
+  //   Okay / Good / Thriving     fetches 3, shows 2
+  //
+  // Always all-but-one, so there is no mood logic in this component and no
+  // second place for the rule to drift out of step with the API.
+  //
+  // Collapses on every new result, so "Something else" never reopens where she
+  // left off. Anything unrevealed is never rendered, so it cannot record a
+  // rating: the only feedback we keep is about things she actually saw.
   const [showAllRecs, setShowAllRecs] = useState(false)
   const [leavingLine, setLeavingLine]     = useState<string | null>(null)
   // The check-in this care kit belongs to. Sent back on "Something else" so a
@@ -335,6 +341,11 @@ export function CheckInFlow() {
   }
   // Overwhelmed and Struggling: two cards, and the "showed up" moments.
   const isHardDay = mood === 'overwhelmed' || mood === 'struggling'
+
+  /** All but one, never fewer than one — the pool can thin to a single rec on
+   *  repeated "Something else" taps. */
+  const visibleRecCount = showAllRecs ? careKit.length : Math.max(1, careKit.length - 1)
+  const hasMoreToShow = careKit.length > visibleRecCount
 
   const filteredMental    = forMood(MENTAL_INDICATORS)
   const filteredPhysical  = forMood(PHYSICAL_INDICATORS)
@@ -615,11 +626,13 @@ export function CheckInFlow() {
             <div className="space-y-3">
               {isLoading ? (
                 // Skeleton cards while loading
-                // One skeleton, because one card is what arrives. Three would
-                // flash and then collapse.
-                <div className="rounded-2xl p-4 animate-pulse bg-chocolate/10 h-28" />
+                // Matches the count this mood will actually show, so nothing
+                // flashes and then collapses.
+                (isHardDay ? [0] : [0, 1]).map(i => (
+                  <div key={i} className={`rounded-2xl p-4 animate-pulse ${i === 0 ? 'bg-chocolate/10 h-28' : 'bg-beige/20 h-20'}`} />
+                ))
               ) : (
-                (showAllRecs ? careKit : careKit.slice(0, 1)).map((rec, i) => {
+                careKit.slice(0, visibleRecCount).map((rec, i) => {
                   const fb = feedbackSent[rec.rec_id]
                   const isPrimary = i === 0
                   const isExpanded = expandedRecs.has(rec.rec_id)
@@ -776,7 +789,7 @@ export function CheckInFlow() {
             {/* Want more? — only when there is genuinely more to show.
                 The kit is 2 on a hard day and 3 otherwise, so the label never
                 names a number it might get wrong. */}
-            {!isLoading && !showAllRecs && careKit.length > 1 && (
+            {!isLoading && hasMoreToShow && (
               <button
                 onClick={() => {
                   setShowAllRecs(true)
