@@ -58,6 +58,7 @@ interface AirtableRecFields {
   time_suggestion: string
   effort_level: string
   saveable: boolean
+  retired?: boolean
 }
 
 // ─── Fetch helper ─────────────────────────────────────────────────────────────
@@ -120,10 +121,45 @@ async function fetchTable<T>(tableName: string): Promise<AirtableRecord<T>[]> {
 
 // ─── Public API — cached with React cache() so one call per request ───────────
 
+/**
+ * Phases must keep at least this many live recs. The care kit serves 3 (2 on a
+ * hard day), so below this the engine is padding from somewhere it shouldn't.
+ */
+const MIN_ACTIVE_PER_PHASE = 3
+
 export const getRecommendations = cache(async (): Promise<Recommendation[]> => {
   const records = await fetchTable<AirtableRecFields>('Recommendations')
-  return records
-    .filter(r => r.fields.rec_id != null)
+
+  // Retired recs are hidden, never deleted — recommendation_feedback rows
+  // reference rec_id, and deleting a row would orphan a mother's history.
+  //
+  // The column is `retired`, not `active`, and that choice removes a trap.
+  // Airtable leaves unticked checkboxes out of the response entirely, so with
+  // an `active` column "unticked" and "column added after this row" look
+  // identical — which is why getRestCardSquares has to probe whether any row
+  // carries the field. Inverted, absent simply means live, which is already
+  // correct for every row that predates the column. No probe needed.
+  const live = records.filter(r => r.fields.rec_id != null && r.fields.retired !== true)
+
+  const retiredCount = records.length - live.length
+  if (retiredCount > 0) {
+    // Counted per phase, because a phase can empty out while the total looks fine.
+    const perPhase = new Map<string, number>()
+    for (const r of live) {
+      const phase = r.fields.regulation_phase
+      if (phase) perPhase.set(phase, (perPhase.get(phase) ?? 0) + 1)
+    }
+    for (const [phase, n] of Array.from(perPhase.entries())) {
+      if (n < MIN_ACTIVE_PER_PHASE) {
+        console.warn(
+          `[airtable] ⚠️  Phase "${phase}" has only ${n} live recommendation(s) — ` +
+          `the care kit needs ${MIN_ACTIVE_PER_PHASE}. Untick 'retired' on some rows.`
+        )
+      }
+    }
+  }
+
+  return live
     .map(r => ({
       id: r.id,
       rec_id: r.fields.rec_id,
