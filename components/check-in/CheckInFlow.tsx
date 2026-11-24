@@ -98,6 +98,14 @@ export function CheckInFlow() {
   const [showedUp, setShowedUp]           = useState<{ done: string; leaving: string } | null>(null)
   // The one card whose Done gets the acknowledgment, so it appears once, not on every card.
   const [doneMomentRecId, setDoneMomentRecId] = useState<number | null>(null)
+  // The kit leads with one thing. A depleted mother reading three cards has to
+  // choose, and choosing is work. The rest are already here — revealing them
+  // costs no fetch — but they stay out of the way until she asks.
+  //
+  // Collapses on every new result, so "Something else" always leads with one.
+  // Anything unrevealed is never rendered, so it can never record a rating:
+  // the only feedback we keep is about things she actually saw.
+  const [showAllRecs, setShowAllRecs] = useState(false)
   const [leavingLine, setLeavingLine]     = useState<string | null>(null)
   // The check-in this care kit belongs to. Sent back on "Something else" so a
   // swap stays the same check-in instead of counting her as showing up again.
@@ -174,6 +182,7 @@ export function CheckInFlow() {
       const data = await res.json()
       if (data.recommendations) {
         setCareKit(data.recommendations)
+        setShowAllRecs(false)
         // She completed a check-in and got her kit. No mood, no indicators — just that.
         // Once per check-in: "Something else" used to fire this again every time.
         if (data.isNewCheckin !== false) trackEvent('checkin_completed')
@@ -606,11 +615,11 @@ export function CheckInFlow() {
             <div className="space-y-3">
               {isLoading ? (
                 // Skeleton cards while loading
-                [0, 1, 2].map(i => (
-                  <div key={i} className={`rounded-2xl p-4 animate-pulse ${i === 0 ? 'bg-chocolate/10 h-28' : 'bg-beige/20 h-20'}`} />
-                ))
+                // One skeleton, because one card is what arrives. Three would
+                // flash and then collapse.
+                <div className="rounded-2xl p-4 animate-pulse bg-chocolate/10 h-28" />
               ) : (
-                careKit.map((rec, i) => {
+                (showAllRecs ? careKit : careKit.slice(0, 1)).map((rec, i) => {
                   const fb = feedbackSent[rec.rec_id]
                   const isPrimary = i === 0
                   const isExpanded = expandedRecs.has(rec.rec_id)
@@ -764,6 +773,21 @@ export function CheckInFlow() {
               )}
             </div>
 
+            {/* Want more? — only when there is genuinely more to show.
+                The kit is 2 on a hard day and 3 otherwise, so the label never
+                names a number it might get wrong. */}
+            {!isLoading && !showAllRecs && careKit.length > 1 && (
+              <button
+                onClick={() => {
+                  setShowAllRecs(true)
+                  trackEvent('care_kit_expanded', { shown: careKit.length })
+                }}
+                className="w-full text-center text-sm font-display font-semibold text-mustard py-2.5"
+              >
+                Want more?
+              </button>
+            )}
+
             {/* Footer actions */}
             <div className="space-y-2">
               <button
@@ -786,6 +810,7 @@ export function CheckInFlow() {
                   onClick={() => {
                     setFeedbackSent({})
                     setExpandedRecs(new Set())
+                    setShowAllRecs(false)
                     const nextCount = retryCount + 1
                     setRetryCount(nextCount)
                     // broaden=true from the first retry onward so the pool

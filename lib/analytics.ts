@@ -35,6 +35,9 @@ export type FunnelEvent =
   | 'invite_sent'
   | 'invite_opened'
   | 'invite_converted'
+  /** She asked to see past the first card in her care kit. The kit leads with
+   *  one thing; this is how we learn how often one is not enough. */
+  | 'care_kit_expanded'
 
 type Props = Record<string, string | number | boolean>
 
